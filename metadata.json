@@ -1,6 +1,0 @@
-{
-  "name": "TarjimVideo - Video Translation Platform",
-  "description": "Arabic video translation platform with Whisper ASR, NMT translation, dual Web and Telegram channels, and SRE operations dashboard.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
