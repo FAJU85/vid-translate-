@@ -114,8 +114,9 @@ repository and set:
 | Build output directory | `dist` |
 | Environment variable | `VITE_API_BASE` = your Worker URL (no trailing slash) |
 
-Once the site has its URL, you can lock the API to it: set `ALLOWED_ORIGINS` in
-`worker/wrangler.toml` (and `CORS_ORIGINS` on the Space) to that URL and redeploy.
+Once the site has its URL, set `ALLOWED_ORIGINS` in `worker/wrangler.toml` (and `CORS_ORIGINS`
+on the Space) to that URL and redeploy, so other websites cannot use your API from a browser.
+This is a browser-only restriction: direct HTTP calls are still limited only by the rate limits.
 
 ## Using the bot
 

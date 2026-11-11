@@ -163,12 +163,21 @@ export async function backendHealth(env: Env): Promise<Record<string, unknown> |
 
 // ------------------------------------------------------------------ state changes
 
-function cancelOnBackend(env: Env, jobId: string): Promise<unknown> {
-  return fetch(`${backend(env)}/cancel/${jobId}`, {
-    method: 'POST',
-    headers: authHeaders(env),
-    signal: AbortSignal.timeout(8_000),
-  }).catch(() => null);
+/** Ask the Space to stop a job. Once it confirms, the job is no longer marked as handed off. */
+async function cancelOnBackend(env: Env, jobId: string): Promise<void> {
+  try {
+    const res = await fetch(`${backend(env)}/cancel/${jobId}`, {
+      method: 'POST',
+      headers: authHeaders(env),
+      signal: AbortSignal.timeout(8_000),
+    });
+    // 404 with a JSON body means the Space no longer knows the job: nothing left to stop.
+    if (res.ok || (res.status === 404 && (await res.json().catch(() => null)))) {
+      await env.DB.prepare(`UPDATE jobs SET dispatched = 0 WHERE id = ? AND status = 'cancelled'`).bind(jobId).run();
+    }
+  } catch {
+    /* unreachable: the sweep retries */
+  }
 }
 
 /** Like updateJob, but never overwrites a finished job. Returns false if it was already finished. */
@@ -237,7 +246,8 @@ export async function failJob(env: Env, job: JobRow, code: string, message: stri
 export async function cancelJob(env: Env, job: JobRow): Promise<void> {
   if (TERMINAL.includes(job.status)) return;
   if (!(await updateActiveJob(env, job.id, { status: 'cancelled', error_code: 'E_CANCELLED' }))) return;
-  if (job.dispatched) await cancelOnBackend(env, job.id);
+  // Re-read: a hand-off in flight may have completed since `job` was loaded.
+  if ((await getJob(env, job.id))?.dispatched) await cancelOnBackend(env, job.id);
   await showStatus(env, { ...job, status: 'cancelled' });
 }
 
@@ -380,6 +390,14 @@ export async function sweep(env: Env): Promise<void> {
     }
     if (job.created_at < ts - GIVE_UP_AFTER) await failJob(env, job, 'E_BACKEND_DOWN', '');
   }
+
+  // Cancelled here but not yet confirmed stopped on the Space: keep asking for an hour.
+  const unconfirmed = await env.DB.prepare(
+    `SELECT id FROM jobs WHERE status = 'cancelled' AND dispatched = 1 AND updated_at > ? LIMIT 10`,
+  )
+    .bind(ts - 3600)
+    .all<{ id: string }>();
+  for (const { id } of unconfirmed.results) await cancelOnBackend(env, id);
 
   await env.DB.prepare(`DELETE FROM jobs WHERE status = 'awaiting_upload' AND created_at < ?`).bind(ts - 3 * 3600).run();
   await env.DB.prepare(`DELETE FROM jobs WHERE created_at < ?`).bind(ts - 30 * 86400).run();
