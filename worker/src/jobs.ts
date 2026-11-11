@@ -32,11 +32,23 @@ export interface NewJob {
   origin: string;
 }
 
-export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; error?: 'rate_limited' | 'busy' }> {
+type LimitError = 'rate_limited' | 'busy';
+
+/** Hourly quota and concurrent-job cap. Uploads are checked again when they start. */
+export async function checkLimits(
+  env: Env,
+  p: { owner: string; ip?: string | null; channel: 'web' | 'telegram' },
+): Promise<LimitError | null> {
   const limit = maxPerHour(env);
-  if ((await countRecent(env, 'owner', p.owner)) >= limit) return { error: 'rate_limited' };
-  if (p.ip && (await countRecent(env, 'ip', p.ip)) >= limit * 3) return { error: 'rate_limited' };
-  if ((await activeJobs(env, p.owner)).length >= (p.channel === 'telegram' ? 1 : 2)) return { error: 'busy' };
+  if ((await countRecent(env, 'owner', p.owner)) >= limit) return 'rate_limited';
+  if (p.ip && (await countRecent(env, 'ip', p.ip)) >= limit * 3) return 'rate_limited';
+  if ((await activeJobs(env, p.owner)).length >= (p.channel === 'telegram' ? 1 : 2)) return 'busy';
+  return null;
+}
+
+export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; error?: LimitError }> {
+  const limited = await checkLimits(env, p);
+  if (limited) return { error: limited };
 
   const ts = now();
   const job: JobRow = {
@@ -107,6 +119,8 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
     const data = (await res.json().catch(() => null)) as { status?: string; error?: string } | null;
     if (res.status === 202 && data?.status === 'accepted') {
       await updateJob(env, job.id, { dispatched: 1 });
+      // The user may have cancelled while the hand-off was in flight.
+      if ((await getJob(env, job.id))?.status === 'cancelled') await cancelOnBackend(env, job.id);
       return true;
     }
     if (data && [400, 409, 422].includes(res.status)) {
@@ -149,9 +163,33 @@ export async function backendHealth(env: Env): Promise<Record<string, unknown> |
 
 // ------------------------------------------------------------------ state changes
 
+function cancelOnBackend(env: Env, jobId: string): Promise<unknown> {
+  return fetch(`${backend(env)}/cancel/${jobId}`, {
+    method: 'POST',
+    headers: authHeaders(env),
+    signal: AbortSignal.timeout(8_000),
+  }).catch(() => null);
+}
+
+/** Like updateJob, but never overwrites a finished job. Returns false if it was already finished. */
+async function updateActiveJob(env: Env, id: string, patch: Partial<JobRow>): Promise<boolean> {
+  const cols = Object.keys(patch) as (keyof JobRow)[];
+  const res = await env.DB.prepare(
+    `UPDATE jobs SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ?
+     WHERE id = ? AND status NOT IN ('done', 'failed', 'cancelled')`,
+  )
+    .bind(...cols.map((c) => patch[c] ?? null), now(), id)
+    .run();
+  return res.meta.changes > 0;
+}
+
 /** Apply a progress report from the Space (callback or status poll). */
 export async function applyState(env: Env, job: JobRow, state: BackendState): Promise<void> {
-  if (TERMINAL.includes(job.status)) return;
+  if (TERMINAL.includes(job.status)) {
+    // Cancelled here but still alive on the Space (its /cancel call was lost): tell it again.
+    if (job.status === 'cancelled' && ['queued', 'running'].includes(state.status)) await cancelOnBackend(env, job.id);
+    return;
+  }
 
   const patch: Partial<JobRow> = {
     dispatched: 1,
@@ -174,7 +212,7 @@ export async function applyState(env: Env, job: JobRow, state: BackendState): Pr
   } else if (state.status === 'running') {
     patch.status = 'running';
   }
-  await updateJob(env, job.id, patch);
+  if (!(await updateActiveJob(env, job.id, patch))) return; // finished or cancelled meanwhile
   const updated: JobRow = { ...job, ...patch };
 
   if (updated.status === 'done') {
@@ -192,20 +230,14 @@ export async function applyState(env: Env, job: JobRow, state: BackendState): Pr
 
 export async function failJob(env: Env, job: JobRow, code: string, message: string): Promise<void> {
   if (TERMINAL.includes(job.status)) return;
-  await updateJob(env, job.id, { status: 'failed', error_code: code, error_message: message });
+  if (!(await updateActiveJob(env, job.id, { status: 'failed', error_code: code, error_message: message }))) return;
   await showStatus(env, { ...job, status: 'failed', error_code: code, error_message: message });
 }
 
 export async function cancelJob(env: Env, job: JobRow): Promise<void> {
   if (TERMINAL.includes(job.status)) return;
-  await updateJob(env, job.id, { status: 'cancelled', error_code: 'E_CANCELLED' });
-  if (job.dispatched) {
-    await fetch(`${backend(env)}/cancel/${job.id}`, {
-      method: 'POST',
-      headers: authHeaders(env),
-      signal: AbortSignal.timeout(8_000),
-    }).catch(() => null);
-  }
+  if (!(await updateActiveJob(env, job.id, { status: 'cancelled', error_code: 'E_CANCELLED' }))) return;
+  if (job.dispatched) await cancelOnBackend(env, job.id);
   await showStatus(env, { ...job, status: 'cancelled' });
 }
 

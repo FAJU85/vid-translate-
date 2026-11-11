@@ -12,6 +12,13 @@ interface Pending {
   title?: string;
   /** false for audio / voice messages: there is no picture to burn subtitles into. */
   video: boolean;
+  /** The message carrying this request's buttons; buttons on older messages are stale. */
+  messageId?: number;
+}
+
+function isAllowed(env: Env, chatId: number): boolean {
+  const allowed = (env.ALLOWED_CHAT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  return !allowed.length || allowed.includes(String(chatId));
 }
 
 const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ? env.DEFAULT_TARGET_LANG! : 'ar');
@@ -67,8 +74,7 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   const ui = uiLang(msg.from?.language_code);
   if (msg.chat.type !== 'private') return;
 
-  const allowed = (env.ALLOWED_CHAT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (allowed.length && !allowed.includes(String(chatId))) {
+  if (!isAllowed(env, chatId)) {
     await sendMessage(env, chatId, t(ui, 'not_allowed', { id: chatId }));
     return;
   }
@@ -135,8 +141,8 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     return;
   }
 
-  await saveChat(env, { ...chat, pending: JSON.stringify(pending) });
-  await sendMessage(env, chatId, t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) }), chooseKeyboard(ui, pending));
+  const sent = await sendMessage(env, chatId, t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) }), chooseKeyboard(ui, pending));
+  if (sent) await saveChat(env, { ...chat, pending: JSON.stringify({ ...pending, messageId: sent.message_id }) });
 }
 
 async function startJob(
@@ -149,7 +155,7 @@ async function startJob(
   mode: SubtitleMode,
 ): Promise<string | null> {
   const pending = chat.pending ? (JSON.parse(chat.pending) as Pending) : null;
-  if (!pending) {
+  if (!pending || pending.messageId !== messageId) {
     await editMessage(env, chat.chat_id, messageId, t(ui, 'expired'));
     return null;
   }
@@ -180,7 +186,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
   const ui = uiLang(query.from?.language_code);
   let alert: string | null = null;
 
-  if (message?.chat?.id) {
+  if (message?.chat?.id && isAllowed(env, message.chat.id)) {
     const chatId: number = message.chat.id;
     const messageId: number = message.message_id;
     const chat = await getChat(env, chatId, defaultLang(env));
@@ -194,7 +200,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       const code = data.slice(8);
       if (isTargetLang(code)) {
         await saveChat(env, { ...chat, tgt_lang: code });
-        if (pending) {
+        if (pending && pending.messageId === messageId) {
           await editMessage(env, chatId, messageId, t(ui, 'choose', { lang: langName(code, ui) }), chooseKeyboard(ui, pending));
         } else {
           await editMessage(env, chatId, messageId, t(ui, 'lang_set', { lang: langName(code, ui) }));

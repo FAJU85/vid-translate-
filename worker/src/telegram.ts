@@ -17,6 +17,7 @@ export async function tg<T = any>(env: Env, method: string, payload: Record<stri
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15_000),
     });
     const data = (await res.json()) as { ok: boolean; result?: T; description?: string };
     if (!data.ok) {
@@ -97,6 +98,7 @@ export async function sendFile(
         method: 'POST',
         headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
         body: readable,
+        signal: AbortSignal.timeout(150_000),
       }),
       pump,
     ]);

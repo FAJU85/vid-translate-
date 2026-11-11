@@ -2,7 +2,7 @@ import { handleUpdate, parseVideoUrl, setupBot } from './bot';
 import { hmacHex, safeEqual, verifySigned } from './crypto';
 import { ensureSchema, getJob, listJobs, updateJob } from './db';
 import { LANGUAGES, isTargetLang } from './i18n';
-import { applyState, backendHealth, cancelJob, createJob, dispatch, fileLink, maxPerHour, sweep, uploadLink } from './jobs';
+import { applyState, backendHealth, cancelJob, checkLimits, createJob, dispatch, fileLink, maxPerHour, sweep, uploadLink } from './jobs';
 import { fileUrl, tg } from './telegram';
 import { TERMINAL, type BackendState, type Env, type JobRow } from './types';
 
@@ -153,6 +153,9 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext, url:
       if (job.owner !== `web:${body?.client_id}`) return apiError(403, 'E_FORBIDDEN', 'This job belongs to someone else.');
       if (match[2] === '/start') {
         if (job.status !== 'awaiting_upload') return json(await publicJob(env, job));
+        // Unstarted uploads are not counted against the quota, so check it now.
+        const limited = await checkLimits(env, { owner: job.owner, ip: job.ip, channel: 'web' });
+        if (limited) return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
         await updateJob(env, job.id, { status: 'queued' });
         const queued: JobRow = { ...job, status: 'queued' };
         ctx.waitUntil(dispatch(env, queued));

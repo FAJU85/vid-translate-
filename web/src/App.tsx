@@ -33,7 +33,10 @@ export default function App() {
             at your Worker.
           </div>
         )}
-        {tab === 'translate' && <TranslateView config={config} jobId={jobId} onJob={setJobId} />}
+        {/* Stays mounted so an upload in progress survives switching tabs. */}
+        <div className={tab === 'translate' ? '' : 'hidden'}>
+          <TranslateView config={config} jobId={jobId} onJob={setJobId} />
+        </div>
         {tab === 'history' && (
           <HistoryView
             config={config}

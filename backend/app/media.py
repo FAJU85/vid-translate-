@@ -10,7 +10,7 @@ from typing import Callable
 
 import httpx
 
-from . import config
+from . import config, security
 
 ProgressFn = Callable[[float], None]
 CancelFn = Callable[[], bool]
@@ -86,6 +86,13 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
                     "E_VIDEO_TOO_LONG",
                     f"Video is {int(duration // 60)} min long; the limit is {config.MAX_DURATION_SEC // 60} min.",
                 )
+            # The page may have redirected or pointed somewhere else: re-check every media URL.
+            for fmt in [info, *(info.get("requested_formats") or [])]:
+                if fmt.get("url"):
+                    try:
+                        security.assert_public_url(fmt["url"])
+                    except security.UnsafeUrl as exc:
+                        raise MediaError("E_URL_INVALID", str(exc)) from exc
             ydl.process_ie_result(info, download=True)
     except Cancelled:
         raise

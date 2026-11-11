@@ -132,3 +132,37 @@ def test_callback_signature_roundtrip():
     assert sig == security.sign('1700000000.{"a":1}')
     assert security.verify('1700000000.{"a":1}', sig)
     assert not security.verify('1700000000.{"a":2}', sig)
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+def test_cancel_frees_queue_slot_and_is_not_overwritten(client, tmp_path, monkeypatch):
+    import threading
+
+    from app.jobs import manager
+
+    release = threading.Event()
+
+    def slow_transcribe(audio, language, duration, cancelled, progress):
+        release.wait(10)
+        return [(0.0, 1.0, "hi")], "en"
+
+    monkeypatch.setattr(asr, "transcribe", slow_transcribe)
+    clip = make_clip(tmp_path, video=False)
+    first, second = JOB.format(7), JOB.format(8)
+    for job in (first, second):
+        client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=clip)
+        client.post("/invoke", json={"job_id": job, "source_kind": "upload"}, headers=AUTH)
+    for _ in range(50):
+        if client.get(f"/status/{first}", headers=AUTH).json()["stage"] == "transcribing":
+            break
+        time.sleep(0.1)
+
+    # A job still waiting in the queue is cancelled immediately and stops counting.
+    assert client.post(f"/cancel/{second}", headers=AUTH).json()["status"] == "cancelled"
+    assert manager.pending_count() == 1
+
+    # A running job cancelled mid-flight must not finish as "done".
+    client.post(f"/cancel/{first}", headers=AUTH)
+    release.set()
+    assert wait_done(client, first)["status"] == "cancelled"
+    assert client.get(f"/status/{second}", headers=AUTH).json()["status"] == "cancelled"

@@ -111,9 +111,19 @@ class JobManager:
         return job
 
     def cancel(self, job_id: str) -> Job | None:
-        job = self.jobs.get(job_id)
-        if job and job.status not in TERMINAL:
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if not job or job.status in TERMINAL:
+                return job
             job.cancel_requested = True
+            still_queued = job.status == "queued"
+            if still_queued:
+                # Free its queue slot right away; the worker thread skips it when it gets there.
+                job.status = "cancelled"
+                job.error_code, job.error_message = "E_CANCELLED", "The job was cancelled."
+        if still_queued:
+            self._cleanup_inputs(job)
+            self._notify(job, force=True)
         return job
 
     # ------------------------------------------------------------------ callbacks
@@ -161,12 +171,14 @@ class JobManager:
         while True:
             job_id = self._queue.get()
             job = self.jobs.get(job_id)
-            if not job:
-                continue
+            if not job or job.status in TERMINAL:
+                continue  # cancelled while it was still waiting
             try:
                 if job.cancel_requested:
                     raise Cancelled()
                 self._process(job)
+                if job.cancel_requested:
+                    raise Cancelled()
                 job.status, job.stage, job.progress = "done", "done", 100
             except Cancelled:
                 job.status = "cancelled"
@@ -202,6 +214,8 @@ class JobManager:
             lo, hi = spans[stage]
 
             def report(fraction: float) -> None:
+                if job.cancel_requested:
+                    raise Cancelled()
                 value = int(lo + (hi - lo) * max(0.0, min(1.0, fraction)))
                 if value > job.progress:
                     job.progress = value
