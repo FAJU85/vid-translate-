@@ -1,8 +1,12 @@
 node_modules/
-build/
 dist/
-coverage/
+.wrangler/
+.dev.vars
+.env
+.env.local
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
 .DS_Store
 *.log
-.env*
-!.env.example

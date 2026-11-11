@@ -1,0 +1,33 @@
+name = "tarjim-video"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[vars]
+# URL of your Hugging Face Space: https://<user>-<space-name>.hf.space
+BACKEND_URL = "https://YOUR_USER-YOUR_SPACE.hf.space"
+# Your Cloudflare Pages site (comma-separated list), or "*" to allow any website.
+ALLOWED_ORIGINS = "*"
+DEFAULT_TARGET_LANG = "ar"
+MAX_JOBS_PER_HOUR = "5"
+MAX_UPLOAD_MB = "500"
+# Optional: restrict the bot to these Telegram chat ids (comma-separated).
+# ALLOWED_CHAT_IDS = "123456789"
+
+# Secrets (set with `npx wrangler secret put NAME`):
+#   SHARED_SECRET            - same value as on the Hugging Face Space
+#   TELEGRAM_BOT_TOKEN       - from @BotFather
+#   TELEGRAM_WEBHOOK_SECRET  - any random string (letters, digits, _ and - only)
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tarjim-video"
+# Paste the id printed by `npx wrangler d1 create tarjim-video`.
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[triggers]
+# Retries hand-offs while the Space wakes up and reconciles stuck jobs.
+crons = ["* * * * *"]
