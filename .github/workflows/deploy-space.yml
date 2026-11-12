@@ -33,6 +33,21 @@ jobs:
           curl -LsSf https://hf.co/cli/install.sh | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      # Prints the (non-secret) identity GitHub presents to Hugging Face, to compare with the
+      # Space's Trusted Publishers entry if the upload is refused. The token itself is not printed.
+      - name: Show the identity sent to Hugging Face
+        continue-on-error: true # diagnostics only; never block the upload
+        run: |
+          token=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://huggingface.co" | jq -r .value)
+          TOKEN="$token" python3 -c '
+          import base64, json, os
+          part = os.environ["TOKEN"].split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
+          keys = ["repository", "repository_owner", "ref", "workflow", "workflow_ref", "environment", "sub"]
+          print(json.dumps({k: claims.get(k) for k in keys}, indent=2))
+          ' || true
+
       - name: Upload backend/ to the Space
         env:
           HF_OIDC_RESOURCE: spaces/${{ env.SPACE_ID }}
