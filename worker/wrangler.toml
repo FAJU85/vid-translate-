@@ -25,8 +25,7 @@ MAX_UPLOAD_MB = "500"
 [[d1_databases]]
 binding = "DB"
 database_name = "tarjim-video"
-# Paste the id printed by `npx wrangler d1 create tarjim-video`.
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "a341760a-5457-4e7b-a2e4-1c21c88f0515"
 
 [triggers]
 # Retries hand-offs while the Space wakes up and reconciles stuck jobs.
