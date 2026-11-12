@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, RefreshCw } from 'lucide-react';
-import { api, type AppConfig, type Job } from '../lib/api';
+import { api, type AppConfig, type Job } from '../../shared/api';
 
 const BADGE: Record<string, string> = {
   done: 'bg-emerald-950 text-emerald-300',

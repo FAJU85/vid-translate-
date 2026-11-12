@@ -1,5 +1,5 @@
 import { Bot, ExternalLink } from 'lucide-react';
-import type { AppConfig } from '../lib/api';
+import type { AppConfig } from '../../shared/api';
 
 const STEPS = [
   ['Open the bot and press Start', 'It explains what it can do, in English or Arabic depending on your Telegram language.'],

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Header, type NavTab } from './components/Header';
-import { HistoryView } from './components/HistoryView';
-import { TelegramView } from './components/TelegramView';
-import { TranslateView } from './components/TranslateView';
-import { api, type AppConfig } from './lib/api';
+import { HistoryView } from '../modules/history';
+import { TelegramView } from '../modules/telegram';
+import { TranslateView } from '../modules/translate';
+import { api, type AppConfig } from '../shared/api';
+import { Header, type NavTab } from './Header';
 
 export default function App() {
   const [tab, setTab] = useState<NavTab>('translate');

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, CheckCircle2, Download, Link2, Loader2, Pencil, X } from 'lucide-react';
-import { RTL, STAGE_LABEL, api, cuesToSrt, jobError, timestamp, type AppConfig, type Cue, type Job } from '../lib/api';
+import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
+import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp } from './format';
 
 interface Props {
   jobId: string;

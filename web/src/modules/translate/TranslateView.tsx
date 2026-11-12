@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
-import { ApiError, api, uploadFile, type AppConfig, type Job, type SubtitleMode } from '../lib/api';
+import { ApiError, api, type AppConfig, type Job, type SubtitleMode } from '../../shared/api';
+import { uploadFile } from './upload';
 import { JobView } from './JobView';
 
 const SOURCE_LANGS = [

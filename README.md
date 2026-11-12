@@ -19,6 +19,9 @@ Website (Pages) ────►│  worker/             │◄──────
 | `worker/` | Cloudflare Workers + D1 | Telegram webhook, job records, rate limits, delivery of files to the chat, API for the website. |
 | `web/` | Cloudflare Pages | Website: submit a link or upload a file, watch progress, preview and edit subtitles, download. |
 
+Each part is built from self-contained **bricks** with a small public interface; see
+[ARCHITECTURE.md](ARCHITECTURE.md) for the layout and the rules (checked in CI).
+
 All Telegram traffic goes through the Worker. The Space only ever talks to the Worker, so it
 works even where Spaces cannot reach `api.telegram.org`.
 
@@ -190,6 +193,10 @@ cd web && npm install && npm run dev
 ```
 
 The website's dev server proxies `/api` to the local Worker. Checks:
+
+```bash
+node scripts/check-architecture.mjs
+```
 
 ```bash
 cd backend && python -m pytest tests
