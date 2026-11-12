@@ -1,4 +1,7 @@
-"""HTTP API of the translation backend (runs as a Hugging Face Docker Space)."""
+"""Base: the HTTP API of the translation backend (runs as a Hugging Face Docker Space).
+
+A base only wires bricks together and speaks HTTP; the work lives in ``app.modules``.
+"""
 from __future__ import annotations
 
 import logging
@@ -11,8 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from . import asr, config, security, translate
-from .jobs import OUTPUT_FILES, UPLOAD_NAME, Job, manager
+from .modules import speech, translation
+from .modules.jobs import OUTPUT_FILES, UPLOAD_NAME, Job, manager
+from .shared import config, security
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("tarjim")
@@ -30,9 +34,8 @@ _models_ready = threading.Event()
 
 def _warm_models() -> None:
     try:
-        asr.get_model()
-        if not (config.TRANSLATOR == "gemini" and config.GEMINI_API_KEY):
-            translate._get_nllb()
+        speech.warm_up()
+        translation.warm_up()
         log.info("models loaded")
     except Exception:  # noqa: BLE001 - jobs retry the load themselves
         log.exception("model warm-up failed")
@@ -99,7 +102,7 @@ def health() -> dict:
 def invoke(req: InvokeRequest, authorization: str | None = Header(default=None)) -> dict:
     _require_auth(authorization)
     _require_job_id(req.job_id)
-    if req.tgt_lang not in translate.LANGUAGES:
+    if req.tgt_lang not in translation.LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported target language: {req.tgt_lang}")
     if req.source_kind in ("url", "direct"):
         if not req.source_url:
