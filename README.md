@@ -24,6 +24,27 @@ works even where Spaces cannot reach `api.telegram.org`.
 
 ## Deploy
 
+### Secrets: keep them all in GitHub
+
+Every secret can live in one place, the GitHub repository's **Settings → Secrets and variables →
+Actions**, and be pushed to Cloudflare and Hugging Face by the **Sync secrets to Cloudflare and
+Hugging Face** workflow (Actions tab → Run workflow). Run it again after changing a secret.
+
+| GitHub secret | Goes to | Notes |
+| --- | --- | --- |
+| `SHARED_SECRET` | Worker and Space | Any long random string you make up (`openssl rand -hex 32`). |
+| `TELEGRAM_BOT_TOKEN` | Worker | From @BotFather. |
+| `TELEGRAM_WEBHOOK_SECRET` | Worker | Another random string (letters, digits, `_`, `-`). |
+| `GEMINI_API_KEY` | Space | Optional: better translation. |
+| `YTDLP_COOKIES` | Space | Optional: helps with YouTube. |
+| `CLOUDFLARE_API_TOKEN` | – | Cloudflare token from the "Edit Cloudflare Workers" template; lets the workflow set Worker secrets. |
+| `CLOUDFLARE_ACCOUNT_ID` | – | Your Cloudflare account id (dashboard URL or Workers overview). |
+| `HF_TOKEN` | – | Hugging Face token with write access to the Space; also used by the backend deploy. |
+
+The workflow skips anything that is not set and also connects the Telegram bot to the Worker.
+Secrets set by hand in the Cloudflare or Hugging Face dashboards keep working too.
+
+
 You need a Hugging Face account, a Cloudflare account, and a bot token from
 [@BotFather](https://t.me/BotFather).
 

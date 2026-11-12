@@ -1,6 +1,7 @@
 name: Deploy backend to Hugging Face Space
 
-# Uploads backend/ to the Space whenever it changes on main. Files removed from
+# Uploads backend/ to the Space whenever it changes on main.
+# Authentication: the HF_TOKEN repository secret if it is set, else the trusted publisher. Files removed from
 # backend/app are also removed from the Space; other files on the Space are left alone.
 # Authenticates with Hugging Face through the Space's "Trusted Publishers" setting
 # (GitHub OIDC), so no HF_TOKEN secret is stored in this repository.
@@ -50,8 +51,11 @@ jobs:
 
       - name: Upload backend/ to the Space
         env:
+          # A HF_TOKEN repository secret takes precedence; otherwise the trusted publisher is used.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_OIDC_RESOURCE: spaces/${{ env.SPACE_ID }}
         run: >
+          if [ -n "$HF_TOKEN" ]; then unset HF_OIDC_RESOURCE; else unset HF_TOKEN; fi;
           hf upload "$SPACE_ID" ./backend .
           --repo-type space
           --exclude "tests/*" --exclude "**/__pycache__/*"
