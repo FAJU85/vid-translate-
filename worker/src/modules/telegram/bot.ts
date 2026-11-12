@@ -1,8 +1,13 @@
-import { activeJobs, getChat, getJob, listJobs, saveChat, type ChatRow } from './db';
-import { LANGUAGES, esc, isTargetLang, langName, t, uiLang, type UiLang } from './i18n';
-import { cancelJob, createJob, dispatch, maxPerHour, showStatus } from './jobs';
-import { editMessage, sendMessage, tg, type Keyboard } from './telegram';
-import type { Env, SubtitleMode } from './types';
+import { safeEqual } from '../../shared/crypto';
+import type { Env } from '../../shared/env';
+import { apiError, json } from '../../shared/http';
+import { LANGUAGES, isTargetLang } from '../../shared/languages';
+import { parseVideoUrl } from '../../shared/urls';
+import { activeJobs, cancelJob, createJob, dispatch, getJob, listJobs, maxPerHour, type SubtitleMode } from '../jobs';
+import { editMessage, sendMessage, tg, type Keyboard } from './api';
+import { getChat, saveChat, type ChatRow } from './chats';
+import { esc, langName, t, uiLang, type UiLang } from './i18n';
+import { showStatus } from './presenter';
 
 const TELEGRAM_DOWNLOAD_LIMIT = 20 * 1024 * 1024; // Bot API getFile limit
 
@@ -22,22 +27,6 @@ function isAllowed(env: Env, chatId: number): boolean {
 }
 
 const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ? env.DEFAULT_TARGET_LANG! : 'ar');
-
-/** Accepts http(s) links to public hostnames only. */
-export function parseVideoUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s<>"']+/i);
-  if (!match) return null;
-  try {
-    const url = new URL(match[0]);
-    const host = url.hostname.toLowerCase();
-    if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
-    if (!host.includes('.') || /^[\d.]+$/.test(host) || host.includes(':') || host.startsWith('[')) return null;
-    if (/(^|\.)(localhost|local|internal|lan|home|corp)$/.test(host)) return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
 
 function chooseKeyboard(ui: UiLang, pending: Pending): Keyboard {
   const rows: Keyboard = [[{ text: t(ui, 'btn_soft'), callback_data: 'go:soft' }]];
@@ -218,9 +207,35 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
   });
 }
 
-export async function handleUpdate(env: Env, ctx: ExecutionContext, origin: string, update: any): Promise<void> {
+async function handleUpdate(env: Env, ctx: ExecutionContext, origin: string, update: any): Promise<void> {
   if (update.message) await handleMessage(env, update.message);
   else if (update.callback_query) await handleCallbackQuery(env, ctx, origin, update.callback_query);
+}
+
+/** The Telegram webhook endpoint. */
+export async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext, origin: string): Promise<Response> {
+  const secret = request.headers.get('X-Telegram-Bot-Api-Secret-Token') ?? '';
+  if (!env.TELEGRAM_WEBHOOK_SECRET || !safeEqual(secret, env.TELEGRAM_WEBHOOK_SECRET)) {
+    return apiError(401, 'E_UNAUTHORIZED', 'Bad webhook secret.');
+  }
+  const update = await request.json().catch(() => null);
+  if (update) {
+    try {
+      await handleUpdate(env, ctx, origin, update);
+    } catch (err) {
+      // Always answer 200: Telegram would otherwise redeliver the same update for hours.
+      console.error('update failed', (err as Error).stack ?? err);
+    }
+  }
+  return json({ ok: true });
+}
+
+let botUsername: string | null = null;
+
+/** The bot's @username, for links on the website (null when no bot token is configured). */
+export async function getBotUsername(env: Env): Promise<string | null> {
+  if (!botUsername && env.TELEGRAM_BOT_TOKEN) botUsername = (await tg<{ username: string }>(env, 'getMe'))?.username ?? null;
+  return botUsername;
 }
 
 /** Registers the webhook and the command menu with Telegram. */

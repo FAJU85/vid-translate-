@@ -1,31 +1,11 @@
-export interface Env {
-  DB: D1Database;
-  /** Base URL of the Hugging Face Space, e.g. https://user-space.hf.space */
-  BACKEND_URL: string;
-  /** Same value as the Space's SHARED_SECRET. */
-  SHARED_SECRET: string;
-  TELEGRAM_BOT_TOKEN: string;
-  /** Random string; Telegram echoes it on every webhook call. */
-  TELEGRAM_WEBHOOK_SECRET: string;
-  TELEGRAM_API_BASE?: string;
-  /** Public origin of this Worker, if it differs from the request origin. */
-  PUBLIC_URL?: string;
-  /** Comma-separated origins allowed to call /api (the Pages site). Default: any. */
-  ALLOWED_ORIGINS?: string;
-  /** Comma-separated Telegram chat ids allowed to use the bot. Default: anyone. */
-  ALLOWED_CHAT_IDS?: string;
-  MAX_JOBS_PER_HOUR?: string;
-  MAX_UPLOAD_MB?: string;
-  DEFAULT_TARGET_LANG?: string;
-}
-
 export type JobStatus = 'awaiting_upload' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 export type SubtitleMode = 'soft' | 'hard';
 export type SourceKind = 'url' | 'telegram' | 'upload';
+export type Channel = 'web' | 'telegram';
 
 export interface JobRow {
   id: string;
-  channel: 'web' | 'telegram';
+  channel: Channel;
   owner: string;
   ip: string | null;
   chat_id: number | null;
@@ -55,6 +35,7 @@ export interface JobRow {
   updated_at: number;
 }
 
+/** A job's state as reported by the backend Space (callback body or /status reply). */
 export interface BackendState {
   job_id: string;
   status: string;
@@ -68,4 +49,3 @@ export interface BackendState {
 }
 
 export const TERMINAL: JobStatus[] = ['done', 'failed', 'cancelled'];
-export const now = () => Math.floor(Date.now() / 1000);
