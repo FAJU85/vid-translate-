@@ -54,6 +54,11 @@ listed in [`backend/README.md`](backend/README.md).
 
 ### 2. Worker → Cloudflare
 
+The Worker is named `vid-translate` in `worker/wrangler.toml`. If the repository is connected to
+Cloudflare **Workers Builds**, set that Worker's build **root directory** to `worker` (Settings →
+Build), otherwise the build cannot find the configuration. The database id and the three secrets
+below are needed either way.
+
 ```bash
 cd worker
 ```
@@ -95,7 +100,7 @@ The database tables are created automatically on the first request.
 Finally connect the bot to the Worker (registers the webhook and the command menu):
 
 ```bash
-curl -X POST https://tarjim-video.YOUR_SUBDOMAIN.workers.dev/admin/setup -H "Authorization: Bearer YOUR_SHARED_SECRET"
+curl -X POST https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin/setup -H "Authorization: Bearer YOUR_SHARED_SECRET"
 ```
 
 The reply should contain `"webhook_set": true` and a `backend` block with `"status": "ok"`.
