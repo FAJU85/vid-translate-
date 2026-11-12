@@ -5,7 +5,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app import asr, security, translate
+from app.modules import speech, translation
+from app.shared import security
 from app.main import app
 
 AUTH = {"Authorization": "Bearer test-secret"}
@@ -20,14 +21,14 @@ def client():
 
 @pytest.fixture(autouse=True)
 def fake_models(monkeypatch):
-    monkeypatch.setattr(asr, "get_model", lambda: None)
-    monkeypatch.setattr(translate, "_get_nllb", lambda: None)
+    monkeypatch.setattr(speech, "warm_up", lambda: None)
+    monkeypatch.setattr(translation, "warm_up", lambda: None)
     monkeypatch.setattr(
-        asr, "transcribe",
+        speech, "transcribe",
         lambda audio, language, duration, cancelled, progress: ([(0.0, 1.5, " Hello there. ")], "en"),
     )
     monkeypatch.setattr(
-        translate, "translate_texts",
+        translation, "translate_texts",
         lambda texts, src, tgt, progress: ([f"[{tgt}] {t}" for t in texts], "fake"),
     )
 
@@ -138,7 +139,7 @@ def test_callback_signature_roundtrip():
 def test_cancel_frees_queue_slot_and_is_not_overwritten(client, tmp_path, monkeypatch):
     import threading
 
-    from app.jobs import manager
+    from app.modules.jobs import manager
 
     release = threading.Event()
 
@@ -146,7 +147,7 @@ def test_cancel_frees_queue_slot_and_is_not_overwritten(client, tmp_path, monkey
         release.wait(10)
         return [(0.0, 1.0, "hi")], "en"
 
-    monkeypatch.setattr(asr, "transcribe", slow_transcribe)
+    monkeypatch.setattr(speech, "transcribe", slow_transcribe)
     clip = make_clip(tmp_path, video=False)
     first, second = JOB.format(7), JOB.format(8)
     for job in (first, second):

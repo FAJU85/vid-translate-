@@ -2,7 +2,7 @@
 from faster_whisper.utils import download_model
 from huggingface_hub import snapshot_download
 
-from . import config
+from .shared import config
 
 if __name__ == "__main__":
     download_model(config.WHISPER_MODEL)

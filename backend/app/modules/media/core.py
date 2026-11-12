@@ -10,23 +10,13 @@ from typing import Callable
 
 import httpx
 
-from . import config, security
+from ...shared import config, security
+from ...shared.errors import Cancelled, PipelineError as MediaError
 
 ProgressFn = Callable[[float], None]
 CancelFn = Callable[[], bool]
 
 RTL_LANGS = {"ar", "fa", "ur", "he", "ps"}
-
-
-class MediaError(Exception):
-    def __init__(self, code: str, message: str):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-
-
-class Cancelled(Exception):
-    pass
 
 
 def _clean_ytdlp_error(text: str) -> str:

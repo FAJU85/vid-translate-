@@ -1,10 +1,11 @@
-from app import subtitles
+from app.modules import subtitles
+from app.modules.subtitles import core as subtitles_core
 
 
 def test_clean_segments_drops_empty_and_normalises():
     out = subtitles.clean_segments([(0, 1, "  hello   world "), (1, 2, "   "), (2, 2.1, "x")])
     assert [s[2] for s in out] == ["hello world", "x"]
-    assert out[1][1] >= 2 + subtitles.MIN_CUE_SECONDS
+    assert out[1][1] >= 2 + subtitles_core.MIN_CUE_SECONDS
 
 
 def test_build_cues_keeps_short_segments_whole():
@@ -36,5 +37,5 @@ def test_srt_and_vtt_format():
 
 
 def test_wrap_two_lines():
-    wrapped = subtitles._wrap("a" * 30 + " " + "b" * 30)
+    wrapped = subtitles_core._wrap("a" * 30 + " " + "b" * 30)
     assert wrapped.count("\n") == 1

@@ -6,7 +6,8 @@ import wave
 from pathlib import Path
 from typing import Callable
 
-from . import config
+from ...shared import config
+from ...shared.errors import Cancelled
 
 _model = None
 _lock = threading.Lock()
@@ -65,8 +66,6 @@ def transcribe(
     out: list[tuple[float, float, str]] = []
     for seg in segments:  # lazy generator: decoding happens here
         if cancelled():
-            from .media import Cancelled
-
             raise Cancelled()
         out.append((seg.start, seg.end, seg.text))
         if total:

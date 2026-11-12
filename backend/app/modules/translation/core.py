@@ -8,7 +8,7 @@ from typing import Callable
 
 import httpx
 
-from . import config
+from ...shared import config
 
 log = logging.getLogger("tarjim.translate")
 
@@ -187,3 +187,9 @@ def translate_texts(texts: list[str], src: str, tgt: str, progress: ProgressFn) 
         except TranslationError as exc:
             log.warning("Gemini translation failed (%s); falling back to NLLB", exc)
     return _nllb_translate(texts, src, tgt, progress), "nllb"
+
+
+def warm_up() -> None:
+    """Load the local model now, unless Gemini will do all the translating."""
+    if not (config.TRANSLATOR == "gemini" and config.GEMINI_API_KEY):
+        _get_nllb()
