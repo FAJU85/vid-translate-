@@ -37,11 +37,14 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `TELEGRAM_WEBHOOK_SECRET` | Worker | Another random string (letters, digits, `_`, `-`). |
 | `GEMINI_API_KEY` | Space | Optional: better translation. |
 | `YTDLP_COOKIES` | Space | Optional: helps with YouTube. |
+| `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |
 | `CLOUDFLARE_API_TOKEN` | – | Cloudflare token from the "Edit Cloudflare Workers" template; lets the workflow set Worker secrets. |
 | `CLOUDFLARE_ACCOUNT_ID` | – | Your Cloudflare account id (dashboard URL or Workers overview). |
 | `HF_TOKEN` | – | Hugging Face token with write access to the Space; also used by the backend deploy. |
 
 The workflow skips anything that is not set and also connects the Telegram bot to the Worker.
+`SHARED_SECRET` is only synced when both platforms can be reached, so the Worker and the Space never
+end up with different values.
 Secrets set by hand in the Cloudflare or Hugging Face dashboards keep working too.
 
 
@@ -58,9 +61,10 @@ openssl rand -hex 32
 
 The Space is [`vooom/Kavox`](https://huggingface.co/spaces/vooom/Kavox). It is deployed by the
 GitHub Action in `.github/workflows/deploy-space.yml`, which uploads `backend/` on every push to
-`main` that touches it (or when run manually from the Actions tab). The action signs in through
-the Space's **Settings → Trusted Publishers** entry for this GitHub repository, so no Hugging Face
-token is stored here. If you pin the publisher to a workflow, the file name is `deploy-space.yml`.
+`main` that touches it (or when run manually from the Actions tab). It signs in with the
+`HF_TOKEN` repository secret when one is set (recommended); otherwise it uses the Space's
+**Settings → Trusted Publishers** entry for this GitHub repository (workflow file `deploy-space.yml`).
+The Space id is set in both `deploy-space.yml` and `sync-secrets.yml` (`SPACE_ID`).
 
 To deploy to a different Space, change `SPACE_ID` in that workflow and add this repository as a
 trusted publisher on the new Space.
