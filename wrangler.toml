@@ -1,5 +1,7 @@
 name = "vid-translate"
-main = "src/index.ts"
+# This file sits at the repository root because Cloudflare Workers Builds runs
+# `npx wrangler deploy` from the root. The Worker's code lives in worker/.
+main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
 

@@ -54,17 +54,15 @@ listed in [`backend/README.md`](backend/README.md).
 
 ### 2. Worker → Cloudflare
 
-The Worker is named `vid-translate` in `worker/wrangler.toml`. If the repository is connected to
-Cloudflare **Workers Builds**, set that Worker's build **root directory** to `worker` (Settings →
-Build), otherwise the build cannot find the configuration. The database id and the three secrets
-below are needed either way.
+The Worker is configured by `wrangler.toml` at the repository root (its code is in `worker/`).
+With Cloudflare **Workers Builds** connected to this repository, leave the build root directory
+empty and the deploy command as `npx wrangler deploy`: every push to `main` deploys the Worker.
+The database id and the three secrets below are needed either way.
+
+To deploy by hand instead, run these from the repository root:
 
 ```bash
-cd worker
-```
-
-```bash
-npm install
+npm install --prefix worker
 ```
 
 ```bash
@@ -75,7 +73,7 @@ npx wrangler login
 npx wrangler d1 create tarjim-video
 ```
 
-Edit `wrangler.toml`: paste the printed `database_id`, and set `BACKEND_URL` to your Space URL
+Edit `wrangler.toml` (repository root): paste the printed `database_id`, and set `BACKEND_URL` to your Space URL
 (`https://vooom-kavox.hf.space`, already filled in). Then add the three secrets and deploy:
 
 ```bash
@@ -118,7 +116,7 @@ repository and set:
 | Build output directory | `dist` |
 | Environment variable | `VITE_API_BASE` = your Worker URL (no trailing slash) |
 
-Once the site has its URL, set `ALLOWED_ORIGINS` in `worker/wrangler.toml` (and `CORS_ORIGINS`
+Once the site has its URL, set `ALLOWED_ORIGINS` in `wrangler.toml` (and `CORS_ORIGINS`
 on the Space) to that URL and redeploy, so other websites cannot use your API from a browser.
 This is a browser-only restriction: direct HTTP calls are still limited only by the rate limits.
 
@@ -131,7 +129,7 @@ This is a browser-only restriction: direct HTTP calls are still limited only by 
 `/status` lists recent jobs, `/cancel` stops the running one. The bot answers in Arabic to
 users whose Telegram is set to Arabic, in English otherwise.
 
-To keep the bot private, set `ALLOWED_CHAT_IDS` in `worker/wrangler.toml`.
+To keep the bot private, set `ALLOWED_CHAT_IDS` in `wrangler.toml`.
 
 ## Limits worth knowing
 
@@ -159,7 +157,7 @@ cd backend && pip install -r requirements.txt && SHARED_SECRET=dev-secret ALLOW_
 ```
 
 ```bash
-cd worker && npm install && cp .dev.vars.example .dev.vars && npm run dev
+cp worker/.dev.vars.example .dev.vars && cd worker && npm install && npm run dev
 ```
 
 ```bash
