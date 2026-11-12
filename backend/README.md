@@ -1,8 +1,9 @@
 ---
-title: TarjimVideo Backend
+title: Kavox
 emoji: 🎬
 colorFrom: yellow
 colorTo: gray
+short_description: Video translation backend (subtitles)
 sdk: docker
 app_port: 7860
 pinned: false

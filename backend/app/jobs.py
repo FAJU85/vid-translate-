@@ -177,9 +177,10 @@ class JobManager:
                 if job.cancel_requested:
                     raise Cancelled()
                 self._process(job)
-                if job.cancel_requested:
-                    raise Cancelled()
-                job.status, job.stage, job.progress = "done", "done", 100
+                with self._lock:  # same lock as cancel(): a cancel cannot slip in between
+                    if job.cancel_requested:
+                        raise Cancelled()
+                    job.status, job.stage, job.progress = "done", "done", 100
             except Cancelled:
                 job.status = "cancelled"
                 job.error_code, job.error_message = "E_CANCELLED", "The job was cancelled."

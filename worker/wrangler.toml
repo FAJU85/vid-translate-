@@ -1,4 +1,4 @@
-name = "tarjim-video"
+name = "vid-translate"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
@@ -8,7 +8,7 @@ enabled = true
 
 [vars]
 # URL of your Hugging Face Space: https://<user>-<space-name>.hf.space
-BACKEND_URL = "https://YOUR_USER-YOUR_SPACE.hf.space"
+BACKEND_URL = "https://vooom-kavox.hf.space"
 # Your Cloudflare Pages site (comma-separated list), or "*" to allow any website.
 ALLOWED_ORIGINS = "*"
 DEFAULT_TARGET_LANG = "ar"
