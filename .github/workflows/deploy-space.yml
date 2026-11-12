@@ -1,6 +1,7 @@
 name: Deploy backend to Hugging Face Space
 
-# Uploads backend/ to the Space whenever it changes on main.
+# Uploads backend/ to the Space whenever it changes on main. Files removed from
+# backend/app are also removed from the Space; other files on the Space are left alone.
 # Authenticates with Hugging Face through the Space's "Trusted Publishers" setting
 # (GitHub OIDC), so no HF_TOKEN secret is stored in this repository.
 
@@ -39,4 +40,5 @@ jobs:
           hf upload "$SPACE_ID" ./backend .
           --repo-type space
           --exclude "tests/*" --exclude "**/__pycache__/*"
+          --delete "app/*"
           --commit-message "Deploy backend from ${GITHUB_SHA::7}"
