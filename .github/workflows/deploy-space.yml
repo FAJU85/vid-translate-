@@ -1,0 +1,42 @@
+name: Deploy backend to Hugging Face Space
+
+# Uploads backend/ to the Space whenever it changes on main.
+# Authenticates with Hugging Face through the Space's "Trusted Publishers" setting
+# (GitHub OIDC), so no HF_TOKEN secret is stored in this repository.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-space.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-space
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # lets the job request an OIDC token for Hugging Face
+      contents: read
+    env:
+      SPACE_ID: vooom/Kavox
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the hf CLI
+        run: |
+          curl -LsSf https://hf.co/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Upload backend/ to the Space
+        env:
+          HF_OIDC_RESOURCE: spaces/${{ env.SPACE_ID }}
+        run: >
+          hf upload "$SPACE_ID" ./backend .
+          --repo-type space
+          --exclude "tests/*" --exclude "**/__pycache__/*"
+          --commit-message "Deploy backend from ${GITHUB_SHA::7}"

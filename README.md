@@ -35,19 +35,18 @@ openssl rand -hex 32
 
 ### 1. Backend → Hugging Face Space
 
-Create a **Docker** Space (CPU basic is enough to start) and upload `backend/` as its root:
+The Space is [`vooom/Kavox`](https://huggingface.co/spaces/vooom/Kavox). It is deployed by the
+GitHub Action in `.github/workflows/deploy-space.yml`, which uploads `backend/` on every push to
+`main` that touches it (or when run manually from the Actions tab). The action signs in through
+the Space's **Settings → Trusted Publishers** entry for this GitHub repository, so no Hugging Face
+token is stored here. If you pin the publisher to a workflow, the file name is `deploy-space.yml`.
 
-```bash
-hf repo create tarjim-video-backend --repo-type space --space-sdk docker
-```
-
-```bash
-hf upload YOUR_USER/tarjim-video-backend ./backend . --repo-type space
-```
+To deploy to a different Space, change `SPACE_ID` in that workflow and add this repository as a
+trusted publisher on the new Space.
 
 In the Space's **Settings → Variables and secrets** add the secret `SHARED_SECRET`.
 The first build takes several minutes (it bakes the speech and translation models into the image).
-When it is running, `https://YOUR_USER-tarjim-video-backend.hf.space/health` returns
+When it is running, `https://vooom-kavox.hf.space/health` returns
 `"configured": true`. Keep the Space **public**: every route that matters is protected by the secret.
 
 Optional settings (better translation with Gemini, bigger Whisper model, YouTube cookies) are
@@ -72,7 +71,7 @@ npx wrangler d1 create tarjim-video
 ```
 
 Edit `wrangler.toml`: paste the printed `database_id`, and set `BACKEND_URL` to your Space URL
-(`https://YOUR_USER-tarjim-video-backend.hf.space`). Then add the three secrets and deploy:
+(`https://vooom-kavox.hf.space`, already filled in). Then add the three secrets and deploy:
 
 ```bash
 npx wrangler secret put SHARED_SECRET
