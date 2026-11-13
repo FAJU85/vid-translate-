@@ -6,18 +6,24 @@ import time
 
 import httpx
 
-from ...shared import security
+from ...shared import security, worker_http
 
 log = logging.getLogger("tarjim.jobs")
 
+# The Worker delivers Telegram files while handling the final callback, hence the long read.
+_progress_client = worker_http.client(httpx.Timeout(15, connect=10))
+_final_client = worker_http.client(httpx.Timeout(180, connect=10))
+
 
 def post_callback(url: str, body: str, final: bool) -> None:
-    """POST a job state; the final state is retried with backoff, progress updates are not."""
+    """POST a job state; the final state is retried with backoff, progress updates are not
+    (failed connections are still retried by the transport)."""
     attempts = 6 if final else 1
+    client = _final_client if final else _progress_client
     for attempt in range(attempts):
         ts = int(time.time())
         try:
-            resp = httpx.post(
+            resp = client.post(
                 url,
                 content=body.encode(),
                 headers={
@@ -25,8 +31,6 @@ def post_callback(url: str, body: str, final: bool) -> None:
                     "X-Timestamp": str(ts),
                     "X-Signature": security.callback_signature(ts, body),
                 },
-                # The Worker delivers Telegram files while handling the final callback.
-                timeout=180 if final else 15,
             )
             if resp.status_code < 500:
                 return

@@ -10,7 +10,7 @@ from typing import Callable
 
 import httpx
 
-from ...shared import config, security
+from ...shared import config, security, worker_http
 from ...shared.errors import Cancelled, PipelineError as MediaError
 
 ProgressFn = Callable[[float], None]
@@ -111,7 +111,7 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
 def download_direct(url: str, dest: Path, cancelled: CancelFn, progress: ProgressFn) -> Path:
     """Plain streaming GET, used for files relayed by the Worker (Telegram uploads)."""
     try:
-        with httpx.stream("GET", url, follow_redirects=True, timeout=httpx.Timeout(30, read=120)) as resp:
+        with worker_http.client(httpx.Timeout(30, read=120)) as client, client.stream("GET", url) as resp:
             if resp.status_code != 200:
                 raise MediaError("E_DOWNLOAD_FAILED", f"Source file request failed with HTTP {resp.status_code}.")
             total = int(resp.headers.get("content-length") or 0)
