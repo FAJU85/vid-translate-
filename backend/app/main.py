@@ -94,6 +94,7 @@ def health() -> dict:
         "configured": bool(config.SHARED_SECRET),
         "models_ready": _models_ready.is_set(),
         "whisper_model": config.WHISPER_MODEL,
+        "cpu_threads": config.CPU_THREADS,
         "pending_jobs": manager.pending_count(),
     }
 

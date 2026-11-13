@@ -7,7 +7,7 @@ the subtitles burned into the picture.
 ```
 Telegram ──webhook──►┌──────────────────────┐  POST /invoke   ┌───────────────────────────┐
                      │  Cloudflare Worker   │────────────────►│  Hugging Face Space       │
-Website (Pages) ────►│  worker/             │◄────────────────│  backend/  (Docker)       │
+Website ────────────►│  worker/             │◄────────────────│  backend/  (Docker)       │
         /api/*       │  bot · job store (D1)│  signed progress│  yt-dlp → Whisper → NMT   │
                      └──────────────────────┘    callbacks    │  → SRT/VTT → ffmpeg burn  │
                                                               └───────────────────────────┘
@@ -17,7 +17,7 @@ Website (Pages) ────►│  worker/             │◄──────
 | --- | --- | --- |
 | `backend/` | Hugging Face Space (Docker) | Downloads, transcribes, translates, renders. No Telegram access needed. |
 | `worker/` | Cloudflare Workers + D1 | Telegram webhook, job records, rate limits, delivery of files to the chat, API for the website. |
-| `web/` | Cloudflare Pages | Website: submit a link or upload a file, watch progress, preview and edit subtitles, download. |
+| `web/` | Cloudflare Worker (static assets) | Website: submit a link or upload a file, watch progress, preview and edit subtitles, download. |
 
 Each part is built from self-contained **bricks** with a small public interface; see
 [ARCHITECTURE.md](ARCHITECTURE.md) for the layout and the rules (checked in CI).
@@ -132,10 +132,13 @@ curl -X POST https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin/setup -H "Au
 The reply should contain `"webhook_set": true` and a `backend` block with `"status": "ok"`.
 Open the bot in Telegram and send `/start`.
 
-### 3. Website → Cloudflare Pages
+### 3. Website
 
-In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to Git**, pick this
-repository and set:
+The Worker builds `web/` on every deploy and serves it at its own URL
+(`https://vid-translate.YOUR_SUBDOMAIN.workers.dev/`), so there is nothing more to set up.
+
+To host the website separately on Cloudflare Pages instead: **Workers & Pages → Create → Pages →
+Connect to Git**, pick this repository and set:
 
 | Setting | Value |
 | --- | --- |

@@ -1,0 +1,68 @@
+name: Logs
+
+# Prints a snapshot of the live system: the Hugging Face Space (status, build log, run log),
+# the Cloudflare Worker (recent builds, live log) and the latest jobs in D1.
+# This repository is public, so the output is too: scripts/collect-logs.py masks every secret
+# value, signed links, tokens and IP addresses, and never prints chat ids or video links.
+#
+# Start it from the Actions tab, by commenting "/logs" on an issue or pull request (owner and
+# collaborators only), or let it run after each backend deploy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tail_seconds:
+        description: Seconds of live Worker log to record
+        default: "60"
+  workflow_run:
+    workflows: ["Deploy backend to Hugging Face Space"]
+    types: [completed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: logs
+  cancel-in-progress: false
+
+jobs:
+  logs:
+    if: >-
+      github.event_name != 'issue_comment' || (
+        startsWith(github.event.comment.body, '/logs') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for the new Space build to start
+        if: github.event_name == 'workflow_run'
+        run: sleep 240
+
+      - name: Collect logs
+        env:
+          SPACE_ID: vooom/Kavox # keep in sync with deploy-space.yml
+          WORKER_NAME: vid-translate
+          WORKER_URL: https://vid-translate.ee-ee455.workers.dev
+          D1_DATABASE_ID: a341760a-5457-4e7b-a2e4-1c21c88f0515
+          TAIL_SECONDS: ${{ github.event.inputs.tail_seconds || '60' }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SECRET_VALUES: |
+            ${{ secrets.SHARED_SECRET }}
+            ${{ secrets.TELEGRAM_BOT_TOKEN }}
+            ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+            ${{ secrets.GEMINI_API_KEY }}
+            ${{ secrets.YTDLP_PROXY }}
+        run: python3 scripts/collect-logs.py
