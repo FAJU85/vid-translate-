@@ -6,7 +6,9 @@ import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind
 import * as store from './store';
 
 const MAX_DISPATCH_ATTEMPTS = 15; // one per minute while the Space wakes up
-const STALE_AFTER = 10 * 60;
+// Ask the Space directly about a job that has sent no update for this long. Callbacks can be
+// lost, so this is what keeps the bot and the website moving when they are.
+const STALE_AFTER = 2 * 60;
 const GIVE_UP_AFTER = 3 * 3600;
 
 export const maxPerHour = (env: Env) => Number(env.MAX_JOBS_PER_HOUR) || 5;

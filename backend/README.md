@@ -33,6 +33,9 @@ Set these under **Settings → Variables and secrets** of the Space.
 | `YTDLP_COOKIES` | secret | – | Contents of a Netscape `cookies.txt`, for sites that block datacenter IPs (YouTube). |
 | `YTDLP_PROXY` | secret | – | Proxy URL for downloads, e.g. `http://user:pass@host:port`. |
 | `CORS_ORIGINS` | variable | `*` | Origins allowed to upload from a browser (your Pages URL). |
+| `CPU_THREADS` | variable | container's CPU quota | Threads for Whisper and the translator. |
+| `WORKER_FORCE_IPV4` | variable | `1` | Reach the Worker over IPv4 only; Spaces cannot reliably use IPv6. |
+| `WORKER_CONNECT_RETRIES` | variable | `3` | Retries of a failed connection to the Worker. |
 
 ## API
 
