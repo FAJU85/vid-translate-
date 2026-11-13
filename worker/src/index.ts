@@ -21,6 +21,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   const path = url.pathname;
   const method = request.method;
 
+  // The website is served from ./web/dist by the assets binding; this is only reached without it.
   if (path === '/') return json({ service: 'tarjimvideo-worker', status: 'ok' });
 
   if (path === '/telegram/webhook' && method === 'POST') return handleWebhook(request, env, ctx, origin);
