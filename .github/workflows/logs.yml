@@ -35,7 +35,7 @@ jobs:
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,6 +57,7 @@ jobs:
           D1_DATABASE_ID: a341760a-5457-4e7b-a2e4-1c21c88f0515
           TAIL_SECONDS: ${{ github.event.inputs.tail_seconds || '60' }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SHARED_SECRET: ${{ secrets.SHARED_SECRET }} # only for the Space's /diag/network check
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SECRET_VALUES: |
