@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from .modules import speech, translation
+from .modules import diagnostics, speech, translation
 from .modules.jobs import OUTPUT_FILES, UPLOAD_NAME, Job, manager
 from .shared import config, security
 
@@ -193,6 +193,13 @@ def files(job_id: str, name: str, exp: str = "", sig: str = "", filename: str | 
         raise HTTPException(status_code=404, detail="File expired or not found")
     safe = re.sub(r'[\\/\r\n"]', "_", filename)[:120] if filename else None
     return FileResponse(path, media_type=MEDIA_TYPES[name], filename=safe)
+
+
+@app.get("/diag/network")
+def diag_network(authorization: str | None = Header(default=None)) -> dict:
+    """Temporary: can this Space reach YouTube and other sites, at which level does it fail?"""
+    _require_auth(authorization)
+    return diagnostics.network_report()
 
 
 @app.exception_handler(HTTPException)

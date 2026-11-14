@@ -7,6 +7,13 @@ RUN apt-get update \
 # yt-dlp needs a JavaScript runtime to solve YouTube's player challenges.
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
+# Temporary, for /diag/network: a real Chromium, to compare a browser with plain requests.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+RUN pip install --no-cache-dir playwright==1.55.0 \
+ && playwright install --with-deps chromium \
+ && chmod -R a+rX /opt/playwright \
+ && rm -rf /var/lib/apt/lists/*
+
 # Hugging Face Spaces run the container as uid 1000.
 RUN useradd -m -u 1000 user
 USER user
