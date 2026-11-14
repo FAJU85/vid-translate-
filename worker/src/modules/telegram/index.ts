@@ -4,5 +4,5 @@
  */
 export { getBotUsername, handleWebhook, setupBot } from './bot';
 export { CHATS_SCHEMA } from './chats';
-export { serveTelegramFile } from './files';
+export { fetchTelegramFile } from './files';
 export { telegramJobListener } from './presenter';

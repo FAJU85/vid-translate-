@@ -67,7 +67,7 @@ CPU_THREADS = _int("CPU_THREADS", _available_cpus())
 # Calls to the Worker: force IPv4 (Spaces cannot reliably reach workers.dev over IPv6) and
 # retry failed connections this many times.
 WORKER_FORCE_IPV4 = _bool("WORKER_FORCE_IPV4", True)
-WORKER_CONNECT_RETRIES = _int("WORKER_CONNECT_RETRIES", 3)
+WORKER_CONNECT_RETRIES = _int("WORKER_CONNECT_RETRIES", 1)
 # OpenMP pools (used by CTranslate2) size themselves from the host too; cap them before any model loads.
 os.environ.setdefault("OMP_NUM_THREADS", str(CPU_THREADS))
 

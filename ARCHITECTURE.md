@@ -35,6 +35,8 @@ the Polylith / modular-monolith idea applied to each of the three deployable par
    one publishes a small interface and the higher one implements it. Example: the `jobs` brick
    exposes `JobListener`; the `telegram` brick implements it (`telegramJobListener`), and the
    Worker base registers it. `jobs` never imports `telegram`.
+   The `jobs` brick also exposes a source port (`registerSourceFetcher`): `telegram` supplies
+   the files users send to the bot, and the Worker uploads them to the Space.
 
 These rules are checked automatically, and CI (`.github/workflows/checks.yml`) fails when one
 is broken:
@@ -63,7 +65,7 @@ Baseplate: `shared/config.py`, `shared/security.py`, `shared/errors.py` (`Pipeli
 | Brick | Public interface | Does |
 | --- | --- | --- |
 | `jobs` | `createJob`, `dispatch`, `cancelJob`, `sweep`, `handleBackendCallback`, `JobListener`, … | Jobs table, Space client, job lifecycle |
-| `telegram` | `handleWebhook`, `setupBot`, `serveTelegramFile`, `telegramJobListener`, … | The bot, the chats table, delivering results in a chat |
+| `telegram` | `handleWebhook`, `setupBot`, `fetchTelegramFile`, `telegramJobListener`, … | The bot, the chats table, delivering results in a chat |
 | `web-api` | `handleApi` | The website's JSON API |
 
 Baseplate: `shared/env.ts`, `crypto.ts`, `http.ts`, `db.ts`, `languages.ts`, `urls.ts`.

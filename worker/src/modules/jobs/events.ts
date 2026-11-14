@@ -31,3 +31,23 @@ async function emit(kind: keyof JobListener, env: Env, job: JobRow): Promise<voi
 
 export const emitChanged = (env: Env, job: JobRow) => emit('changed', env, job);
 export const emitFinished = (env: Env, job: JobRow) => emit('finished', env, job);
+
+/**
+ * Port through which another brick supplies a job's source file, e.g. the Telegram brick for files
+ * sent to the bot. The Worker uploads it to the Space itself: the Space cannot reliably open
+ * connections to the Worker, so it is never asked to fetch anything from it.
+ */
+export interface SourceFile {
+  body: ReadableStream<Uint8Array>;
+  /** Size in bytes, when known. */
+  length: number | null;
+}
+export type SourceFetcher = (env: Env, job: JobRow) => Promise<SourceFile | null>;
+
+const sourceFetchers = new Map<string, SourceFetcher>();
+
+export function registerSourceFetcher(sourceKind: string, fetcher: SourceFetcher): void {
+  sourceFetchers.set(sourceKind, fetcher);
+}
+
+export const sourceFetcher = (sourceKind: string): SourceFetcher | undefined => sourceFetchers.get(sourceKind);

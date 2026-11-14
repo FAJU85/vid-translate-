@@ -59,6 +59,24 @@ export async function uploadLink(env: Env, jobId: string): Promise<string> {
   return `${base(env)}/upload/${jobId}?${await signedQuery(env.SHARED_SECRET, `upload:${jobId}`, 2 * 3600)}`;
 }
 
+/** Upload a job's source file to the Space (as a browser would). Returns the HTTP status. */
+export async function upload(env: Env, jobId: string, file: { body: ReadableStream<Uint8Array>; length: number | null }): Promise<number> {
+  let body = file.body;
+  if (file.length !== null) {
+    // A known length is sent as Content-Length instead of a chunked body.
+    const fixed = new FixedLengthStream(file.length);
+    file.body.pipeTo(fixed.writable).catch(() => {});
+    body = fixed.readable;
+  }
+  const res = await fetch(await uploadLink(env, jobId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body,
+    signal: AbortSignal.timeout(120_000),
+  });
+  return res.status;
+}
+
 export async function health(env: Env): Promise<Record<string, unknown> | null> {
   try {
     const res = await fetch(`${base(env)}/health`, { signal: AbortSignal.timeout(8_000) });

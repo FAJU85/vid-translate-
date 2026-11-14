@@ -6,13 +6,20 @@
 export type { BackendState, Channel, JobRow, JobStatus, SourceKind, SubtitleMode } from './model';
 export { TERMINAL } from './model';
 export { JOBS_SCHEMA, activeJobs, claimDelivery, getJob, listJobs } from './store';
-export { registerJobListener, type JobListener } from './events';
+export {
+  registerJobListener,
+  registerSourceFetcher,
+  type JobListener,
+  type SourceFetcher,
+  type SourceFile,
+} from './events';
 export {
   cancelJob,
   checkLimits,
   createJob,
   dispatch,
   maxPerHour,
+  refreshJob,
   startUploadedJob,
   sweep,
   type LimitError,

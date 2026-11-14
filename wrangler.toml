@@ -16,7 +16,7 @@ command = "npm ci --prefix web && npm run build --prefix web"
 [assets]
 directory = "web/dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/telegram/*", "/tg-file/*", "/admin/*"]
+run_worker_first = ["/api/*", "/telegram/*", "/admin/*"]
 
 [vars]
 # URL of your Hugging Face Space: https://<user>-<space-name>.hf.space
