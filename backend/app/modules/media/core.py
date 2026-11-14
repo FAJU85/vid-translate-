@@ -25,6 +25,19 @@ def _clean_ytdlp_error(text: str) -> str:
     return text[:300]
 
 
+_SITE_BLOCK = re.compile(
+    r"not a bot|sign in to confirm|HTTP Error 429|login required|cookies"
+    # YouTube also drops connections from datacenter IPs mid-handshake.
+    r"|UNEXPECTED_EOF|EOF occurred in violation of protocol|Connection reset by peer",
+    re.I,
+)
+
+
+def is_site_block(message: str) -> bool:
+    """True when a download error means the site refuses this server, not that the video is bad."""
+    return bool(_SITE_BLOCK.search(message))
+
+
 def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn, progress: ProgressFn) -> tuple[Path, dict]:
     """Download with yt-dlp (YouTube, X, TikTok, Vimeo, direct links, ...)."""
     import yt_dlp
@@ -90,7 +103,7 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
         raise
     except yt_dlp.utils.DownloadError as exc:
         message = _clean_ytdlp_error(str(exc))
-        if re.search(r"not a bot|sign in to confirm|HTTP Error 429|login required|cookies", message, re.I):
+        if is_site_block(message):
             # The site is refusing this server's IP address rather than the video itself.
             raise MediaError("E_SITE_BLOCKED", message) from exc
         raise MediaError("E_DOWNLOAD_FAILED", message) from exc

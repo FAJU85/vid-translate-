@@ -35,7 +35,7 @@ Set these under **Settings → Variables and secrets** of the Space.
 | `CORS_ORIGINS` | variable | `*` | Origins allowed to upload from a browser (your Pages URL). |
 | `CPU_THREADS` | variable | container's CPU quota | Threads for Whisper and the translator. |
 | `WORKER_FORCE_IPV4` | variable | `1` | Reach the Worker over IPv4 only; Spaces cannot reliably use IPv6. |
-| `WORKER_CONNECT_RETRIES` | variable | `3` | Retries of a failed connection to the Worker. |
+| `WORKER_CONNECT_RETRIES` | variable | `1` | Retries of a failed connection to the Worker. |
 
 ## API
 

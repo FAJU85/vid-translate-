@@ -11,6 +11,7 @@ import {
   getJob,
   listJobs,
   maxPerHour,
+  refreshJob,
   startUploadedJob,
   uploadLink,
   type JobRow,
@@ -154,7 +155,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (match) {
     const job = await getJob(env, match[1]);
     if (!job) return apiError(404, 'E_JOB_NOT_FOUND', 'Job not found.');
-    if (!match[2] && method === 'GET') return json(await publicJob(env, job));
+    // The Space's own progress reports are unreliable, so a poll asks it directly when stale.
+    if (!match[2] && method === 'GET') return json(await publicJob(env, await refreshJob(env, job)));
 
     if (match[2] && method === 'POST') {
       const body = (await request.json().catch(() => null)) as Record<string, any> | null;

@@ -1,14 +1,15 @@
-import { signedQuery } from '../../shared/crypto';
 import { now, type Env } from '../../shared/env';
 import * as backend from './backend';
-import { emitChanged, emitFinished } from './events';
+import { emitChanged, emitFinished, sourceFetcher } from './events';
 import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind, type SubtitleMode } from './model';
 import * as store from './store';
 
 const MAX_DISPATCH_ATTEMPTS = 15; // one per minute while the Space wakes up
-// Ask the Space directly about a job that has sent no update for this long. Callbacks can be
-// lost, so this is what keeps the bot and the website moving when they are.
-const STALE_AFTER = 2 * 60;
+// The Space cannot reliably open connections to this Worker, so its progress callbacks are only
+// a bonus: the cron sweep asks the Space about every running job each minute, and a website
+// poll asks when the stored state is older than REFRESH_AFTER seconds.
+const STALE_AFTER = 45;
+const REFRESH_AFTER = 4;
 const GIVE_UP_AFTER = 3 * 3600;
 
 export const maxPerHour = (env: Env) => Number(env.MAX_JOBS_PER_HOUR) || 5;
@@ -97,17 +98,25 @@ export async function startUploadedJob(env: Env, job: JobRow): Promise<{ job?: J
 /** Hand a queued job to the Space. Returns true once the Space has accepted it. */
 export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
   let sourceKind: string = job.source_kind;
-  let sourceUrl: string | undefined;
-  if (job.source_kind === 'url') {
-    sourceUrl = job.source;
-  } else if (job.source_kind === 'telegram') {
-    // The Space cannot reach api.telegram.org, so it downloads the file through this Worker.
-    sourceKind = 'direct';
-    sourceUrl = `${job.origin}/tg-file/${job.id}?${await signedQuery(env.SHARED_SECRET, `tgfile:${job.id}`, 6 * 3600)}`;
-  }
+  const sourceUrl = job.source_kind === 'url' ? job.source : undefined;
 
   let failure = '';
   try {
+    const fetchSource = sourceFetcher(job.source_kind);
+    if (fetchSource) {
+      // e.g. a file sent to the bot: the Space can reach neither Telegram nor (reliably) this
+      // Worker, so the Worker pushes the file to the Space, exactly like a browser upload.
+      const file = await fetchSource(env, job);
+      if (!file) throw new Error('source file unavailable');
+      const uploaded = await backend.upload(env, job.id, file);
+      if (uploaded === 413) {
+        await failJob(env, job, 'E_FILE_TOO_LARGE', '');
+        return false;
+      }
+      // 409: an earlier attempt already handed the job over; /invoke below is idempotent.
+      if (uploaded !== 200 && uploaded !== 409) throw new Error(`upload HTTP ${uploaded}`);
+      sourceKind = 'upload';
+    }
     const { status, data } = await backend.invoke(env, {
       job_id: job.id,
       source_kind: sourceKind,
@@ -211,6 +220,32 @@ export async function cancelJob(env: Env, job: JobRow): Promise<void> {
 
 // ------------------------------------------------------------------ scheduled upkeep
 
+/** Ask the Space for a job's state and apply it. False when the Space could not be reached. */
+async function pollBackend(env: Env, job: JobRow, ts: number): Promise<boolean> {
+  try {
+    const state = await backend.status(env, job.id);
+    if (state === 'unknown') {
+      await failJob(env, job, 'E_BACKEND_RESTARTED', '');
+      return true;
+    }
+    if (!state) return false;
+    const fresh = await store.getJob(env, job.id);
+    if (fresh) await applyState(env, fresh, state);
+    await store.touchActive(env, job.id, ts);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Bring a job up to date with the Space when its stored state is a few seconds old (website polls). */
+export async function refreshJob(env: Env, job: JobRow): Promise<JobRow> {
+  const ts = now();
+  if (!job.dispatched || TERMINAL.includes(job.status) || job.updated_at > ts - REFRESH_AFTER) return job;
+  await pollBackend(env, job, ts);
+  return (await store.getJob(env, job.id)) ?? job;
+}
+
 /** Runs every minute: retries hand-offs to a sleeping Space and reconciles stuck jobs. */
 export async function sweep(env: Env): Promise<void> {
   const ts = now();
@@ -218,21 +253,7 @@ export async function sweep(env: Env): Promise<void> {
   for (const job of await store.waitingForDispatch(env, ts - 20)) await dispatch(env, job);
 
   for (const job of await store.staleDispatched(env, ts - STALE_AFTER)) {
-    try {
-      const state = await backend.status(env, job.id);
-      if (state === 'unknown') {
-        await failJob(env, job, 'E_BACKEND_RESTARTED', '');
-        continue;
-      }
-      if (state) {
-        const fresh = await store.getJob(env, job.id);
-        if (fresh) await applyState(env, fresh, state);
-        await store.touchActive(env, job.id, ts);
-        continue;
-      }
-    } catch {
-      /* Space unreachable: decide below */
-    }
+    if (await pollBackend(env, job, ts)) continue;
     if (job.created_at < ts - GIVE_UP_AFTER) await failJob(env, job, 'E_BACKEND_DOWN', '');
   }
 

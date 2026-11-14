@@ -6,12 +6,21 @@ import { safeEqual } from './shared/crypto';
 import { ensureSchema } from './shared/db';
 import type { Env } from './shared/env';
 import { apiError, json } from './shared/http';
-import { JOBS_SCHEMA, backendHealth, handleBackendCallback, registerJobListener, sweep } from './modules/jobs';
-import { CHATS_SCHEMA, getBotUsername, handleWebhook, serveTelegramFile, setupBot, telegramJobListener } from './modules/telegram';
+import {
+  JOBS_SCHEMA,
+  backendHealth,
+  handleBackendCallback,
+  registerJobListener,
+  registerSourceFetcher,
+  sweep,
+} from './modules/jobs';
+import { CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
 import { handleApi } from './modules/web-api';
 
-// Telegram follows job progress through the jobs brick's listener port.
+// Telegram follows job progress through the jobs brick's listener port, and supplies the files
+// users send to the bot through its source port.
 registerJobListener(telegramJobListener);
+registerSourceFetcher('telegram', fetchTelegramFile);
 
 const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA];
 
@@ -27,9 +36,6 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path === '/telegram/webhook' && method === 'POST') return handleWebhook(request, env, ctx, origin);
 
   if (path === '/api/callback' && method === 'POST') return handleBackendCallback(request, env);
-
-  const tgFile = path.match(/^\/tg-file\/([0-9a-f-]{36})$/);
-  if (tgFile && method === 'GET') return serveTelegramFile(env, url, tgFile[1]);
 
   if (path === '/admin/setup' && method === 'POST') {
     const auth = request.headers.get('Authorization') ?? '';
