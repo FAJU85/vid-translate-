@@ -60,10 +60,15 @@ def _browser(hosts: list[str]) -> dict:
     return out
 
 
-def _ytdlp() -> dict:
+def _ytdlp(impersonate: bool) -> dict:
     import yt_dlp
 
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 20}) as ydl:
+    opts: dict = {"quiet": True, "no_warnings": True, "skip_download": True, "socket_timeout": 20, "retries": 1}
+    if impersonate:
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        opts["impersonate"] = ImpersonateTarget.from_str("chrome")
+    with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(YOUTUBE_VIDEO, download=False)
     return {"title": info.get("title"), "formats": len(info.get("formats") or [])}
 
@@ -78,5 +83,6 @@ def network_report() -> dict:
             report["sites"][host]["playwright_chromium"] = result
     else:
         report["playwright_chromium"] = browser
-    report["yt_dlp_youtube_video"] = _timed(_ytdlp)
+    report["yt_dlp_youtube_video"] = _timed(lambda: _ytdlp(impersonate=False))
+    report["yt_dlp_youtube_video_as_chrome"] = _timed(lambda: _ytdlp(impersonate=True))
     return report

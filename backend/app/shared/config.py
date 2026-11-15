@@ -82,6 +82,8 @@ HARD_SUB_MAX_HEIGHT = _int("HARD_SUB_MAX_HEIGHT", 720)
 # Optional yt-dlp helpers: Netscape-format cookies and an outbound proxy.
 YTDLP_COOKIES = os.environ.get("YTDLP_COOKIES", "")
 YTDLP_PROXY = os.environ.get("YTDLP_PROXY", "")
+# Browser whose TLS fingerprint yt-dlp imitates (needs curl_cffi); "" turns it off.
+YTDLP_IMPERSONATE = os.environ.get("YTDLP_IMPERSONATE", "chrome")
 
 # Comma-separated origins allowed to upload / fetch results from a browser.
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]

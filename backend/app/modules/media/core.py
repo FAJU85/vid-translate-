@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import tempfile
@@ -12,6 +13,8 @@ import httpx
 
 from ...shared import config, security, worker_http
 from ...shared.errors import Cancelled, PipelineError as MediaError
+
+log = logging.getLogger("tarjim.media")
 
 ProgressFn = Callable[[float], None]
 CancelFn = Callable[[], bool]
@@ -31,6 +34,37 @@ _SITE_BLOCK = re.compile(
     r"|UNEXPECTED_EOF|EOF occurred in violation of protocol|Connection reset by peer",
     re.I,
 )
+
+
+def _impersonate_target():
+    """Make yt-dlp's connections look like Chrome's (TLS fingerprint, via curl_cffi).
+
+    From a Space, YouTube drops connections whose TLS handshake looks like Python's
+    (SSL UNEXPECTED_EOF), while a real Chrome gets through. None when disabled or unavailable.
+    """
+    global _impersonate_checked
+    if _impersonate_checked is None:
+        _impersonate_checked = _resolve_impersonate_target()
+    return _impersonate_checked or None
+
+
+_impersonate_checked = None  # None: not checked yet; False: unavailable; else the target
+
+
+def _resolve_impersonate_target():
+    if not config.YTDLP_IMPERSONATE:
+        return False
+    try:
+        import yt_dlp
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        target = ImpersonateTarget.from_str(config.YTDLP_IMPERSONATE)
+        # from_str only parses; YoutubeDL raises if no installed handler can provide the target.
+        yt_dlp.YoutubeDL({"impersonate": target, "quiet": True}).close()
+        return target
+    except Exception as exc:  # noqa: BLE001 - unknown target or no curl_cffi: download as before
+        log.warning("yt-dlp impersonation %r unavailable, downloading without it: %s", config.YTDLP_IMPERSONATE, exc)
+        return False
 
 
 def is_site_block(message: str) -> bool:
@@ -66,6 +100,9 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
     }
     if config.YTDLP_PROXY:
         opts["proxy"] = config.YTDLP_PROXY
+    target = _impersonate_target()
+    if target:
+        opts["impersonate"] = target
     cookie_file = None
     if config.YTDLP_COOKIES:
         cookie_file = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
