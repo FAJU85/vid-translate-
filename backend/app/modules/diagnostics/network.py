@@ -73,6 +73,19 @@ def _ytdlp(impersonate: bool) -> dict:
     return {"title": info.get("title"), "formats": len(info.get("formats") or [])}
 
 
+POT_SERVER = "http://127.0.0.1:4416"
+
+
+def _pot_server() -> dict:
+    """The local proof-of-origin token server: is it up, and can it mint a token for a video?"""
+    ping = httpx.get(f"{POT_SERVER}/ping", timeout=5).json()
+    resp = httpx.post(f"{POT_SERVER}/get_pot", json={"content_binding": YOUTUBE_VIDEO.rsplit("=", 1)[-1]}, timeout=60)
+    data = resp.json()
+    if resp.status_code != 200 or not data.get("poToken"):
+        raise RuntimeError(f"HTTP {resp.status_code}: {str(data.get('error', data))[:160]}")
+    return {"version": ping.get("version"), "token_length": len(data["poToken"])}  # never the token itself
+
+
 def network_report() -> dict:
     report: dict = {"sites": {}}
     for host in SITES:
@@ -83,6 +96,7 @@ def network_report() -> dict:
             report["sites"][host]["playwright_chromium"] = result
     else:
         report["playwright_chromium"] = browser
+    report["pot_token_server"] = _timed(_pot_server)
     report["yt_dlp_youtube_video"] = _timed(lambda: _ytdlp(impersonate=False))
     report["yt_dlp_youtube_video_as_chrome"] = _timed(lambda: _ytdlp(impersonate=True))
     return report
