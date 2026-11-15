@@ -1,4 +1,20 @@
+from app.modules.media import core
 from app.modules.media.core import is_site_block
+
+
+def _target(monkeypatch, value):
+    monkeypatch.setattr(core.config, "YTDLP_IMPERSONATE", value)
+    monkeypatch.setattr(core, "_impersonate_checked", None)
+    return core._impersonate_target()
+
+
+def test_impersonation_falls_back_when_target_unavailable(monkeypatch):
+    # The target parses, but no installed handler provides it: download without it.
+    assert _target(monkeypatch, "chrome-999999") is None
+
+
+def test_impersonation_can_be_turned_off(monkeypatch):
+    assert _target(monkeypatch, "") is None
 
 
 def test_site_block_messages():
