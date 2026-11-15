@@ -290,7 +290,7 @@ def network() -> None:
         for name, result in checks.items():
             detail = {k: v for k, v in result.items() if k not in ("ok",)}
             out(f"   {'OK  ' if result.get('ok') else 'FAIL'} {name:20} {json.dumps(detail, ensure_ascii=False)}")
-    for key in ("playwright_chromium", "yt_dlp_youtube_video"):
+    for key in ("playwright_chromium", "yt_dlp_youtube_video", "yt_dlp_youtube_video_as_chrome"):
         if key in report:
             result = report[key]
             out(f"{'OK  ' if result.get('ok') else 'FAIL'} {key}: {json.dumps({k: v for k, v in result.items() if k != 'ok'}, ensure_ascii=False)}")

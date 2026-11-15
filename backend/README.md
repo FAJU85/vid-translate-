@@ -32,6 +32,7 @@ Set these under **Settings → Variables and secrets** of the Space.
 | `OUTPUT_TTL_HOURS` | variable | `24` | How long result files are kept. |
 | `YTDLP_COOKIES` | secret | – | Contents of a Netscape `cookies.txt`, for sites that block datacenter IPs (YouTube). |
 | `YTDLP_PROXY` | secret | – | Proxy URL for downloads, e.g. `http://user:pass@host:port`. |
+| `YTDLP_IMPERSONATE` | variable | `chrome` | Browser TLS fingerprint yt-dlp imitates (YouTube drops plain Python connections); empty to turn off. |
 | `CORS_ORIGINS` | variable | `*` | Origins allowed to upload from a browser (your Pages URL). |
 | `CPU_THREADS` | variable | container's CPU quota | Threads for Whisper and the translator. |
 | `WORKER_FORCE_IPV4` | variable | `1` | Reach the Worker over IPv4 only; Spaces cannot reliably use IPv6. |

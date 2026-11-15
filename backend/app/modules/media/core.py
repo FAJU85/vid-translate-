@@ -33,6 +33,22 @@ _SITE_BLOCK = re.compile(
 )
 
 
+def _impersonate_target():
+    """Make yt-dlp's connections look like Chrome's (TLS fingerprint, via curl_cffi).
+
+    From a Space, YouTube drops connections whose TLS handshake looks like Python's
+    (SSL UNEXPECTED_EOF), while a real Chrome gets through. None when disabled or unavailable.
+    """
+    if not config.YTDLP_IMPERSONATE:
+        return None
+    try:
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        return ImpersonateTarget.from_str(config.YTDLP_IMPERSONATE)
+    except Exception:  # noqa: BLE001 - an unknown target or a yt-dlp without it: download as before
+        return None
+
+
 def is_site_block(message: str) -> bool:
     """True when a download error means the site refuses this server, not that the video is bad."""
     return bool(_SITE_BLOCK.search(message))
@@ -66,6 +82,9 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
     }
     if config.YTDLP_PROXY:
         opts["proxy"] = config.YTDLP_PROXY
+    target = _impersonate_target()
+    if target:
+        opts["impersonate"] = target
     cookie_file = None
     if config.YTDLP_COOKIES:
         cookie_file = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
