@@ -271,9 +271,34 @@ def tail() -> None:
     out(f"({count} events)")
 
 
+@guarded
+def network() -> None:
+    """Temporary: what the Space can reach (raw TLS, plain HTTPS, Playwright Chromium, yt-dlp)."""
+    section("Network check from the Space (/diag/network)")
+    secret = ENV.get("SHARED_SECRET", "")
+    if not (SPACE_ID and secret):
+        out("skipped: SPACE_ID or SHARED_SECRET is not set")
+        return
+    url = f"https://{SPACE_ID.replace('/', '-').lower()}.hf.space/diag/network"
+    status, text = http(url, secret, timeout=300)
+    if status != 200:
+        out(f"HTTP {status}: {text[:300]}")
+        return
+    report = json.loads(text)
+    for host, checks in report.get("sites", {}).items():
+        out(host)
+        for name, result in checks.items():
+            detail = {k: v for k, v in result.items() if k not in ("ok",)}
+            out(f"   {'OK  ' if result.get('ok') else 'FAIL'} {name:20} {json.dumps(detail, ensure_ascii=False)}")
+    for key in ("playwright_chromium", "yt_dlp_youtube_video"):
+        if key in report:
+            result = report[key]
+            out(f"{'OK  ' if result.get('ok') else 'FAIL'} {key}: {json.dumps({k: v for k, v in result.items() if k != 'ok'}, ensure_ascii=False)}")
+
+
 def main() -> int:
     out(f"Snapshot at {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())} UTC")
-    for step in (health, space, builds, jobs, tail):
+    for step in (health, network, space, builds, jobs, tail):
         step()
     return 0
 
