@@ -26,6 +26,7 @@ export const STAGE_LABEL: Record<string, string> = {
 
 const ERROR_TEXT: Record<string, string> = {
   E_URL_INVALID: 'That link is not supported.',
+  E_YOUTUBE_UNSUPPORTED: 'YouTube links are not supported. Please upload the video file instead.',
   E_SITE_BLOCKED:
     'The site refused our server (bot check or login required). Download the video yourself and upload the file instead.',
   E_DOWNLOAD_FAILED: 'The video could not be downloaded.',

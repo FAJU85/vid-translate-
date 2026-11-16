@@ -122,7 +122,7 @@ export function TranslateView({ config, jobId, onJob }: Props) {
               className={inputClass}
             />
             <span className="block mt-1.5 text-xs text-slate-500">
-              YouTube, X, TikTok, Instagram, Vimeo, or a direct link to a video or audio file.
+              A public video page or a direct link to a video or audio file. YouTube links are not supported: upload the file instead.
             </span>
           </label>
         ) : (

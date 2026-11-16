@@ -1,3 +1,16 @@
+/**
+ * YouTube refuses downloads from the backend's servers (they are datacenter addresses), so
+ * YouTube links are not supported: users are asked to upload the file instead.
+ */
+export function isYouTubeUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/.test(host);
+  } catch {
+    return false;
+  }
+}
+
 /** Accepts http(s) links to public hostnames only. */
 export function parseVideoUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s<>"']+/i);

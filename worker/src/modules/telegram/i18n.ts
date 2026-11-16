@@ -11,10 +11,12 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   welcome:
-    '👋 <b>TarjimVideo</b>\n\nSend me a video link (YouTube, X, TikTok, Instagram, a direct file link…) or a video/audio file, and I will send back translated subtitles — or the video with the subtitles burned in.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/status — your recent jobs\n/cancel — stop the running job',
+    '👋 <b>TarjimVideo</b>\n\nSend me a video or audio file (or a public video link; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/status — your recent jobs\n/cancel — stop the running job',
   not_allowed: '⛔ This bot is private. Your chat id is <code>{id}</code>.',
-  hint: 'Send me a video link or a video/audio file to translate. /help',
+  hint: 'Send me a video/audio file (or a public video link) to translate. /help',
   bad_url: '⚠️ That does not look like a usable video link.',
+  youtube_unsupported:
+    '⚠️ YouTube links are not supported. Save the video to your device and send me the file itself (up to 20 MB), or use the website for larger files.',
   file_too_big:
     '⚠️ Telegram only lets bots download files up to 20 MB. Please send a link to the video instead, or upload it on the website.',
   choose: '🎬 Got it. Translating into <b>{lang}</b>.\nWhat would you like back?',
@@ -62,10 +64,12 @@ const en: Dict = {
 
 const ar: Dict = {
   welcome:
-    '👋 <b>ترجم فيديو</b>\n\nأرسل لي رابط فيديو (يوتيوب، إكس، تيك توك، إنستغرام، رابط مباشر…) أو ملف فيديو/صوت، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي',
+    '👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي',
   not_allowed: '⛔ هذا البوت خاص. معرّف محادثتك: <code>{id}</code>.',
   hint: 'أرسل رابط فيديو أو ملف فيديو/صوت لترجمته. /help',
   bad_url: '⚠️ هذا الرابط غير صالح للترجمة.',
+  youtube_unsupported:
+    '⚠️ روابط YouTube غير مدعومة. احفظ الفيديو على جهازك وأرسل الملف نفسه (حتى 20 ميغابايت)، أو استخدم الموقع للملفات الأكبر.',
   file_too_big:
     '⚠️ لا يسمح تيليجرام للبوتات بتنزيل ملفات أكبر من 20 ميغابايت. أرسل رابط الفيديو بدلاً من ذلك، أو ارفعه عبر الموقع.',
   choose: '🎬 تم الاستلام. الترجمة إلى <b>{lang}</b>.\nماذا تريد أن أرسل لك؟',
