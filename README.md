@@ -39,7 +39,7 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `TELEGRAM_BOT_TOKEN` | Worker | From @BotFather. |
 | `TELEGRAM_WEBHOOK_SECRET` | Worker | Another random string (letters, digits, `_`, `-`). |
 | `GEMINI_API_KEY` | Space | Optional: better translation. |
-| `YTDLP_COOKIES` | Space | Optional: helps with YouTube. |
+| `YTDLP_COOKIES` | Space | Optional: for sites that need a login to download. |
 | `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |
 | `CLOUDFLARE_API_TOKEN` | – | Cloudflare token from the "Edit Cloudflare Workers" template; lets the workflow set Worker secrets. |
 | `CLOUDFLARE_ACCOUNT_ID` | – | Your Cloudflare account id (dashboard URL or Workers overview). |
@@ -77,7 +77,7 @@ The first build takes several minutes (it bakes the speech and translation model
 When it is running, `https://vooom-kavox.hf.space/health` returns
 `"configured": true`. Keep the Space **public**: every route that matters is protected by the secret.
 
-Optional settings (better translation with Gemini, bigger Whisper model, YouTube cookies) are
+Optional settings (better translation with Gemini, bigger Whisper model, download cookies) are
 listed in [`backend/README.md`](backend/README.md).
 
 ### 2. Worker → Cloudflare
@@ -164,9 +164,9 @@ To keep the bot private, set `ALLOWED_CHAT_IDS` in `wrangler.toml`.
 
 ## Limits worth knowing
 
-- **YouTube and some other sites block datacenter IPs** ("Sign in to confirm you're not a bot").
-  When that happens the bot says so and asks for the file instead. To make such links work,
-  add `YTDLP_COOKIES` or `YTDLP_PROXY` to the Space.
+- **YouTube links are not supported.** YouTube refuses downloads from datacenter servers
+  ("Sign in to confirm you're not a bot"), so the bot and the website ask for the file instead,
+  before any job starts. Some other sites do the same; the bot then says so and asks for the file.
 - **Free Spaces sleep** after a period without traffic. The first job afterwards waits while the
   Space boots; the bot shows "Waking up the translation server" and retries every minute for
   about 15 minutes.

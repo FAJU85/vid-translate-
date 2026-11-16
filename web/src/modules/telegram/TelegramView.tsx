@@ -3,7 +3,7 @@ import type { AppConfig } from '../../shared/api';
 
 const STEPS = [
   ['Open the bot and press Start', 'It explains what it can do, in English or Arabic depending on your Telegram language.'],
-  ['Send a video link or a file', 'Links from YouTube, X, TikTok, Instagram and direct files work. Files sent in the chat can be up to 20 MB (a Telegram limit); use a link or this website for larger videos.'],
+  ['Send a video file or a link', 'Files sent in the chat can be up to 20 MB (a Telegram limit); use this website for larger videos. Public video links work too, except YouTube.'],
   ['Choose what you want back', 'A subtitle file (.srt), or the video with the subtitles burned into the picture. Use /lang to change the target language.'],
   ['Wait for the result', 'The bot shows live progress and sends the files into the chat when they are ready.'],
 ];

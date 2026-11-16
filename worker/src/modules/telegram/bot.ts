@@ -2,7 +2,7 @@ import { safeEqual } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { LANGUAGES, isTargetLang } from '../../shared/languages';
-import { parseVideoUrl } from '../../shared/urls';
+import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import { activeJobs, cancelJob, createJob, dispatch, getJob, listJobs, maxPerHour, type SubtitleMode } from '../jobs';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, saveChat, type ChatRow } from './chats';
@@ -121,6 +121,10 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     const url = parseVideoUrl(text);
     if (!url) {
       await sendMessage(env, chatId, t(ui, 'bad_url'));
+      return;
+    }
+    if (isYouTubeUrl(url)) {
+      await sendMessage(env, chatId, t(ui, 'youtube_unsupported'));
       return;
     }
     pending = { kind: 'url', source: url, video: true };

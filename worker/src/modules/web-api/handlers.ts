@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { UUID, apiError, json } from '../../shared/http';
 import { LANGUAGES, isTargetLang } from '../../shared/languages';
-import { parseVideoUrl } from '../../shared/urls';
+import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import {
   backendHealth,
   cancelJob,
@@ -119,6 +119,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     } else {
       const parsed = parseVideoUrl(String(body.video_url ?? ''));
       if (!parsed) return apiError(400, 'E_URL_INVALID', 'Please enter a valid public video link.');
+      if (isYouTubeUrl(parsed)) {
+        return apiError(400, 'E_YOUTUBE_UNSUPPORTED', 'YouTube links are not supported. Please upload the video file instead.');
+      }
       sourceKind = 'url';
       source = parsed;
     }
