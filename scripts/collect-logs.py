@@ -50,6 +50,8 @@ _PATTERNS = [
     (re.compile(r"\b\d{6,12}:[A-Za-z0-9_-]{30,}\b"), "[telegram-token]"),
     (re.compile(r"\bhf_[A-Za-z0-9]{20,}\b"), "[hf-token]"),
     (re.compile(r"\b[0-9a-fA-F]{40,}\b"), "[hex-redacted]"),
+    # Long base64 tokens, e.g. YouTube proof-of-origin and integrity tokens.
+    (re.compile(r"[A-Za-z0-9+/_-]{60,}={0,2}"), "[token-redacted]"),
     (re.compile(r"(?i)\b(x-signature|x-telegram-bot-api-secret-token|authorization|cookie)([\"']?\s*[:=]\s*[\"']?)[^\"'\s,}]+"), r"\1\2[redacted]"),
     (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[ip]"),
 ]
@@ -290,7 +292,7 @@ def network() -> None:
         for name, result in checks.items():
             detail = {k: v for k, v in result.items() if k not in ("ok",)}
             out(f"   {'OK  ' if result.get('ok') else 'FAIL'} {name:20} {json.dumps(detail, ensure_ascii=False)}")
-    for key in ("playwright_chromium", "yt_dlp_youtube_video", "yt_dlp_youtube_video_as_chrome"):
+    for key in ("playwright_chromium", "pot_token_server", "yt_dlp_youtube_video", "yt_dlp_youtube_video_as_chrome"):
         if key in report:
             result = report[key]
             out(f"{'OK  ' if result.get('ok') else 'FAIL'} {key}: {json.dumps({k: v for k, v in result.items() if k != 'ok'}, ensure_ascii=False)}")
