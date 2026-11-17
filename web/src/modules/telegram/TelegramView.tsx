@@ -1,20 +1,15 @@
 import { Bot, ExternalLink } from 'lucide-react';
 import type { AppConfig } from '../../shared/api';
+import { SITE } from '../../shared/content';
 
-const STEPS = [
-  ['Open the bot and press Start', 'It explains what it can do, in English or Arabic depending on your Telegram language.'],
-  ['Send a video file or a link', 'Files sent in the chat can be up to 20 MB (a Telegram limit); use this website for larger videos. Public video links work too, except YouTube.'],
-  ['Choose what you want back', 'A subtitle file (.srt), or the video with the subtitles burned into the picture. Use /lang to change the target language.'],
-  ['Wait for the result', 'The bot shows live progress and sends the files into the chat when they are ready.'],
-];
 
 export function TelegramView({ config }: { config: AppConfig | null }) {
   const username = config?.bot_username;
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Use it from Telegram</h1>
-        <p className="mt-1 text-sm text-slate-400">The same translation service, without leaving your chat app.</p>
+        <h1 className="text-2xl font-bold text-white">{SITE.telegram.title}</h1>
+        <p className="mt-1 text-sm text-slate-400">{SITE.telegram.intro}</p>
       </div>
 
       {username ? (
@@ -35,8 +30,8 @@ export function TelegramView({ config }: { config: AppConfig | null }) {
       )}
 
       <ol className="space-y-3">
-        {STEPS.map(([title, text], i) => (
-          <li key={title} className="flex gap-3 p-4 rounded-xl border border-slate-800 bg-slate-900">
+        {SITE.telegram.steps.map(({ title, body: text }, i) => (
+          <li key={i} className="flex gap-3 p-4 rounded-xl border border-slate-800 bg-slate-900">
             <span className="w-7 h-7 shrink-0 rounded-full bg-amber-400 text-slate-950 font-bold text-sm flex items-center justify-center">
               {i + 1}
             </span>

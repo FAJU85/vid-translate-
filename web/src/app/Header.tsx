@@ -1,4 +1,5 @@
 import { Bot, History, Languages } from 'lucide-react';
+import { SITE } from '../shared/content';
 
 export type NavTab = 'translate' | 'history' | 'telegram';
 
@@ -13,8 +14,12 @@ export function Header({ tab, onTab }: { tab: NavTab; onTab: (tab: NavTab) => vo
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur border-b border-slate-800">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <button onClick={() => onTab('translate')} className="flex items-center gap-2 text-lg font-bold text-white shrink-0">
-          <span className="text-amber-400">ترجم</span>
-          <span className="hidden sm:inline">TarjimVideo</span>
+          {SITE.brand.logo ? (
+            <img src={SITE.brand.logo} alt={SITE.brand.name} className="h-8 w-auto max-w-[9rem] object-contain" />
+          ) : (
+            SITE.brand.mark && <span className="text-amber-400">{SITE.brand.mark}</span>
+          )}
+          <span className="hidden sm:inline">{SITE.brand.name}</span>
         </button>
         <nav className="flex items-center gap-1 text-sm">
           {TABS.map(({ id, label, icon: Icon }) => (
