@@ -43,6 +43,28 @@ export interface AppConfig {
   languages: Language[];
   max_upload_mb: number;
   max_jobs_per_hour: number;
+  /** Values saved on the /admin page; empty strings mean "use the default". */
+  site?: SiteSettings;
+}
+
+export interface SiteSettings {
+  name: string;
+  accent: string;
+  translate_title: string;
+  translate_intro: string;
+  logo_url: string;
+}
+
+/** Everything the /admin page edits. `logo` is a data: URL to upload, '' to remove, absent to keep. */
+export interface AdminSettings {
+  name: string;
+  accent: string;
+  translate_title: string;
+  translate_intro: string;
+  welcome_en: string;
+  welcome_ar: string;
+  has_logo?: boolean;
+  logo?: string;
 }
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
@@ -74,7 +96,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`${BASE}${path}`, {
       ...init,
-      headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...(init?.headers as Record<string, string>) },
     });
   } catch {
     throw new ApiError('E_NETWORK', 'Could not reach the server. Check your connection and try again.');
@@ -94,4 +116,13 @@ export const api = {
     call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
   cancel: (id: string) =>
     call<Job>(`/api/jobs/${id}/cancel`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
+};
+
+const auth = (password: string) => ({ Authorization: `Bearer ${password}` });
+
+export const adminApi = {
+  login: (password: string) => call<{ ok: true }>('/api/admin/login', { method: 'POST', headers: auth(password) }),
+  load: (password: string) => call<AdminSettings>('/api/admin/settings', { headers: auth(password) }),
+  save: (password: string, settings: Partial<AdminSettings>) =>
+    call<{ ok: true }>('/api/admin/settings', { method: 'POST', headers: auth(password), body: JSON.stringify(settings) }),
 };

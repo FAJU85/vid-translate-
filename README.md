@@ -38,6 +38,7 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `SHARED_SECRET` | Worker and Space | Any long random string you make up (`openssl rand -hex 32`). |
 | `TELEGRAM_BOT_TOKEN` | Worker | From @BotFather. |
 | `TELEGRAM_WEBHOOK_SECRET` | Worker | Another random string (letters, digits, `_`, `-`). |
+| `ADMIN_PASSWORD` | Worker | Password of the `/admin` settings page (at least 8 characters). Unset: the page stays locked. |
 | `GEMINI_API_KEY` | Space | Optional: better translation. |
 | `YTDLP_COOKIES` | Space | Optional: for sites that need a login to download. |
 | `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |
@@ -151,22 +152,15 @@ Once the site has its URL, set `ALLOWED_ORIGINS` in `wrangler.toml` (and `CORS_O
 on the Space) to that URL and redeploy, so other websites cannot use your API from a browser.
 This is a browser-only restriction: direct HTTP calls are still limited only by the rate limits.
 
-## Editing content (logo, texts, colours)
+## Settings page (name, logo, colour, texts)
 
-The platform's name, logo, accent colour, website texts and every bot message live in two files:
-`content/site.json` (website) and `content/bot.json` (bot, English and Arabic). Images go in
-`web/public/images/` and are served at `/images/...`.
+Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and
+sign in with the `ADMIN_PASSWORD` secret. One page sets the platform name, logo, accent colour, the
+home page heading and introduction, and the bot's welcome message (English and Arabic). Saving is
+live at once; a field left empty uses its default.
 
-Edit them with **[Pages CMS](https://pagescms.org)**, a free visual editor configured by `.pages.yml`:
-
-1. Open [app.pagescms.org](https://app.pagescms.org) and sign in with GitHub.
-2. Install its GitHub app on this repository when asked, then open the repository.
-3. Choose **Website** or **Telegram bot messages**, edit, and **Save**.
-
-Saving commits to `main`; Cloudflare redeploys the website and the bot within a couple of minutes.
-Keep `{placeholders}` such as `{lang}` or `{title}` in bot messages: the bot fills them in. An emptied
-Arabic message falls back to English. The bot's profile picture is set in Telegram with
-@BotFather (`/setuserpic`).
+The defaults, and every other website text and bot message, are in `content/site.json` and
+`content/bot.json`. The bot's profile picture is set in Telegram with @BotFather (`/setuserpic`).
 
 ## Using the bot
 

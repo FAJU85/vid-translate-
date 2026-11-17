@@ -1,0 +1,58 @@
+import { now, type Env } from '../../shared/env';
+
+/**
+ * Settings edited on the website's /admin page. Every field is optional: an empty value means
+ * "use the default" (content/site.json for the website, content/bot.json for the bot).
+ */
+export interface Settings {
+  name: string;
+  accent: string;
+  translate_title: string;
+  translate_intro: string;
+  welcome_en: string;
+  welcome_ar: string;
+  /** data: URL of the uploaded logo, or empty. */
+  logo: string;
+}
+
+export const TEXT_FIELDS = ['name', 'accent', 'translate_title', 'translate_intro', 'welcome_en', 'welcome_ar'] as const;
+
+export const SETTINGS_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS settings (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL,
+     updated_at INTEGER NOT NULL
+   )`,
+];
+
+const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '' };
+
+export async function readSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
+  const res = await env.DB.prepare('SELECT key, value, updated_at FROM settings').all<{ key: string; value: string; updated_at: number }>();
+  const settings: Settings = { ...EMPTY };
+  let updatedAt = 0;
+  for (const row of res.results ?? []) {
+    if (row.key in settings) settings[row.key as keyof Settings] = row.value;
+    updatedAt = Math.max(updatedAt, row.updated_at);
+  }
+  return { settings, updatedAt };
+}
+
+/** Save the given fields; an empty string clears a field back to its default. */
+export async function writeSettings(env: Env, patch: Partial<Settings>): Promise<void> {
+  const ts = now();
+  const statements = Object.entries(patch).map(([key, value]) =>
+    value
+      ? env.DB.prepare(
+          'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).bind(key, value, ts)
+      : env.DB.prepare('DELETE FROM settings WHERE key = ?').bind(key),
+  );
+  if (statements.length) await env.DB.batch(statements);
+  // Record the change time even when every field was cleared, so cached logos refresh.
+  await env.DB.prepare(
+    "INSERT INTO settings (key, value, updated_at) VALUES ('_saved', '1', ?) ON CONFLICT(key) DO UPDATE SET updated_at = excluded.updated_at",
+  )
+    .bind(ts)
+    .run();
+}

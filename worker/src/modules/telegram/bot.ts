@@ -4,6 +4,7 @@ import { apiError, json } from '../../shared/http';
 import { LANGUAGES, isTargetLang } from '../../shared/languages';
 import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import { activeJobs, cancelJob, createJob, dispatch, getJob, listJobs, maxPerHour, type SubtitleMode } from '../jobs';
+import { welcomeOverride } from '../settings';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, saveChat, type ChatRow } from './chats';
 import { esc, langName, t, uiLang, type UiLang } from './i18n';
@@ -73,7 +74,14 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   const command = text.startsWith('/') ? text.split(/[\s@]/)[0].toLowerCase() : '';
 
   if (command === '/start' || command === '/help') {
-    await sendMessage(env, chatId, t(ui, 'welcome', { lang: langName(chat.tgt_lang, ui) }));
+    // A welcome message saved on the /admin page replaces the default. It is plain text, so
+    // it is escaped: anything typed there is shown as written.
+    const custom = await welcomeOverride(env, ui).catch(() => '');
+    await sendMessage(
+      env,
+      chatId,
+      custom ? esc(custom).replace(/\{lang\}/g, langName(chat.tgt_lang, ui)) : t(ui, 'welcome', { lang: langName(chat.tgt_lang, ui) }),
+    );
     return;
   }
   if (command === '/lang') {

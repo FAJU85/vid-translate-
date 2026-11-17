@@ -1,7 +1,7 @@
 import {createRoot} from 'react-dom/client';
 import App from './app/App';
-import { applyAccent } from './shared/content';
+import { applyAccent, rememberedAccent } from './shared/content';
 import './index.css';
 
-applyAccent();
+applyAccent(rememberedAccent());
 createRoot(document.getElementById('root')!).render(<App />);
