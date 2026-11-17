@@ -152,12 +152,22 @@ Once the site has its URL, set `ALLOWED_ORIGINS` in `wrangler.toml` (and `CORS_O
 on the Space) to that URL and redeploy, so other websites cannot use your API from a browser.
 This is a browser-only restriction: direct HTTP calls are still limited only by the rate limits.
 
-## Settings page (name, logo, colour, texts)
+## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and
-sign in with the `ADMIN_PASSWORD` secret. One page sets the platform name, logo, accent colour, the
-home page heading and introduction, and the bot's welcome message (English and Arabic). Saving is
-live at once; a field left empty uses its default.
+sign in with the `ADMIN_PASSWORD` secret. It has two workspaces, in the left sidebar:
+
+- **Jobs**: every translation from the website and the bot, shown as a **board** (Queued,
+  Translating, Done, Failed, Cancelled), a sortable **table** or a **calendar**. Click a job to
+  open its details, files and actions in a side panel. Drag a job to *Cancelled* to stop it, or a
+  failed one to *Queued* to run it again (uploaded files cannot be retried: they are not kept).
+  Tick several jobs to cancel, retry or delete them together. The top bar has search, quick
+  filters, and filters you save yourself. Keyboard: `Ctrl/⌘ K` command palette, `/` search,
+  `1` `2` `3` views, arrows or `j` `k` `h` `l` to move, `Enter` to open, `x` to select, `c` cancel,
+  `r` retry, `Delete` delete, `Space` then arrows to move a card between columns.
+- **Settings**: the platform name, logo, accent colour, the home page heading and introduction,
+  and the bot's welcome message (English and Arabic). Saving is live at once; a field left empty
+  uses its default.
 
 The defaults, and every other website text and bot message, are in `content/site.json` and
 `content/bot.json`. The bot's profile picture is set in Telegram with @BotFather (`/setuserpic`).

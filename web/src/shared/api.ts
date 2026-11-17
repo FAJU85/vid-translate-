@@ -126,6 +126,42 @@ export const api = {
     call<Job>(`/api/jobs/${id}/cancel`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
 };
 
+/** A job as the /admin dashboard sees it. */
+export interface AdminJob {
+  id: string;
+  channel: 'web' | 'telegram';
+  owner: string;
+  source_kind: 'url' | 'telegram' | 'upload';
+  source: string | null;
+  title: string | null;
+  status: JobStatus;
+  stage: string;
+  progress: number;
+  waking: boolean;
+  dispatch_attempts: number;
+  duration: number | null;
+  src_lang: string;
+  detected_lang: string | null;
+  tgt_lang: string;
+  mode: SubtitleMode;
+  style: SubtitleStyle | null;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: number;
+  updated_at: number;
+  outputs: Partial<Record<'srt' | 'vtt' | 'original_srt' | 'mp4', string>>;
+}
+
+export type AdminAction = 'cancel' | 'retry' | 'delete';
+
+export interface AdminActionResult {
+  id: string;
+  ok: boolean;
+  error?: string;
+  /** The job after the action; for a retry, the new job that replaces `id`. */
+  job?: AdminJob | null;
+}
+
 const auth = (password: string) => ({ Authorization: `Bearer ${password}` });
 
 export const adminApi = {
@@ -133,4 +169,12 @@ export const adminApi = {
   load: (password: string) => call<AdminSettings>('/api/admin/settings', { headers: auth(password) }),
   save: (password: string, settings: Partial<AdminSettings>) =>
     call<{ ok: true }>('/api/admin/settings', { method: 'POST', headers: auth(password), body: JSON.stringify(settings) }),
+  jobs: (password: string) => call<AdminJob[]>('/api/admin/jobs', { headers: auth(password) }),
+  job: (password: string, id: string) => call<AdminJob>(`/api/admin/jobs/${id}`, { headers: auth(password) }),
+  act: (password: string, action: AdminAction, ids: string[]) =>
+    call<{ results: AdminActionResult[] }>('/api/admin/jobs', {
+      method: 'POST',
+      headers: auth(password),
+      body: JSON.stringify({ action, ids }),
+    }),
 };

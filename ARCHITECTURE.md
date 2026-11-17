@@ -77,6 +77,7 @@ Baseplate: `shared/env.ts`, `crypto.ts`, `http.ts`, `db.ts`, `languages.ts`, `ur
 | `translate` | `TranslateView` | Submit, follow progress, preview and edit subtitles, download |
 | `history` | `HistoryView` | Translations submitted from this browser |
 | `telegram` | `TelegramView` | How to use the Telegram bot |
+| `admin` | `AdminView` | The `/admin` dashboard: jobs board, table and calendar; settings (loaded only on `/admin`) |
 
 Baseplate: `shared/api.ts` (typed client for the Worker and shared types).
 

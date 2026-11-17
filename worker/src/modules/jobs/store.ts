@@ -80,6 +80,25 @@ export async function listJobs(env: Env, owner: string, limit = 30): Promise<Job
   return res.results;
 }
 
+/** Every job except unfinished uploads, newest first (the /admin dashboard). */
+export async function allJobs(env: Env, limit = 1000): Promise<JobRow[]> {
+  const res = await env.DB.prepare(`SELECT * FROM jobs WHERE status != 'awaiting_upload' ORDER BY created_at DESC LIMIT ?`)
+    .bind(limit)
+    .all<JobRow>();
+  return res.results;
+}
+
+/** Delete finished jobs (done, failed or cancelled). Returns the ids that were deleted. */
+export async function deleteFinishedJobs(env: Env, ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const res = await env.DB.prepare(
+    `DELETE FROM jobs WHERE id IN (${ids.map(() => '?').join(', ')}) AND status IN ('done', 'failed', 'cancelled') RETURNING id`,
+  )
+    .bind(...ids)
+    .all<{ id: string }>();
+  return res.results.map((r) => r.id);
+}
+
 export async function countRecent(env: Env, column: 'owner' | 'ip', value: string): Promise<number> {
   const row = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM jobs WHERE ${column} = ? AND created_at > ? AND status != 'awaiting_upload'`,

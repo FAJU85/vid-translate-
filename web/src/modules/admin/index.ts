@@ -1,2 +1,2 @@
-/** Admin brick: the /admin settings page (name, logo, colour, main texts, bot welcome). */
+/** Admin brick: the /admin dashboard (jobs board, table and calendar; settings). */
 export { AdminView } from './AdminView';
