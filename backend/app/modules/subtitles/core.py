@@ -57,11 +57,21 @@ def _split_text(text: str, parts: int) -> list[str]:
     return chunks
 
 
+# Characters that only ever show up as garbage: the replacement character, C0/C1 controls,
+# line/paragraph separators, and the translator's unknown-token marker.
+_GARBAGE = re.compile(r"[�\x00-\x08\x0b-\x1f\x7f-\x9f  ]|<unk>")
+
+
+def clean_text(text: str) -> str:
+    """Remove characters that render as squares or question marks, and normalise spaces."""
+    return " ".join(_GARBAGE.sub(" ", text or "").split())
+
+
 def clean_segments(segments: list[tuple[float, float, str]]) -> list[tuple[float, float, str]]:
     """Normalise whitespace and drop empty ASR segments."""
     out = []
     for start, end, raw in segments:
-        text = " ".join(raw.split())
+        text = clean_text(raw)
         if text:
             out.append((start, max(end, start + MIN_CUE_SECONDS), text))
     return out
@@ -75,7 +85,7 @@ def build_cues(segments: list[tuple[float, float, str]], translations: list[str]
     """
     cues: list[Cue] = []
     for (start, end, text), translated in zip(segments, translations):
-        translated = " ".join((translated or text).split())
+        translated = clean_text(translated) or text
         duration = end - start
         parts = max(
             1,

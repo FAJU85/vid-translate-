@@ -3,6 +3,6 @@
  * and delivered in a chat. This file is the brick's only public interface.
  */
 export { getBotUsername, handleWebhook, setupBot } from './bot';
-export { CHATS_SCHEMA } from './chats';
+export { CHATS_COLUMNS, CHATS_SCHEMA } from './chats';
 export { fetchTelegramFile } from './files';
 export { telegramJobListener } from './presenter';

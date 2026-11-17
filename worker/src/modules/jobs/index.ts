@@ -5,7 +5,15 @@
  */
 export type { BackendState, Channel, JobRow, JobStatus, SourceKind, SubtitleMode } from './model';
 export { TERMINAL } from './model';
-export { JOBS_SCHEMA, activeJobs, claimDelivery, getJob, listJobs } from './store';
+export { JOBS_COLUMNS, JOBS_SCHEMA, activeJobs, claimDelivery, getJob, listJobs } from './store';
+export {
+  DEFAULT_STYLE,
+  SUBTITLE_BACKGROUNDS,
+  SUBTITLE_POSITIONS,
+  SUBTITLE_SIZES,
+  parseSubtitleStyle,
+  type SubtitleStyle,
+} from './style';
 export {
   registerJobListener,
   registerSourceFetcher,

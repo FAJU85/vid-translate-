@@ -13,6 +13,9 @@ from .model import OUTPUT_FILES, STAGE_SPAN, UPLOAD_NAME, Job
 
 log = logging.getLogger("tarjim.jobs")
 
+# Styled subtitles for the burn-in; a working file, removed with the other inputs.
+BURN_FILE = "burn.ass"
+
 Notify = Callable[[Job, bool], None]  # (job, force)
 
 
@@ -115,8 +118,10 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     # 4. Burn-in (hard mode, only when there is a picture to burn into) ------------
     if job.mode == "hard" and info["has_video"]:
         enter("rendering")
+        style = subtitles.SubtitleStyle.from_dict(job.style)
+        (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style), encoding="utf-8")
         media.burn_subtitles(
-            source, OUTPUT_FILES["srt"], workdir / OUTPUT_FILES["mp4"], job.tgt_lang,
+            source, BURN_FILE, workdir / OUTPUT_FILES["mp4"],
             info["duration"], cancelled, reporter("rendering"),
         )
         outputs["mp4"] = OUTPUT_FILES["mp4"]

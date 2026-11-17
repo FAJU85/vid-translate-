@@ -16,7 +16,6 @@ from ...shared.errors import Cancelled, PipelineError as MediaError
 ProgressFn = Callable[[float], None]
 CancelFn = Callable[[], bool]
 
-RTL_LANGS = {"ar", "fa", "ur", "he", "ps"}
 
 
 def _clean_ytdlp_error(text: str) -> str:
@@ -202,14 +201,16 @@ def extract_audio(src: Path, dest: Path, duration: float, cancelled: CancelFn, p
         raise MediaError("E_MEDIA_INVALID", "Could not read an audio track from the file.") from exc
 
 
-def burn_subtitles(src: Path, srt_name: str, dest: Path, lang: str, duration: float,
+def burn_subtitles(src: Path, ass_name: str, dest: Path, duration: float,
                    cancelled: CancelFn, progress: ProgressFn) -> None:
-    """Re-encode the video with subtitles drawn into the picture."""
-    font = "Noto Sans Arabic" if lang in RTL_LANGS else "Noto Sans"
-    style = f"FontName={font},FontSize=18,Outline=1.2,Shadow=0,MarginV=22"
+    """Re-encode the video with the styled subtitles (an .ass file in dest's folder) drawn in.
+
+    `shaping=complex` makes libass shape text with HarfBuzz. The simple shaper it otherwise uses
+    turns Arabic lam-alef (لا) into a presentation-form glyph the font lacks: a square.
+    """
     vf = (
         f"scale=-2:'min({config.HARD_SUB_MAX_HEIGHT},ih)',"
-        f"subtitles={srt_name}:force_style='{style}'"
+        f"ass={ass_name}:shaping=complex"
     )
     _run_ffmpeg(
         ["-i", str(src), "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",

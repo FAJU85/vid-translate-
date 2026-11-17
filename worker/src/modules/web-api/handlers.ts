@@ -11,6 +11,7 @@ import {
   getJob,
   listJobs,
   maxPerHour,
+  parseSubtitleStyle,
   refreshJob,
   startUploadedJob,
   uploadLink,
@@ -111,6 +112,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (!isTargetLang(tgtLang)) return apiError(400, 'E_BAD_REQUEST', 'Unsupported target language.');
     const srcLang = /^[a-z]{2,3}$/.test(body.src_lang ?? '') ? body.src_lang : 'auto';
     const mode = body.subtitle_mode === 'hard' ? 'hard' : 'soft';
+    const style = mode === 'hard' ? parseSubtitleStyle(body.style) : null;
 
     let sourceKind: 'url' | 'upload';
     let source: string;
@@ -143,6 +145,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       srcLang,
       tgtLang,
       mode,
+      style,
       origin: api.origin,
     });
     if (!job) {

@@ -30,6 +30,7 @@ class Job:
     tgt_lang: str
     mode: str                   # "soft" | "hard"
     callback_url: str | None
+    style: dict | None = None   # burned-in subtitle style (subtitles.SubtitleStyle fields)
     status: str = "queued"
     stage: str = "queued"
     progress: int = 0

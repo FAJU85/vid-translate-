@@ -14,6 +14,7 @@ export interface InvokeBody {
   src_lang: string;
   tgt_lang: string;
   subtitle_mode: string;
+  subtitle_style?: object;
   callback_url: string;
   title: string | null;
 }
