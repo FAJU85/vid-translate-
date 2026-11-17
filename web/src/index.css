@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/*
+ * Semantic workflow tokens for the /admin dashboard. Every status colour comes from here, so a
+ * status looks the same on cards, columns, table rows, the calendar and the drawer. The canvas
+ * around them stays neutral (slate) so the statuses carry the signal.
+ */
+@theme {
+  --color-status-queued: #94a3b8;    /* neutral: waiting its turn */
+  --color-status-running: #fbbf24;   /* amber: in progress */
+  --color-status-done: #34d399;      /* green: finished */
+  --color-status-failed: #fb7185;    /* rose: needs attention */
+  --color-status-cancelled: #71717a; /* muted: stopped on purpose */
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;

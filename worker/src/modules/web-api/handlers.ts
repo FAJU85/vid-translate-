@@ -17,6 +17,7 @@ import {
   uploadLink,
   type JobRow,
 } from '../jobs';
+import { handleAdminJobs } from './admin';
 import { handleAdminLogin, handleAdminSettings, publicSettings, serveLogo } from '../settings';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
@@ -97,6 +98,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/admin/login' && method === 'POST') return handleAdminLogin(request, env);
   if (path === '/api/admin/settings' && (method === 'GET' || method === 'POST')) return handleAdminSettings(request, env);
   if (path === '/api/logo' && method === 'GET') return serveLogo(env);
+  if (path === '/api/admin/jobs' || path.startsWith('/api/admin/jobs/')) return handleAdminJobs(request, env, ctx, path);
 
   if (path === '/api/jobs' && method === 'GET') {
     const client = url.searchParams.get('client_id') ?? '';

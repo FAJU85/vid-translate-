@@ -223,6 +223,36 @@ export async function cancelJob(env: Env, job: JobRow): Promise<void> {
   await emitChanged(env, { ...job, status: 'cancelled' });
 }
 
+/**
+ * Run a failed or cancelled job again (the /admin dashboard). The Space remembers job ids, so the
+ * retry is a fresh copy with a new id that replaces the old record. Browser uploads cannot be
+ * retried: the Space deletes uploaded files once a job ends.
+ */
+export async function retryJob(env: Env, job: JobRow): Promise<JobRow | null> {
+  if (!['failed', 'cancelled'].includes(job.status) || job.source_kind === 'upload') return null;
+  const ts = now();
+  const copy: JobRow = {
+    ...job,
+    id: crypto.randomUUID(),
+    status: 'queued',
+    stage: 'queued',
+    progress: 0,
+    error_code: null,
+    error_message: null,
+    outputs: null,
+    dispatched: 0,
+    dispatch_attempts: 0,
+    delivered: 0,
+    notified: null,
+    created_at: ts,
+    updated_at: ts,
+  };
+  await store.insertJob(env, copy);
+  await store.deleteFinishedJobs(env, [job.id]);
+  await emitChanged(env, copy);
+  return copy;
+}
+
 // ------------------------------------------------------------------ scheduled upkeep
 
 /** Ask the Space for a job's state and apply it. False when the Space could not be reached. */

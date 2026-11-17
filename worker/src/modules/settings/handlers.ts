@@ -8,7 +8,7 @@ const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image
 const MAX_TEXT = 2000;
 
 /** True when the request carries the admin password (Authorization: Bearer <ADMIN_PASSWORD>). */
-function isAdmin(request: Request, env: Env): boolean {
+export function isAdmin(request: Request, env: Env): boolean {
   const password = env.ADMIN_PASSWORD ?? '';
   if (password.length < 8) return false; // unset or too short: the admin page stays locked
   return safeEqual(request.headers.get('Authorization') ?? '', `Bearer ${password}`);

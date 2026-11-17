@@ -5,7 +5,7 @@
  */
 export type { BackendState, Channel, JobRow, JobStatus, SourceKind, SubtitleMode } from './model';
 export { TERMINAL } from './model';
-export { JOBS_COLUMNS, JOBS_SCHEMA, activeJobs, claimDelivery, getJob, listJobs } from './store';
+export { JOBS_COLUMNS, JOBS_SCHEMA, activeJobs, allJobs, claimDelivery, deleteFinishedJobs, getJob, listJobs } from './store';
 export {
   DEFAULT_STYLE,
   SUBTITLE_BACKGROUNDS,
@@ -28,6 +28,7 @@ export {
   dispatch,
   maxPerHour,
   refreshJob,
+  retryJob,
   startUploadedJob,
   sweep,
   type LimitError,

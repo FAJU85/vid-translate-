@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { AdminView } from '../modules/admin';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { HistoryView } from '../modules/history';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
@@ -7,12 +6,17 @@ import { api, type AppConfig } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
 
+// The dashboard (drag and drop, virtual lists) is only downloaded by people who open /admin.
+const AdminView = lazy(() => import('../modules/admin').then((m) => ({ default: m.AdminView })));
+
 const IS_ADMIN = window.location.pathname.replace(/\/+$/, '') === '/admin';
 
 export default function App() {
   return IS_ADMIN ? (
-    <div className="min-h-screen px-4 py-8 selection:bg-amber-400 selection:text-slate-950">
-      <AdminView />
+    <div className="selection:bg-amber-400 selection:text-slate-950">
+      <Suspense fallback={null}>
+        <AdminView />
+      </Suspense>
     </div>
   ) : (
     <Site />

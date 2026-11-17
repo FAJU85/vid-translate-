@@ -1,15 +1,17 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { CheckCircle2, ImagePlus, Loader2, Lock, Trash2 } from 'lucide-react';
-import { ApiError, adminApi, type AdminSettings } from '../../shared/api';
-import { SITE } from '../../shared/content';
+import { useEffect, useState, type FormEvent } from 'react';
+import { ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings } from 'lucide-react';
+import { ApiError, adminApi, api } from '../../shared/api';
+import { SITE, applySiteSettings } from '../../shared/content';
+import { JobsWorkspace } from './jobs/JobsWorkspace';
+import { SettingsPanel } from './SettingsPanel';
 
-const MAX_LOGO_KB = 256;
 const PASSWORD_KEY = 'tarjim_admin_password';
 
-const inputClass =
-  'w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400';
-
-const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '' };
+type Workspace = 'jobs' | 'settings';
+const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
+  { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
 
 function readPassword(): string {
   try {
@@ -19,39 +21,27 @@ function readPassword(): string {
   }
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block text-sm font-medium text-slate-200 mb-1.5">{label}</span>
-      {children}
-      {hint && <span className="block mt-1.5 text-xs text-slate-500">{hint}</span>}
-    </label>
-  );
-}
+const workspaceFromHash = (): Workspace => (window.location.hash === '#settings' ? 'settings' : 'jobs');
 
-/** The /admin page: one form for the name, logo, colour and main texts. Saving is live at once. */
+/** The /admin dashboard: sign in with ADMIN_PASSWORD, then the jobs board and the settings. */
 export function AdminView() {
   const [password, setPassword] = useState(readPassword);
   const [unlocked, setUnlocked] = useState(false);
-  const [values, setValues] = useState<AdminSettings>(EMPTY);
-  const [logo, setLogo] = useState<{ dataUrl: string } | 'remove' | null>(null); // null = unchanged
-  const [hasLogo, setHasLogo] = useState(false);
-  const [savedAt, setSavedAt] = useState(() => Date.now()); // busts the cached logo after a save
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [workspace, setWorkspaceState] = useState<Workspace>(workspaceFromHash);
 
-  const set = (key: keyof AdminSettings) => (e: { target: { value: string } }) =>
-    setValues((v) => ({ ...v, [key]: e.target.value }));
+  const setWorkspace = (w: Workspace) => {
+    setWorkspaceState(w);
+    window.history.replaceState(null, '', w === 'jobs' ? window.location.pathname : '#settings');
+  };
 
-  async function unlock(e: FormEvent) {
-    e.preventDefault();
+  async function signIn(e?: FormEvent) {
+    e?.preventDefault();
     setBusy(true);
-    setMessage(null);
+    setError(null);
     try {
       await adminApi.login(password);
-      const saved = await adminApi.load(password);
-      setValues({ ...EMPTY, ...saved });
-      setHasLogo(Boolean(saved.has_logo));
       setUnlocked(true);
       try {
         sessionStorage.setItem(PASSWORD_KEY, password); // only for this browser tab
@@ -59,159 +49,97 @@ export function AdminView() {
         /* private mode: just ask again next time */
       }
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof ApiError ? err.message : 'Could not sign in.' });
+      setError(err instanceof ApiError ? err.message : 'Could not sign in.');
     } finally {
       setBusy(false);
     }
   }
 
-  function pickLogo(file: File | undefined) {
-    if (!file) return;
-    if (file.size > MAX_LOGO_KB * 1024) {
-      setMessage({ ok: false, text: `The logo must be smaller than ${MAX_LOGO_KB} KB.` });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setLogo({ dataUrl: String(reader.result) });
-    reader.readAsDataURL(file);
-  }
+  // Signed in earlier in this tab: go straight in.
+  useEffect(() => {
+    api.config().then((c) => applySiteSettings(c.site), () => {});
+    if (password) signIn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMessage(null);
+  function signOut() {
     try {
-      const { has_logo: _ignored, ...fields } = values;
-      const payload: Partial<AdminSettings> = { ...fields };
-      if (logo === 'remove') payload.logo = '';
-      else if (logo) payload.logo = logo.dataUrl;
-      await adminApi.save(password, payload);
-      if (logo) setHasLogo(logo !== 'remove');
-      setSavedAt(Date.now());
-      setLogo(null);
-      setMessage({ ok: true, text: 'Saved. The website and the bot use the new settings right away.' });
-    } catch (err) {
-      setMessage({ ok: false, text: err instanceof ApiError ? err.message : 'Could not save.' });
-    } finally {
-      setBusy(false);
+      sessionStorage.removeItem(PASSWORD_KEY);
+    } catch {
+      /* nothing stored */
     }
+    setPassword('');
+    setUnlocked(false);
   }
-
-  const notice = message && (
-    <p
-      className={`p-3 text-sm rounded-xl border ${
-        message.ok ? 'border-emerald-800 bg-emerald-950/60 text-emerald-200' : 'border-rose-800 bg-rose-950/60 text-rose-200'
-      }`}
-    >
-      {message.ok && <CheckCircle2 className="inline w-4 h-4 mr-1.5 -mt-0.5" />}
-      {message.text}
-    </p>
-  );
 
   if (!unlocked) {
     return (
-      <form onSubmit={unlock} className="max-w-sm mx-auto mt-16 p-6 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-white">
-          <Lock className="w-5 h-5 text-amber-400" /> Settings
-        </h1>
-        <Field label="Admin password">
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} autoFocus />
-        </Field>
-        {notice}
-        <button disabled={busy || !password} className="w-full py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-bold">
-          {busy ? <Loader2 className="inline w-4 h-4 animate-spin" /> : 'Open settings'}
-        </button>
-      </form>
+      <div className="min-h-screen px-4 py-16">
+        <form onSubmit={signIn} className="max-w-sm mx-auto p-6 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-white">
+            <Lock className="w-5 h-5 text-amber-400" /> Admin
+          </h1>
+          <label className="block">
+            <span className="block text-sm font-medium text-slate-200 mb-1.5">Admin password</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoFocus
+              className="w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+          </label>
+          {error && <p className="p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">{error}</p>}
+          <button disabled={busy || !password} className="w-full py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-bold">
+            {busy ? <Loader2 className="inline w-4 h-4 animate-spin" /> : 'Sign in'}
+          </button>
+        </form>
+      </div>
     );
   }
 
-  const logoPreview = logo === 'remove' ? '' : logo ? logo.dataUrl : hasLogo ? `/api/logo?t=${savedAt}` : '';
-
   return (
-    <form onSubmit={save} className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="mt-1 text-sm text-slate-400">Leave a field empty to use the default shown in grey.</p>
-      </div>
-
-      <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
-        <h2 className="font-semibold text-white">Branding</h2>
-        <Field label="Platform name">
-          <input value={values.name} onChange={set('name')} placeholder={SITE.brand.name} className={inputClass} />
-        </Field>
-
-        <div>
-          <span className="block text-sm font-medium text-slate-200 mb-1.5">Logo</span>
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 shrink-0 rounded-xl border border-slate-700 bg-slate-950 flex items-center justify-center overflow-hidden">
-              {logoPreview ? (
-                <img src={logoPreview} alt="Logo" className="max-w-full max-h-full object-contain" />
-              ) : (
-                <span className="text-amber-400 font-bold">{SITE.brand.mark}</span>
-              )}
-            </div>
-            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800">
-              <ImagePlus className="w-4 h-4" /> Upload
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" className="hidden" onChange={(e) => pickLogo(e.target.files?.[0])} />
-            </label>
-            {logoPreview && (
-              <button type="button" onClick={() => setLogo('remove')} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-rose-300">
-                <Trash2 className="w-4 h-4" /> Remove
-              </button>
-            )}
-          </div>
-          <span className="block mt-1.5 text-xs text-slate-500">
-            PNG, JPEG, WebP or SVG, up to {MAX_LOGO_KB} KB. A square image works best. Also used as the browser-tab icon.
-          </span>
-        </div>
-
-        <Field label="Accent colour" hint="Buttons and highlights.">
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={values.accent || SITE.brand.accent}
-              onChange={set('accent')}
-              className="w-12 h-10 rounded-lg border border-slate-700 bg-slate-950 cursor-pointer"
-            />
-            <span className="text-sm text-slate-400 font-mono">{values.accent || `${SITE.brand.accent} (default)`}</span>
-            {values.accent && (
-              <button type="button" onClick={() => setValues((v) => ({ ...v, accent: '' }))} className="text-xs text-slate-400 hover:text-white">
-                Reset
-              </button>
-            )}
-          </div>
-        </Field>
-      </section>
-
-      <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
-        <h2 className="font-semibold text-white">Home page</h2>
-        <Field label="Main heading">
-          <input value={values.translate_title} onChange={set('translate_title')} placeholder={SITE.translate.title} className={inputClass} />
-        </Field>
-        <Field label="Introduction">
-          <textarea rows={3} value={values.translate_intro} onChange={set('translate_intro')} placeholder={SITE.translate.intro} className={inputClass} />
-        </Field>
-      </section>
-
-      <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
-        <h2 className="font-semibold text-white">Telegram bot</h2>
-        <Field label="Welcome message (English)" hint="Sent on /start and /help. Plain text; {lang} becomes the chosen language.">
-          <textarea rows={5} value={values.welcome_en} onChange={set('welcome_en')} placeholder="Default welcome message" className={inputClass} />
-        </Field>
-        <Field label="Welcome message (Arabic)">
-          <textarea rows={5} dir="rtl" value={values.welcome_ar} onChange={set('welcome_ar')} placeholder="رسالة الترحيب الافتراضية" className={inputClass} />
-        </Field>
-      </section>
-
-      {notice}
-      <div className="flex items-center gap-3">
-        <button disabled={busy} className="px-6 py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-bold">
-          {busy ? <Loader2 className="inline w-4 h-4 animate-spin" /> : 'Save'}
-        </button>
-        <a href="/" className="text-sm text-slate-400 hover:text-white">
-          View the website
+    <div className="h-dvh flex flex-col md:flex-row overflow-hidden">
+      {/* Slim persistent sidebar (a top strip on phones). */}
+      <nav
+        aria-label="Workspaces"
+        className="shrink-0 flex md:flex-col items-center gap-1 px-2 py-2 md:py-3 md:w-16 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950"
+      >
+        <a href="/" title={`${SITE.brand.name}: open the website`} className="w-9 h-9 md:mb-3 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center">
+          {SITE.brand.mark}
         </a>
-      </div>
-    </form>
+        {WORKSPACES.map((w) => (
+          <button
+            key={w.id}
+            onClick={() => setWorkspace(w.id)}
+            aria-current={workspace === w.id ? 'page' : undefined}
+            title={w.label}
+            className={`flex md:flex-col items-center gap-1.5 md:gap-0.5 px-3 md:px-0 md:w-12 h-9 md:h-12 justify-center rounded-xl text-xs ${
+              workspace === w.id ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <w.icon className="w-4 h-4" />
+            <span className="md:text-[10px]">{w.label}</span>
+          </button>
+        ))}
+        <span className="flex-1" />
+        <a href="/" target="_blank" rel="noreferrer" title="Open the website" className="hidden md:flex w-10 h-10 items-center justify-center rounded-xl text-slate-500 hover:text-white hover:bg-slate-900">
+          <ExternalLink className="w-4 h-4" />
+        </a>
+        <button onClick={signOut} title="Sign out" aria-label="Sign out" className="w-10 h-9 md:h-10 flex items-center justify-center rounded-xl text-slate-500 hover:text-white hover:bg-slate-900">
+          <LogOut className="w-4 h-4" />
+        </button>
+      </nav>
+
+      <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
+        {workspace === 'jobs' ? (
+          <JobsWorkspace password={password} onSettings={() => setWorkspace('settings')} />
+        ) : (
+          <div className="h-full overflow-y-auto">
+            <SettingsPanel password={password} />
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
