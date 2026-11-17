@@ -3,7 +3,21 @@ import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { LANGUAGES, isTargetLang } from '../../shared/languages';
 import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
-import { activeJobs, cancelJob, createJob, dispatch, getJob, listJobs, maxPerHour, type SubtitleMode } from '../jobs';
+import {
+  SUBTITLE_BACKGROUNDS,
+  SUBTITLE_POSITIONS,
+  SUBTITLE_SIZES,
+  activeJobs,
+  cancelJob,
+  createJob,
+  dispatch,
+  getJob,
+  listJobs,
+  maxPerHour,
+  parseSubtitleStyle,
+  type SubtitleMode,
+  type SubtitleStyle,
+} from '../jobs';
 import { welcomeOverride } from '../settings';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, saveChat, type ChatRow } from './chats';
@@ -88,6 +102,11 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     await sendMessage(env, chatId, t(ui, 'pick_lang'), languageKeyboard(ui));
     return;
   }
+  if (command === '/style') {
+    const menu = styleMenu(ui, chatStyle(chat));
+    await sendMessage(env, chatId, menu.text, menu.keyboard);
+    return;
+  }
   if (command === '/status') {
     const jobs = (await listJobs(env, `tg:${chatId}`, 5)).filter((j) => j.status !== 'awaiting_upload');
     if (!jobs.length) {
@@ -146,6 +165,36 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   if (sent) await saveChat(env, { ...chat, pending: JSON.stringify({ ...pending, messageId: sent.message_id }) });
 }
 
+// ------------------------------------------------------------------ /style
+
+/** Colour choices offered in the bot (the website has a full colour picker). */
+const STYLE_COLORS: Record<string, string> = { white: '#FFFFFF', yellow: '#FFD400', cyan: '#38BDF8' };
+
+function chatStyle(chat: ChatRow): SubtitleStyle {
+  return parseSubtitleStyle(chat.style ? JSON.parse(chat.style) : null);
+}
+
+function colorName(style: SubtitleStyle): string {
+  return Object.keys(STYLE_COLORS).find((k) => STYLE_COLORS[k] === style.color) ?? 'white';
+}
+
+function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: Keyboard } {
+  const mark = (on: boolean, label: string) => (on ? `✓ ${label}` : label);
+  const text = t(ui, 'style_menu', {
+    size: t(ui, `size_${style.size}`),
+    position: t(ui, `pos_${style.position}`),
+    background: t(ui, `bg_${style.background}`),
+    color: t(ui, `color_${colorName(style)}`),
+  });
+  const keyboard: Keyboard = [
+    SUBTITLE_SIZES.map((v) => ({ text: mark(style.size === v, t(ui, `size_${v}`)), callback_data: `st:size:${v}` })),
+    SUBTITLE_POSITIONS.map((v) => ({ text: mark(style.position === v, t(ui, `pos_${v}`)), callback_data: `st:position:${v}` })),
+    SUBTITLE_BACKGROUNDS.map((v) => ({ text: mark(style.background === v, t(ui, `bg_${v}`)), callback_data: `st:background:${v}` })),
+    Object.keys(STYLE_COLORS).map((v) => ({ text: mark(colorName(style) === v, t(ui, `color_${v}`)), callback_data: `st:color:${v}` })),
+  ];
+  return { text, keyboard };
+}
+
 async function startJob(
   env: Env,
   ctx: ExecutionContext,
@@ -171,6 +220,7 @@ async function startJob(
     title: pending.title ?? null,
     tgtLang: chat.tgt_lang,
     mode: pending.video ? mode : 'soft',
+    style: chatStyle(chat),
     origin,
   });
   if (!job) return t(ui, error === 'busy' ? 'busy' : 'rate_limited', { n: maxPerHour(env) });
@@ -207,6 +257,13 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
           await editMessage(env, chatId, messageId, t(ui, 'lang_set', { lang: langName(code, ui) }));
         }
       }
+    } else if (data.startsWith('st:')) {
+      const [, field, value] = data.split(':');
+      const current = chatStyle(chat);
+      const next = parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
+      await saveChat(env, { ...chat, style: JSON.stringify(next) });
+      const menu = styleMenu(ui, next);
+      await editMessage(env, chatId, messageId, menu.text, menu.keyboard);
     } else if (data.startsWith('cancel:')) {
       const job = await getJob(env, data.slice(7));
       if (job && job.chat_id === chatId) await cancelJob(env, job);
@@ -262,12 +319,14 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
       ? [
           { command: 'start', description: 'كيف يعمل البوت' },
           { command: 'lang', description: 'تغيير لغة الترجمة' },
+          { command: 'style', description: 'حجم الترجمة وموضعها ولونها' },
           { command: 'status', description: 'آخر طلباتك' },
           { command: 'cancel', description: 'إيقاف الطلب الحالي' },
         ]
       : [
           { command: 'start', description: 'How the bot works' },
           { command: 'lang', description: 'Change the target language' },
+          { command: 'style', description: 'Subtitle size, position and colour' },
           { command: 'status', description: 'Your recent jobs' },
           { command: 'cancel', description: 'Stop the running job' },
         ];

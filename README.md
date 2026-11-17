@@ -164,9 +164,13 @@ The defaults, and every other website text and bot message, are in `content/site
 
 ## Using the bot
 
-1. Send a video link, or a video / audio file (up to 20 MB — a Telegram limit for bots).
-2. Choose **Subtitle file** or **Video with subtitles**. `/lang` changes the target language.
+1. Send a video / audio file (up to 20 MB — a Telegram limit for bots) or a video link.
+2. Choose **Subtitle file** or **Video with subtitles**. `/lang` changes the target language,
+   `/style` the size, position, colour and background of burned-in subtitles.
 3. The bot edits one message with live progress, then sends the files.
+
+On the website, choosing **Video with burned-in subtitles** shows the same style options with a
+live preview of how the subtitles will look.
 
 `/status` lists recent jobs, `/cancel` stops the running one. The bot answers in Arabic to
 users whose Telegram is set to Arabic, in English otherwise.

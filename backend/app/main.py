@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from .modules import speech, translation
+from .modules import speech, subtitles, translation
 from .modules.jobs import OUTPUT_FILES, UPLOAD_NAME, Job, manager
 from .shared import config, security
 
@@ -73,6 +73,8 @@ class InvokeRequest(BaseModel):
     subtitle_mode: str = Field(default="soft", pattern="^(soft|hard)$")
     callback_url: str | None = None
     title: str | None = None
+    # Burned-in subtitle style: {size, position, color, background}; unknown values use defaults.
+    subtitle_style: dict | None = None
 
 
 def _require_auth(authorization: str | None) -> None:
@@ -124,6 +126,7 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         mode=req.subtitle_mode,
         callback_url=req.callback_url,
         title=req.title,
+        style=subtitles.SubtitleStyle.from_dict(req.subtitle_style).to_dict(),
     )
     try:
         job = manager.submit(job)

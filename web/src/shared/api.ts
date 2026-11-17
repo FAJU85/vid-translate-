@@ -2,6 +2,14 @@
 export type JobStatus = 'awaiting_upload' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 export type SubtitleMode = 'soft' | 'hard';
 
+/** How burned-in subtitles look (only used with SubtitleMode 'hard'). */
+export interface SubtitleStyle {
+  size: 'small' | 'medium' | 'large' | 'xlarge';
+  position: 'bottom' | 'middle' | 'top';
+  color: string; // #RRGGBB
+  background: 'outline' | 'box';
+}
+
 export interface Job {
   id: string;
   channel: 'web' | 'telegram';

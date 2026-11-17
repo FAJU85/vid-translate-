@@ -3,6 +3,7 @@ import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type SubtitleMode } from '../../shared/api';
 import { uploadFile } from './upload';
 import { JobView } from './JobView';
+import { StylePicker, rememberedStyle } from './StylePicker';
 import { SITE } from '../../shared/content';
 
 const SOURCE_LANGS = [
@@ -37,6 +38,7 @@ export function TranslateView({ config, jobId, onJob }: Props) {
   const [srcLang, setSrcLang] = useState('auto');
   const [tgtLang, setTgtLang] = useState('ar');
   const [mode, setMode] = useState<SubtitleMode>('soft');
+  const [style, setStyle] = useState(rememberedStyle);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Object URL of the file uploaded in this session, used to preview soft-subtitle results.
@@ -50,7 +52,7 @@ export function TranslateView({ config, jobId, onJob }: Props) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode };
+    const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode, ...(mode === 'hard' ? { style } : {}) };
     try {
       let job: Job;
       if (source === 'url') {
@@ -166,6 +168,8 @@ export function TranslateView({ config, jobId, onJob }: Props) {
             </select>
           </label>
         </div>
+
+        {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} />}
 
         {error && (
           <div role="alert" className="flex items-start gap-2 p-3 text-sm rounded-lg border border-rose-800 bg-rose-950/60 text-rose-200">

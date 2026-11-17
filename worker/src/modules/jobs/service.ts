@@ -3,6 +3,7 @@ import * as backend from './backend';
 import { emitChanged, emitFinished, sourceFetcher } from './events';
 import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind, type SubtitleMode } from './model';
 import * as store from './store';
+import type { SubtitleStyle } from './style';
 
 const MAX_DISPATCH_ATTEMPTS = 15; // one per minute while the Space wakes up
 // The Space cannot reliably open connections to this Worker, so its progress callbacks are only
@@ -29,6 +30,8 @@ export interface NewJob {
   srcLang?: string;
   tgtLang: string;
   mode: SubtitleMode;
+  /** Burned-in subtitle style; only used when mode is 'hard'. */
+  style?: SubtitleStyle | null;
   origin: string;
 }
 
@@ -67,6 +70,7 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     tgt_lang: p.tgtLang,
     detected_lang: null,
     mode: p.mode,
+    style: p.mode === 'hard' && p.style ? JSON.stringify(p.style) : null,
     status: p.sourceKind === 'upload' ? 'awaiting_upload' : 'queued',
     stage: 'queued',
     progress: 0,
@@ -124,6 +128,7 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       src_lang: job.src_lang,
       tgt_lang: job.tgt_lang,
       subtitle_mode: job.mode,
+      subtitle_style: job.style ? (JSON.parse(job.style) as SubtitleStyle) : undefined,
       callback_url: `${job.origin}/api/callback`,
       title: job.title,
     });

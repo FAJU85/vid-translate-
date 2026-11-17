@@ -39,3 +39,52 @@ def test_srt_and_vtt_format():
 def test_wrap_two_lines():
     wrapped = subtitles_core._wrap("a" * 30 + " " + "b" * 30)
     assert wrapped.count("\n") == 1
+
+
+# --- text cleaning and burned-in (ASS) subtitles -------------------------------------------
+
+from app.modules.subtitles import Cue, SubtitleStyle, clean_text, to_ass
+
+
+def test_clean_text_removes_characters_that_render_as_squares():
+    assert clean_text("نص� غريب و <unk> هنا\x07") == "نص غريب و هنا"
+    assert clean_text("  مرحباً   بكم ") == "مرحباً بكم"
+
+
+def test_style_from_dict_keeps_defaults_for_bad_input():
+    assert SubtitleStyle.from_dict(None) == SubtitleStyle()
+    style = SubtitleStyle.from_dict({"size": "huge", "position": "left", "color": "red", "background": "x"})
+    assert style == SubtitleStyle()
+    style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box"})
+    assert style.to_dict() == {"size": "large", "position": "top", "color": "#FFCC00", "background": "box"}
+
+
+def _style_line(ass: str) -> list[str]:
+    line = next(l for l in ass.splitlines() if l.startswith("Style: Default,"))
+    return line[len("Style: "):].split(",")
+
+
+def test_to_ass_uses_the_arabic_font_and_default_style():
+    ass = to_ass([Cue(1, 0.0, 2.5, "Hello", "السلام عليكم")], "ar")
+    fields = _style_line(ass)
+    assert fields[1] == "Noto Sans Arabic" and fields[2] == "27.9"  # medium (18) x Arabic-script scale
+    assert fields[3] == "&H00FFFFFF"                                 # white text
+    assert fields[15] == "1" and fields[18] == "2"                   # outline, bottom centre
+    assert "Dialogue: 0,0:00:00.00,0:00:02.50,Default,,0,0,0,,السلام عليكم" in ass
+
+
+def test_to_ass_applies_size_position_colour_and_box():
+    style = SubtitleStyle.from_dict({"size": "xlarge", "position": "top", "color": "#FFCC00", "background": "box"})
+    fields = _style_line(to_ass([Cue(1, 0, 1, "a", "b")], "en", style))
+    assert fields[1] == "Noto Sans" and fields[2] == "30"
+    assert fields[3] == "&H0000CCFF"                                 # #FFCC00 as &HAABBGGRR
+    assert fields[15] == "4" and fields[18] == "8"                   # one box per subtitle, top centre
+    assert fields[6] == "&H60000000"                                 # translucent black box
+
+
+def test_to_ass_text_is_safe_and_wrapped():
+    long_text = "كلمة " * 20 + "{\\b1}نص 😀👍"
+    ass = to_ass([Cue(1, 0, 3, "x", long_text)], "ar")
+    dialogue = ass.strip().splitlines()[-1]
+    assert "\\N" in dialogue                        # two lines
+    assert "{" not in dialogue and "😀" not in dialogue and "👍" not in dialogue

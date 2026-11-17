@@ -1,4 +1,5 @@
 import { now, type Env } from '../../shared/env';
+import type { AddedColumn } from '../../shared/db';
 import type { JobRow } from './model';
 
 /** The jobs table. Only this file writes SQL against it. */
@@ -19,6 +20,7 @@ export const JOBS_SCHEMA = [
     tgt_lang TEXT NOT NULL DEFAULT 'ar',
     detected_lang TEXT,
     mode TEXT NOT NULL DEFAULT 'soft',
+    style TEXT,
     status TEXT NOT NULL,
     stage TEXT NOT NULL DEFAULT 'queued',
     progress INTEGER NOT NULL DEFAULT 0,
@@ -36,6 +38,9 @@ export const JOBS_SCHEMA = [
   `CREATE INDEX IF NOT EXISTS jobs_owner ON jobs (owner, created_at)`,
   `CREATE INDEX IF NOT EXISTS jobs_status ON jobs (status, updated_at)`,
 ];
+
+/** Columns added after the first release, for databases created before them. */
+export const JOBS_COLUMNS: AddedColumn[] = [{ table: 'jobs', column: 'style', definition: 'TEXT' }];
 
 export function getJob(env: Env, id: string): Promise<JobRow | null> {
   return env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first<JobRow>();

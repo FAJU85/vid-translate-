@@ -1,6 +1,6 @@
 {
   "en": {
-    "welcome": "👋 <b>TarjimVideo</b>\n\nSend me a video or audio file (or a public video link; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/status — your recent jobs\n/cancel — stop the running job",
+    "welcome": "👋 <b>TarjimVideo</b>\n\nSend me a video or audio file (or a public video link; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/style — subtitle size, position and colour\n/status — your recent jobs\n/cancel — stop the running job",
     "not_allowed": "⛔ This bot is private. Your chat id is <code>{id}</code>.",
     "hint": "Send me a video/audio file (or a public video link) to translate. /help",
     "bad_url": "⚠️ That does not look like a usable video link.",
@@ -45,10 +45,23 @@
     "E_RENDER_FAILED": "the video could not be rendered.",
     "E_BACKEND_DOWN": "the translation server is not responding. Please try again in a few minutes.",
     "E_BACKEND_RESTARTED": "the translation server restarted in the middle of the job. Please send the video again.",
-    "E_INTERNAL": "an unexpected error occurred."
+    "E_INTERNAL": "an unexpected error occurred.",
+    "style_menu": "🎨 <b>Subtitle style</b> (for videos with burned-in subtitles)\n\nSize: <b>{size}</b> · Position: <b>{position}</b>\nBackground: <b>{background}</b> · Colour: <b>{color}</b>",
+    "size_small": "Small",
+    "size_medium": "Medium",
+    "size_large": "Large",
+    "size_xlarge": "Extra large",
+    "pos_bottom": "⬇️ Bottom",
+    "pos_middle": "↕️ Middle",
+    "pos_top": "⬆️ Top",
+    "bg_outline": "Outline",
+    "bg_box": "Dark box",
+    "color_white": "⚪ White",
+    "color_yellow": "🟡 Yellow",
+    "color_cyan": "🔵 Blue"
   },
   "ar": {
-    "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
+    "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — حجم الترجمة وموضعها ولونها\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
     "not_allowed": "⛔ هذا البوت خاص. معرّف محادثتك: <code>{id}</code>.",
     "hint": "أرسل ملف فيديو/صوت (أو رابط فيديو عام) لترجمته. /help",
     "bad_url": "⚠️ هذا الرابط غير صالح للترجمة.",
@@ -93,6 +106,19 @@
     "E_RENDER_FAILED": "تعذّر إنتاج الفيديو.",
     "E_BACKEND_DOWN": "خادم الترجمة لا يستجيب. حاول مرة أخرى بعد دقائق.",
     "E_BACKEND_RESTARTED": "أُعيد تشغيل خادم الترجمة أثناء المعالجة. أرسل الفيديو مرة أخرى.",
-    "E_INTERNAL": "حدث خطأ غير متوقع."
+    "E_INTERNAL": "حدث خطأ غير متوقع.",
+    "style_menu": "🎨 <b>شكل الترجمة</b> (للفيديو مع الترجمة المدمجة)\n\nالحجم: <b>{size}</b> · الموضع: <b>{position}</b>\nالخلفية: <b>{background}</b> · اللون: <b>{color}</b>",
+    "size_small": "صغير",
+    "size_medium": "متوسط",
+    "size_large": "كبير",
+    "size_xlarge": "كبير جداً",
+    "pos_bottom": "⬇️ أسفل",
+    "pos_middle": "↕️ وسط",
+    "pos_top": "⬆️ أعلى",
+    "bg_outline": "حدود",
+    "bg_box": "مربع داكن",
+    "color_white": "⚪ أبيض",
+    "color_yellow": "🟡 أصفر",
+    "color_cyan": "🔵 أزرق"
   }
 }

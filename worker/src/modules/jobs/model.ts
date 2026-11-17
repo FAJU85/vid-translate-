@@ -20,6 +20,8 @@ export interface JobRow {
   tgt_lang: string;
   detected_lang: string | null;
   mode: SubtitleMode;
+  /** JSON of the burned-in subtitle style (see style.ts), or null for the default. */
+  style: string | null;
   status: JobStatus;
   stage: string;
   progress: number;

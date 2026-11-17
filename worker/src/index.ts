@@ -7,6 +7,7 @@ import { ensureSchema } from './shared/db';
 import type { Env } from './shared/env';
 import { apiError, json } from './shared/http';
 import {
+  JOBS_COLUMNS,
   JOBS_SCHEMA,
   backendHealth,
   handleBackendCallback,
@@ -14,7 +15,7 @@ import {
   registerSourceFetcher,
   sweep,
 } from './modules/jobs';
-import { CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
+import { CHATS_COLUMNS, CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
 import { handleApi } from './modules/web-api';
 
@@ -24,6 +25,7 @@ registerJobListener(telegramJobListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 
 const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA];
+const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -54,7 +56,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      await ensureSchema(env, SCHEMA);
+      await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
       return await route(request, env, ctx);
     } catch (err) {
       console.error('request failed', (err as Error).stack ?? err);
@@ -63,7 +65,7 @@ export default {
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    await ensureSchema(env, SCHEMA);
+    await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
     ctx.waitUntil(sweep(env));
   },
 } satisfies ExportedHandler<Env>;
