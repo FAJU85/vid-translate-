@@ -3,6 +3,7 @@ import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type SubtitleMode } from '../../shared/api';
 import { uploadFile } from './upload';
 import { JobView } from './JobView';
+import { SITE } from '../../shared/content';
 
 const SOURCE_LANGS = [
   ['auto', 'Detect automatically'],
@@ -81,11 +82,8 @@ export function TranslateView({ config, jobId, onJob }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white">Translate a video's speech into subtitles</h1>
-        <p className="mt-2 text-sm text-slate-400 max-w-2xl">
-          Paste a link or upload a file. You get a subtitle file (.srt / .vtt) in the language you choose, or the video
-          with the subtitles burned in.
-        </p>
+        <h1 className="text-2xl md:text-3xl font-bold text-white">{SITE.translate.title}</h1>
+        <p className="mt-2 text-sm text-slate-400 max-w-2xl">{SITE.translate.intro}</p>
       </div>
 
       <form onSubmit={submit} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
@@ -121,9 +119,7 @@ export function TranslateView({ config, jobId, onJob }: Props) {
               placeholder="https://…"
               className={inputClass}
             />
-            <span className="block mt-1.5 text-xs text-slate-500">
-              A public video page or a direct link to a video or audio file. YouTube links are not supported: upload the file instead.
-            </span>
+            <span className="block mt-1.5 text-xs text-slate-500">{SITE.translate.link_hint}</span>
           </label>
         ) : (
           <label className="block cursor-pointer rounded-xl border border-dashed border-slate-700 hover:border-amber-400 bg-slate-950/60 p-6 text-center">

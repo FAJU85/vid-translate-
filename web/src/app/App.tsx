@@ -3,6 +3,7 @@ import { HistoryView } from '../modules/history';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
 import { api, type AppConfig } from '../shared/api';
+import { SITE } from '../shared/content';
 import { Header, type NavTab } from './Header';
 
 export default function App() {
@@ -49,7 +50,7 @@ export default function App() {
         {tab === 'telegram' && <TelegramView config={config} />}
       </main>
       <footer className="border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500">
-        TarjimVideo · Whisper speech recognition · neural machine translation
+        {SITE.brand.footer}
       </footer>
     </div>
   );

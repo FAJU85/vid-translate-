@@ -151,6 +151,23 @@ Once the site has its URL, set `ALLOWED_ORIGINS` in `wrangler.toml` (and `CORS_O
 on the Space) to that URL and redeploy, so other websites cannot use your API from a browser.
 This is a browser-only restriction: direct HTTP calls are still limited only by the rate limits.
 
+## Editing content (logo, texts, colours)
+
+The platform's name, logo, accent colour, website texts and every bot message live in two files:
+`content/site.json` (website) and `content/bot.json` (bot, English and Arabic). Images go in
+`web/public/images/` and are served at `/images/...`.
+
+Edit them with **[Pages CMS](https://pagescms.org)**, a free visual editor configured by `.pages.yml`:
+
+1. Open [app.pagescms.org](https://app.pagescms.org) and sign in with GitHub.
+2. Install its GitHub app on this repository when asked, then open the repository.
+3. Choose **Website** or **Telegram bot messages**, edit, and **Save**.
+
+Saving commits to `main`; Cloudflare redeploys the website and the bot within a couple of minutes.
+Keep `{placeholders}` such as `{lang}` or `{title}` in bot messages: the bot fills them in. An emptied
+Arabic message falls back to English. The bot's profile picture is set in Telegram with
+@BotFather (`/setuserpic`).
+
 ## Using the bot
 
 1. Send a video link, or a video / audio file (up to 20 MB — a Telegram limit for bots).

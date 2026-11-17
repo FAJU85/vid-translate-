@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, RefreshCw } from 'lucide-react';
 import { api, type AppConfig, type Job } from '../../shared/api';
+import { SITE } from '../../shared/content';
 
 const BADGE: Record<string, string> = {
   done: 'bg-emerald-950 text-emerald-300',
@@ -24,7 +25,7 @@ export function HistoryView({ config, onOpen }: { config: AppConfig | null; onOp
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">My translations</h1>
+          <h1 className="text-2xl font-bold text-white">{SITE.history.title}</h1>
           <p className="mt-1 text-sm text-slate-400">
             Videos submitted from this browser. Result files are kept for 24 hours.
           </p>

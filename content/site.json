@@ -1,0 +1,43 @@
+{
+  "brand": {
+    "name": "TarjimVideo",
+    "mark": "ترجم",
+    "logo": "",
+    "accent": "#fbbf24",
+    "footer": "TarjimVideo · Whisper speech recognition · neural machine translation"
+  },
+  "seo": {
+    "title": "TarjimVideo — Video subtitle translation",
+    "description": "Translate the speech of any video into subtitles in Arabic and other languages. Works from the browser or the Telegram bot."
+  },
+  "translate": {
+    "title": "Translate a video's speech into subtitles",
+    "intro": "Upload a file or paste a link. You get a subtitle file (.srt / .vtt) in the language you choose, or the video with the subtitles burned in.",
+    "link_hint": "A public video page or a direct link to a video or audio file. YouTube links are not supported: upload the file instead."
+  },
+  "history": {
+    "title": "My translations"
+  },
+  "telegram": {
+    "title": "Use it from Telegram",
+    "intro": "The same translation service, without leaving your chat app.",
+    "steps": [
+      {
+        "title": "Open the bot and press Start",
+        "body": "It explains what it can do, in English or Arabic depending on your Telegram language."
+      },
+      {
+        "title": "Send a video file or a link",
+        "body": "Files sent in the chat can be up to 20 MB (a Telegram limit); use this website for larger videos. Public video links work too, except YouTube."
+      },
+      {
+        "title": "Choose what you want back",
+        "body": "A subtitle file (.srt), or the video with the subtitles burned into the picture. Use /lang to change the target language."
+      },
+      {
+        "title": "Wait for the result",
+        "body": "The bot shows live progress and sends the files into the chat when they are ready."
+      }
+    ]
+  }
+}
