@@ -1,6 +1,6 @@
 /**
- * Editable bot messages: content/bot.json at the repository root, edited with Pages CMS
- * (see .pages.yml). {placeholders} in a message are filled in by the bot.
+ * Default bot messages: content/bot.json at the repository root. {placeholders} in a message are
+ * filled in by the bot. The welcome message can also be replaced on the website's /admin page.
  */
 import bot from '../../../content/bot.json';
 

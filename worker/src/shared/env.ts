@@ -9,6 +9,8 @@ export interface Env {
   /** Random string; Telegram echoes it on every webhook call. */
   TELEGRAM_WEBHOOK_SECRET: string;
   TELEGRAM_API_BASE?: string;
+  /** Password for the website's /admin page (at least 8 characters). Unset: the page stays locked. */
+  ADMIN_PASSWORD?: string;
   /** Public origin of this Worker, if it differs from the request origin. */
   PUBLIC_URL?: string;
   /** Comma-separated origins allowed to call /api (the Pages site). Default: any. */

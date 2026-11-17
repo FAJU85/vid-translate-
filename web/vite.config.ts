@@ -7,7 +7,8 @@ const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
- * Page title, description and tab icon come from content/site.json (edited with Pages CMS).
+ * Page title, description and default tab icon come from content/site.json (the defaults; the
+ * name, logo and colour saved on the /admin page are applied in the browser).
  * Read when the build starts; in `npm run dev`, restart after editing it.
  */
 function siteHead(): Plugin {

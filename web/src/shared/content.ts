@@ -1,8 +1,9 @@
 /**
- * Editable site content: content/site.json at the repository root, edited with Pages CMS
- * (see .pages.yml). Uploaded images live in web/public/images and are served at /images/...
+ * Site content. Defaults come from content/site.json; values saved on the /admin page arrive with
+ * /api/config and are applied on top by applySiteSettings().
  */
 import site from '../../../content/site.json';
+import type { SiteSettings } from './api';
 
 export interface SiteContent {
   brand: { name: string; mark: string; logo: string; accent: string; footer: string };
@@ -12,18 +13,56 @@ export interface SiteContent {
   telegram: { title: string; intro: string; steps: { title: string; body: string }[] };
 }
 
-export const SITE: SiteContent = site;
+// A copy, so the defaults stay available when a saved value is cleared.
+const DEFAULTS: SiteContent = site;
+export const SITE: SiteContent = structuredClone(site);
 
 /**
  * Apply the accent colour. The interface uses Tailwind's amber shades, which are CSS variables
  * in Tailwind 4, so overriding them recolours every button, badge and highlight at once.
  */
 export function applyAccent(accent = SITE.brand.accent): void {
-  if (!/^#[0-9a-f]{3,8}$/i.test(accent.trim())) return; // keep the built-in colour on a typo
+  if (!/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(accent.trim())) return; // keep the built-in colour on a typo
   const c = accent.trim();
   const style = document.documentElement.style;
   style.setProperty('--color-amber-400', c);
   style.setProperty('--color-amber-300', `color-mix(in oklab, ${c} 75%, white)`);
   style.setProperty('--color-amber-500', `color-mix(in oklab, ${c} 85%, black)`);
   style.setProperty('--color-amber-950', `color-mix(in oklab, ${c} 22%, black)`);
+}
+
+const ACCENT_KEY = 'tarjim_accent';
+
+/** The colour saved last time, so the page does not flash the default colour while loading. */
+export function rememberedAccent(): string {
+  try {
+    return localStorage.getItem(ACCENT_KEY) || SITE.brand.accent;
+  } catch {
+    return SITE.brand.accent;
+  }
+}
+
+/** Apply the values saved on the /admin page; an empty value keeps the default. */
+export function applySiteSettings(saved?: SiteSettings): void {
+  if (!saved) return;
+  SITE.brand.name = saved.name || DEFAULTS.brand.name;
+  SITE.brand.logo = saved.logo_url || DEFAULTS.brand.logo;
+  SITE.brand.accent = saved.accent || DEFAULTS.brand.accent;
+  SITE.translate.title = saved.translate_title || DEFAULTS.translate.title;
+  SITE.translate.intro = saved.translate_intro || DEFAULTS.translate.intro;
+  applyAccent(SITE.brand.accent);
+  try {
+    localStorage.setItem(ACCENT_KEY, SITE.brand.accent); // applied before the first paint next time
+  } catch {
+    /* storage blocked: the colour still applies once the settings load */
+  }
+  if (SITE.brand.logo) {
+    let icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!icon) {
+      icon = document.createElement('link');
+      icon.rel = 'icon';
+      document.head.appendChild(icon);
+    }
+    icon.href = SITE.brand.logo;
+  }
 }

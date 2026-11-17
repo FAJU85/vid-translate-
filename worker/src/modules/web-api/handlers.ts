@@ -16,6 +16,7 @@ import {
   uploadLink,
   type JobRow,
 } from '../jobs';
+import { handleAdminLogin, handleAdminSettings, publicSettings, serveLogo } from '../settings';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
 
@@ -87,8 +88,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       languages: LANGUAGES.map(({ code, flag, en, ar }) => ({ code, flag, en, ar })),
       max_upload_mb: maxUploadMb(env),
       max_jobs_per_hour: maxPerHour(env),
+      site: await publicSettings(env),
     });
   }
+
+  // Settings edited on the website's /admin page (password: the ADMIN_PASSWORD secret).
+  if (path === '/api/admin/login' && method === 'POST') return handleAdminLogin(request, env);
+  if (path === '/api/admin/settings' && (method === 'GET' || method === 'POST')) return handleAdminSettings(request, env);
+  if (path === '/api/logo' && method === 'GET') return serveLogo(env);
 
   if (path === '/api/jobs' && method === 'GET') {
     const client = url.searchParams.get('client_id') ?? '';

@@ -1,19 +1,38 @@
 import { useEffect, useState } from 'react';
+import { AdminView } from '../modules/admin';
 import { HistoryView } from '../modules/history';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
 import { api, type AppConfig } from '../shared/api';
-import { SITE } from '../shared/content';
+import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
 
+const IS_ADMIN = window.location.pathname.replace(/\/+$/, '') === '/admin';
+
 export default function App() {
+  return IS_ADMIN ? (
+    <div className="min-h-screen px-4 py-8 selection:bg-amber-400 selection:text-slate-950">
+      <AdminView />
+    </div>
+  ) : (
+    <Site />
+  );
+}
+
+function Site() {
   const [tab, setTab] = useState<NavTab>('translate');
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
-    api.config().then(setConfig).catch(() => setConfigError(true));
+    api
+      .config()
+      .then((c) => {
+        applySiteSettings(c.site); // before setConfig, so the re-render shows the saved name, logo and texts
+        setConfig(c);
+      })
+      .catch(() => setConfigError(true));
   }, []);
 
   // Keep the address bar shareable: ?job=<id> reopens the same result.

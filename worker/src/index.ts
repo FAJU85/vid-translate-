@@ -15,6 +15,7 @@ import {
   sweep,
 } from './modules/jobs';
 import { CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
+import { SETTINGS_SCHEMA } from './modules/settings';
 import { handleApi } from './modules/web-api';
 
 // Telegram follows job progress through the jobs brick's listener port, and supplies the files
@@ -22,7 +23,7 @@ import { handleApi } from './modules/web-api';
 registerJobListener(telegramJobListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
