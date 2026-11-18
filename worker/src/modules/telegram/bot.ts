@@ -4,7 +4,9 @@ import { apiError, json } from '../../shared/http';
 import { LANGUAGES, isTargetLang } from '../../shared/languages';
 import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import {
+  STYLE_PRESETS,
   SUBTITLE_BACKGROUNDS,
+  SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
   activeJobs,
@@ -47,6 +49,7 @@ function chooseKeyboard(ui: UiLang, pending: Pending): Keyboard {
   const rows: Keyboard = [[{ text: t(ui, 'btn_soft'), callback_data: 'go:soft' }]];
   if (pending.video) rows[0].push({ text: t(ui, 'btn_hard'), callback_data: 'go:hard' });
   rows.push([{ text: t(ui, 'btn_lang'), callback_data: 'lang' }]);
+  if (pending.video) rows[1].push({ text: t(ui, 'btn_style'), callback_data: 'style' });
   return rows;
 }
 
@@ -167,30 +170,54 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
 
 // ------------------------------------------------------------------ /style
 
-/** Colour choices offered in the bot (the website has a full colour picker). */
-const STYLE_COLORS: Record<string, string> = { white: '#FFFFFF', yellow: '#FFD400', cyan: '#38BDF8' };
+/** Colour choices offered in the bot (the website also has a full colour picker). */
+const STYLE_COLORS: Record<string, string> = {
+  white: '#FFFFFF',
+  yellow: '#FFD400',
+  cyan: '#38BDF8',
+  green: '#4ADE80',
+  orange: '#FB923C',
+  pink: '#F472B6',
+};
+
+const sameStyle = (a: SubtitleStyle, b: SubtitleStyle) =>
+  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => a[k] === b[k]);
 
 function chatStyle(chat: ChatRow): SubtitleStyle {
   return parseSubtitleStyle(chat.style ? JSON.parse(chat.style) : null);
 }
 
-function colorName(style: SubtitleStyle): string {
-  return Object.keys(STYLE_COLORS).find((k) => STYLE_COLORS[k] === style.color) ?? 'white';
+/** The colour's name in the bot, or null for a custom colour picked on the website. */
+function colorName(style: SubtitleStyle): string | null {
+  return Object.keys(STYLE_COLORS).find((k) => STYLE_COLORS[k] === style.color) ?? null;
 }
 
 function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: Keyboard } {
   const mark = (on: boolean, label: string) => (on ? `✓ ${label}` : label);
+  const color = colorName(style);
+  const preset = (Object.keys(STYLE_PRESETS) as (keyof typeof STYLE_PRESETS)[]).find((k) => sameStyle(STYLE_PRESETS[k], style));
   const text = t(ui, 'style_menu', {
+    design: preset ? t(ui, `preset_${preset}`) : t(ui, 'preset_custom'),
+    font: t(ui, `font_${style.font}`),
     size: t(ui, `size_${style.size}`),
     position: t(ui, `pos_${style.position}`),
     background: t(ui, `bg_${style.background}`),
-    color: t(ui, `color_${colorName(style)}`),
+    color: color ? t(ui, `color_${color}`) : style.color,
   });
+  const presets = (Object.keys(STYLE_PRESETS) as (keyof typeof STYLE_PRESETS)[]).map((k) => ({
+    text: mark(preset === k, t(ui, `preset_${k}`)),
+    callback_data: `st:preset:${k}`,
+  }));
+  const colors = Object.keys(STYLE_COLORS).map((v) => ({ text: mark(color === v, t(ui, `color_${v}`)), callback_data: `st:color:${v}` }));
   const keyboard: Keyboard = [
+    presets.slice(0, 2),
+    presets.slice(2),
+    SUBTITLE_FONTS.map((v) => ({ text: mark(style.font === v, t(ui, `font_${v}`)), callback_data: `st:font:${v}` })),
     SUBTITLE_SIZES.map((v) => ({ text: mark(style.size === v, t(ui, `size_${v}`)), callback_data: `st:size:${v}` })),
     SUBTITLE_POSITIONS.map((v) => ({ text: mark(style.position === v, t(ui, `pos_${v}`)), callback_data: `st:position:${v}` })),
     SUBTITLE_BACKGROUNDS.map((v) => ({ text: mark(style.background === v, t(ui, `bg_${v}`)), callback_data: `st:background:${v}` })),
-    Object.keys(STYLE_COLORS).map((v) => ({ text: mark(colorName(style) === v, t(ui, `color_${v}`)), callback_data: `st:color:${v}` })),
+    colors.slice(0, 3),
+    colors.slice(3),
   ];
   return { text, keyboard };
 }
@@ -245,6 +272,10 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
 
     if (data === 'go:soft' || data === 'go:hard') {
       alert = await startJob(env, ctx, origin, chat, ui, messageId, data === 'go:hard' ? 'hard' : 'soft');
+    } else if (data === 'style') {
+      // From the "video with subtitles" choice: open the style menu below, keeping that message.
+      const menu = styleMenu(ui, chatStyle(chat));
+      await sendMessage(env, chatId, menu.text, menu.keyboard);
     } else if (data === 'lang') {
       await editMessage(env, chatId, messageId, t(ui, 'pick_lang'), languageKeyboard(ui));
     } else if (data.startsWith('setlang:')) {
@@ -260,7 +291,10 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
     } else if (data.startsWith('st:')) {
       const [, field, value] = data.split(':');
       const current = chatStyle(chat);
-      const next = parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
+      const next =
+        field === 'preset'
+          ? parseSubtitleStyle(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current)
+          : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
       await saveChat(env, { ...chat, style: JSON.stringify(next) });
       const menu = styleMenu(ui, next);
       await editMessage(env, chatId, messageId, menu.text, menu.keyboard);
@@ -319,14 +353,14 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
       ? [
           { command: 'start', description: 'كيف يعمل البوت' },
           { command: 'lang', description: 'تغيير لغة الترجمة' },
-          { command: 'style', description: 'حجم الترجمة وموضعها ولونها' },
+          { command: 'style', description: 'تصميم الترجمة: الخط والحجم والموضع واللون' },
           { command: 'status', description: 'آخر طلباتك' },
           { command: 'cancel', description: 'إيقاف الطلب الحالي' },
         ]
       : [
           { command: 'start', description: 'How the bot works' },
           { command: 'lang', description: 'Change the target language' },
-          { command: 'style', description: 'Subtitle size, position and colour' },
+          { command: 'style', description: 'Subtitle design: font, size, position, colour' },
           { command: 'status', description: 'Your recent jobs' },
           { command: 'cancel', description: 'Stop the running job' },
         ];

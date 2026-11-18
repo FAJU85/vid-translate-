@@ -1,6 +1,6 @@
 {
   "en": {
-    "welcome": "👋 <b>TarjimVideo</b>\n\nSend me a video or audio file (or a public video link; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/style — subtitle size, position and colour\n/status — your recent jobs\n/cancel — stop the running job",
+    "welcome": "👋 <b>TarjimVideo</b>\n\nSend me a video or audio file (or a public video link; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/style — subtitle design: font, size, position and colour\n/status — your recent jobs\n/cancel — stop the running job",
     "not_allowed": "⛔ This bot is private. Your chat id is <code>{id}</code>.",
     "hint": "Send me a video/audio file (or a public video link) to translate. /help",
     "bad_url": "⚠️ That does not look like a usable video link.",
@@ -46,7 +46,7 @@
     "E_BACKEND_DOWN": "the translation server is not responding. Please try again in a few minutes.",
     "E_BACKEND_RESTARTED": "the translation server restarted in the middle of the job. Please send the video again.",
     "E_INTERNAL": "an unexpected error occurred.",
-    "style_menu": "🎨 <b>Subtitle style</b> (for videos with burned-in subtitles)\n\nSize: <b>{size}</b> · Position: <b>{position}</b>\nBackground: <b>{background}</b> · Colour: <b>{color}</b>",
+    "style_menu": "🎨 <b>Subtitle design</b> (for videos with burned-in subtitles)\n\nDesign: <b>{design}</b>\nFont: <b>{font}</b> · Size: <b>{size}</b>\nPosition: <b>{position}</b> · Background: <b>{background}</b>\nColour: <b>{color}</b>\n\nPick a ready-made design, or change each part below.",
     "size_small": "Small",
     "size_medium": "Medium",
     "size_large": "Large",
@@ -58,10 +58,22 @@
     "bg_box": "Dark box",
     "color_white": "⚪ White",
     "color_yellow": "🟡 Yellow",
-    "color_cyan": "🔵 Blue"
+    "color_cyan": "🔵 Blue",
+    "btn_style": "🎨 Subtitle design",
+    "preset_cinema": "🎬 Cinema",
+    "preset_boldbox": "🟨 Bold box",
+    "preset_elegant": "✒️ Elegant",
+    "preset_social": "📱 Social",
+    "preset_custom": "Custom",
+    "font_modern": "Aa Modern",
+    "font_classic": "𝐀𝐚 Classic",
+    "font_bold": "𝗔𝗮 Bold",
+    "color_green": "🟢 Green",
+    "color_orange": "🟠 Orange",
+    "color_pink": "🩷 Pink"
   },
   "ar": {
-    "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — حجم الترجمة وموضعها ولونها\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
+    "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
     "not_allowed": "⛔ هذا البوت خاص. معرّف محادثتك: <code>{id}</code>.",
     "hint": "أرسل ملف فيديو/صوت (أو رابط فيديو عام) لترجمته. /help",
     "bad_url": "⚠️ هذا الرابط غير صالح للترجمة.",
@@ -107,7 +119,7 @@
     "E_BACKEND_DOWN": "خادم الترجمة لا يستجيب. حاول مرة أخرى بعد دقائق.",
     "E_BACKEND_RESTARTED": "أُعيد تشغيل خادم الترجمة أثناء المعالجة. أرسل الفيديو مرة أخرى.",
     "E_INTERNAL": "حدث خطأ غير متوقع.",
-    "style_menu": "🎨 <b>شكل الترجمة</b> (للفيديو مع الترجمة المدمجة)\n\nالحجم: <b>{size}</b> · الموضع: <b>{position}</b>\nالخلفية: <b>{background}</b> · اللون: <b>{color}</b>",
+    "style_menu": "🎨 <b>تصميم الترجمة</b> (للفيديو مع الترجمة المدمجة)\n\nالتصميم: <b>{design}</b>\nالخط: <b>{font}</b> · الحجم: <b>{size}</b>\nالموضع: <b>{position}</b> · الخلفية: <b>{background}</b>\nاللون: <b>{color}</b>\n\nاختر تصميماً جاهزاً، أو غيّر كل جزء بالأزرار أدناه.",
     "size_small": "صغير",
     "size_medium": "متوسط",
     "size_large": "كبير",
@@ -119,6 +131,18 @@
     "bg_box": "مربع داكن",
     "color_white": "⚪ أبيض",
     "color_yellow": "🟡 أصفر",
-    "color_cyan": "🔵 أزرق"
+    "color_cyan": "🔵 أزرق",
+    "btn_style": "🎨 تصميم الترجمة",
+    "preset_cinema": "🎬 سينما",
+    "preset_boldbox": "🟨 مربع عريض",
+    "preset_elegant": "✒️ أنيق",
+    "preset_social": "📱 سوشيال",
+    "preset_custom": "مخصص",
+    "font_modern": "حديث",
+    "font_classic": "نسخ كلاسيكي",
+    "font_bold": "كوفي عريض",
+    "color_green": "🟢 أخضر",
+    "color_orange": "🟠 برتقالي",
+    "color_pink": "🩷 وردي"
   }
 }

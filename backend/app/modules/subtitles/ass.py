@@ -16,11 +16,20 @@ RTL_LANGS = {"ar", "fa", "ur", "he", "ps"}
 # Font sizes are in script pixels for a 288-pixel-high script (PlayResY), i.e. relative to the
 # video height: "medium" is about 6% of the picture height, the size used before styles existed.
 SIZES = {"small": 14, "medium": 18, "large": 24, "xlarge": 30}
-# libass sizes a font by its full line height (ascent + descent), not its em. Noto Sans Arabic has
-# very tall line metrics (room for diacritics), so at the same Fontsize it draws letters at 47% of
-# the nominal size where Noto Sans draws 73% (measured against a browser). Arabic-script fonts are
-# scaled up by the ratio so every size setting looks the same in every language.
-ARABIC_SCRIPT_SCALE = 1.55
+# Fonts, per writing system: (font family, bold, size scale). libass sizes a font by its full line
+# height (OS/2 winAscent + winDescent), not its em. Arabic fonts have tall line metrics (room for
+# diacritics): 2.11 em for Noto Sans Arabic, 1.70 Noto Naskh Arabic, 1.90 Noto Kufi Arabic, against
+# 1.36 for Noto Sans and Noto Serif. Noto Sans Arabic is scaled by its ratio to Noto Sans (1.55,
+# checked against a browser); Naskh and Kufi are scaled so their letters come out as tall as Noto
+# Sans Arabic's (Naskh draws smaller letters inside its line), so a size looks the same in every font.
+# Every font here is in the Space image (Debian fonts-noto-core); other scripts fall back through
+# fontconfig.
+FONTS = {
+    "modern": {"latin": ("Noto Sans", False, 1.0), "arabic": ("Noto Sans Arabic", False, 1.55)},
+    "classic": {"latin": ("Noto Serif", False, 1.0), "arabic": ("Noto Naskh Arabic", False, 1.45)},
+    "bold": {"latin": ("Noto Sans", True, 1.0), "arabic": ("Noto Kufi Arabic", True, 1.35)},
+}
+ARABIC_SCRIPT_SCALE = FONTS["modern"]["arabic"][2]
 # Numpad layout: 2 = bottom centre, 5 = middle centre, 8 = top centre.
 POSITIONS = {"bottom": 2, "middle": 5, "top": 8}
 BACKGROUNDS = ("outline", "box")
@@ -36,21 +45,36 @@ class SubtitleStyle:
     position: str = "bottom"
     color: str = "#FFFFFF"
     background: str = "outline"
+    font: str = "modern"
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
         """Build a style from user input; anything unknown or malformed keeps its default."""
-        data = data or {}
+        data = data if isinstance(data, dict) else {}
         default = cls()
-        size = data.get("size") if data.get("size") in SIZES else default.size
-        position = data.get("position") if data.get("position") in POSITIONS else default.position
-        background = data.get("background") if data.get("background") in BACKGROUNDS else default.background
-        match = _HEX.match(str(data.get("color") or ""))
-        color = f"#{match.group(1).upper()}" if match else default.color
-        return cls(size=size, position=position, color=color, background=background)
+
+        def pick(key: str, allowed) -> str:
+            value = data.get(key)
+            return value if isinstance(value, str) and value in allowed else getattr(default, key)
+
+        color = data.get("color")
+        match = _HEX.match(color) if isinstance(color, str) else None
+        return cls(
+            size=pick("size", SIZES),
+            position=pick("position", POSITIONS),
+            color=f"#{match.group(1).upper()}" if match else default.color,
+            background=pick("background", BACKGROUNDS),
+            font=pick("font", FONTS),
+        )
 
     def to_dict(self) -> dict:
-        return {"size": self.size, "position": self.position, "color": self.color, "background": self.background}
+        return {
+            "size": self.size,
+            "position": self.position,
+            "color": self.color,
+            "background": self.background,
+            "font": self.font,
+        }
 
 
 def _ass_colour(hex_rgb: str, alpha: int = 0) -> str:
@@ -76,9 +100,8 @@ def _ass_text(text: str) -> str:
 
 def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None) -> str:
     style = style or SubtitleStyle()
-    arabic_script = lang in RTL_LANGS
-    font = "Noto Sans Arabic" if arabic_script else "Noto Sans"  # other scripts fall back via fontconfig
-    font_size = round(SIZES[style.size] * (ARABIC_SCRIPT_SCALE if arabic_script else 1), 1)
+    font, bold, scale = FONTS[style.font]["arabic" if lang in RTL_LANGS else "latin"]
+    font_size = round(SIZES[style.size] * scale, 1)
     primary = _ass_colour(style.color)
     if style.background == "box":
         # BorderStyle 4 (libass): one translucent box behind the whole subtitle, drawn in BackColour.
@@ -100,7 +123,7 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None) -> st
         "Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding",
         f"Style: Default,{font},{font_size:g},{primary},{primary},{outline_colour},{back_colour},"
-        f"0,0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin_v},1",
+        f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin_v},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

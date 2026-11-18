@@ -8,7 +8,9 @@ export { TERMINAL } from './model';
 export { JOBS_COLUMNS, JOBS_SCHEMA, activeJobs, allJobs, claimDelivery, deleteFinishedJobs, getJob, listJobs } from './store';
 export {
   DEFAULT_STYLE,
+  STYLE_PRESETS,
   SUBTITLE_BACKGROUNDS,
+  SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
   parseSubtitleStyle,

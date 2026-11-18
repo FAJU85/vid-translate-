@@ -8,6 +8,7 @@ export interface SubtitleStyle {
   position: 'bottom' | 'middle' | 'top';
   color: string; // #RRGGBB
   background: 'outline' | 'box';
+  font: 'modern' | 'classic' | 'bold';
 }
 
 export interface Job {
