@@ -55,8 +55,26 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     assert SubtitleStyle.from_dict(None) == SubtitleStyle()
     style = SubtitleStyle.from_dict({"size": "huge", "position": "left", "color": "red", "background": "x"})
     assert style == SubtitleStyle()
-    style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box"})
-    assert style.to_dict() == {"size": "large", "position": "top", "color": "#FFCC00", "background": "box"}
+    # Wrong types (only possible on a direct /invoke call) fall back too instead of raising.
+    assert SubtitleStyle.from_dict({"size": [], "position": {}, "color": 5, "font": None}) == SubtitleStyle()
+    assert SubtitleStyle.from_dict(["not", "a", "dict"]) == SubtitleStyle()
+    style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box", "font": "bold"})
+    assert style.to_dict() == {"size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold"}
+
+
+def test_to_ass_fonts_per_writing_system():
+    cues = [Cue(1, 0, 1, "a", "b")]
+    expected = {
+        ("modern", "en"): ("Noto Sans", "18", "0"),
+        ("modern", "ar"): ("Noto Sans Arabic", "27.9", "0"),
+        ("classic", "en"): ("Noto Serif", "18", "0"),
+        ("classic", "ar"): ("Noto Naskh Arabic", "26.1", "0"),
+        ("bold", "en"): ("Noto Sans", "18", "-1"),
+        ("bold", "fa"): ("Noto Kufi Arabic", "24.3", "-1"),
+    }
+    for (font, lang), (family, size, bold) in expected.items():
+        fields = _style_line(to_ass(cues, lang, SubtitleStyle.from_dict({"font": font})))
+        assert (fields[1], fields[2], fields[7]) == (family, size, bold), (font, lang)
 
 
 def _style_line(ass: str) -> list[str]:

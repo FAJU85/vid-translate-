@@ -158,7 +158,7 @@ export function Drawer({ job, password, busy, run, onClose }: {
                     {shown.style ? (
                       <span className="inline-flex items-center gap-2 capitalize">
                         <span className="w-3 h-3 rounded-full border border-slate-600" style={{ background: shown.style.color }} />
-                        {shown.style.size === 'xlarge' ? 'extra large' : shown.style.size}, {shown.style.position},{' '}
+                        {shown.style.font ?? 'modern'} font, {shown.style.size === 'xlarge' ? 'extra large' : shown.style.size}, {shown.style.position},{' '}
                         {shown.style.background === 'box' ? 'dark box' : 'outline'}
                       </span>
                     ) : (
