@@ -54,10 +54,31 @@ export function jobError(job: Job): string {
 
 const LONG_RUN = 20; // a "word" this long was written without spaces (Chinese, Japanese): one character at a time
 
-/** A line's words, the way the server cuts them for dynamic captions (backend subtitles/ass.py _tokens). */
-export function words(text: string): string[] {
-  return text.split(/\s+/).filter(Boolean).flatMap((w) => (w.length > LONG_RUN ? [...w] : [w]));
+// Emoji and pictographs: the server drops them from burned-in subtitles (backend ass.py _EMOJI).
+const EMOJI = /[\u{1F000}-\u{1FAFF}\u{1FC00}-\u{1FFFF}\uFE0F\u20E3]/gu;
+
+export interface Token {
+  text: string;
+  /** Whether a space follows it in the line. */
+  space: boolean;
 }
+
+/**
+ * A line's words, the way the server cuts them for dynamic captions (backend subtitles/ass.py
+ * _tokens): runs written without spaces (Chinese, Japanese) one character at a time, each word
+ * keeping whether a space followed it so the line is shown with exactly its own spacing.
+ */
+export function tokens(text: string): Token[] {
+  const out: Token[] = [];
+  for (const word of text.replace(EMOJI, '').split(/\s+/).filter(Boolean)) {
+    const parts = word.length > LONG_RUN ? [...word] : [word];
+    parts.forEach((part, i) => out.push({ text: part, space: i === parts.length - 1 }));
+  }
+  if (out.length) out[out.length - 1].space = false;
+  return out;
+}
+
+export const words = (text: string): string[] => tokens(text).map((t) => t.text);
 
 /**
  * When each word is spoken, estimated the way the server estimates it for burned-in dynamic captions

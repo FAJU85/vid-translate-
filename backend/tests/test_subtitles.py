@@ -286,3 +286,11 @@ def test_animated_right_to_left_lines_keep_their_word_order():
 def test_an_unknown_animation_keeps_plain_subtitles():
     assert SubtitleStyle.from_dict({"animation": "spin"}).animation == "none"
     assert SubtitleStyle.from_dict({"animation": "pop"}).animation == "pop"
+
+
+def test_animated_lines_keep_their_own_spacing():
+    run = "这是一个非常长的中文句子没有任何空格可以用来分割"  # 25 characters: cut one by one
+    cue = Cue(1, 0.0, 5.0, "x", f"{run} OK")
+    events = _events(to_ass([cue], "zh", SubtitleStyle(animation="highlight")))
+    plain = events[0].split("0,0,0,,", 1)[1].replace("{\\1c}", "").replace("{\\1c&H0000D4FF}", "")
+    assert plain == f"{run} OK"  # no spaces inside the run, the one before OK kept

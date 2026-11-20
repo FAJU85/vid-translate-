@@ -114,11 +114,19 @@ def _ass_text(text: str) -> str:
     return "\\N".join(line.strip() for line in _wrap(text).split("\n"))
 
 
-def _tokens(line: str) -> list[str]:
-    """The words of a line; text written without spaces (Chinese, Japanese) one character at a time."""
-    out: list[str] = []
+Token = tuple[str, bool]  # a word, and whether a space follows it in the text
+
+
+def _tokens(line: str) -> list[Token]:
+    """The words of a line; text written without spaces (Chinese, Japanese) one character at a time.
+    Each keeps whether a space followed it, so the line is rebuilt with exactly its own spacing."""
+    out: list[Token] = []
     for word in line.split():
-        out.extend(list(word) if len(word) > LONG_RUN else [word])
+        parts = list(word) if len(word) > LONG_RUN else [word]
+        out.extend((part, False) for part in parts[:-1])
+        out.append((parts[-1], True))
+    if out:
+        out[-1] = (out[-1][0], False)
     return out
 
 
@@ -138,25 +146,27 @@ def word_times(words: list[str], start: float, end: float) -> list[tuple[float, 
     return times
 
 
-def _lit_lines(lines: list[list[str]], lit: int, colour: str, joiner: str) -> str:
+def _lit_lines(lines: list[list[Token]], lit: int, colour: str) -> str:
     """ASS text of some lines of words with word number `lit` (counted across lines) in `colour`."""
     out, i = [], 0
     for line in lines:
         parts = []
-        for word in line:
+        for k, (word, space) in enumerate(line):
             text = _ass_text(word)
             parts.append(f"{{\\1c{colour}}}{text}{{\\1c}}" if i == lit else text)
+            if space and k < len(line) - 1:
+                parts.append(" ")
             i += 1
-        out.append(joiner.join(parts))
+        out.append("".join(parts))
     return "\\N".join(out)
 
 
-def _pop_chunks(words: list[str]) -> list[list[str]]:
+def _pop_chunks(words: list[Token]) -> list[list[Token]]:
     """A cue's words in groups of at most POP_WORDS words and about POP_CHARS characters."""
     chunks: list[list[str]] = [[]]
     for w in words:
         cur = chunks[-1]
-        if cur and (len(cur) >= POP_WORDS or len(" ".join(cur + [w])) > POP_CHARS):
+        if cur and (len(cur) >= POP_WORDS or len(" ".join(t for t, _ in cur + [w])) > POP_CHARS):
             chunks.append([])
         chunks[-1].append(w)
     return [c for c in chunks if c]
@@ -228,13 +238,12 @@ def _animated_events(cue: Cue, style: SubtitleStyle) -> list[str]:
     """Dialogue lines for a cue with dynamic captions: one per spoken word, that word lit in the
     chosen colour (yellow when the colour is white) and the others white."""
     clean = _EMOJI.sub("", cue.translation or cue.text)
-    joiner = "" if " " not in clean.strip() else " "  # text written without spaces stays without them
     lit = _ass_colour(style.color if style.color.upper() != "#FFFFFF" else HIGHLIGHT_FALLBACK)
     if style.animation == "highlight":
         groups = [[line for line in (_tokens(row) for row in _wrap(clean).split("\n")) if line]]
     else:  # pop: the words in small groups, each group on screen only while it is spoken
         groups = [[chunk] for chunk in _pop_chunks(_tokens(clean))]
-    words = [w for lines in groups for line in lines for w in line]
+    words = [w for lines in groups for line in lines for w, _ in line]
     if not words:
         return []
     times = word_times(words, cue.start, cue.end)
@@ -248,6 +257,6 @@ def _animated_events(cue: Cue, style: SubtitleStyle) -> list[str]:
             # instead: libass places a line by its first size, so a growing one would overlap it.
             pop = "" if style.animation != "pop" or k else (
                 "{\\fad(120,0)}" if style.bilingual else "{\\fscx85\\fscy85\\t(0,120,\\fscx100\\fscy100)}")
-            events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Default,,0,0,0,,{pop}{_lit_lines(lines, k, lit, joiner)}")
+            events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Default,,0,0,0,,{pop}{_lit_lines(lines, k, lit)}")
             i += 1
     return events

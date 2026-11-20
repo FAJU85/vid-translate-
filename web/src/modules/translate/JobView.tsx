@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
-import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, wordAt, wordTimes, words } from './format';
+import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
 
 interface Props {
   jobId: string;
@@ -43,6 +43,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const [query, setQuery] = useState('');
   const listRef = useRef<HTMLUListElement | null>(null);
   const programmaticScroll = useRef(false);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Poll while the job is in progress.
   useEffect(() => {
@@ -117,32 +118,40 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
     const list = listRef.current;
     const row = current && list?.querySelector<HTMLElement>(`[data-cue="${current.index}"]`);
     if (!follow || !list || !row) return;
-    const top = row.offsetTop - list.offsetTop - list.clientHeight / 3;
+    // The list is the rows' offset parent (it is `relative`), so offsetTop is already within it.
+    const top = row.offsetTop - list.clientHeight / 3;
     programmaticScroll.current = true;
     list.scrollTo({ top, behavior: 'smooth' });
-    setTimeout(() => (programmaticScroll.current = false), 600);
+    clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => (programmaticScroll.current = false), 700);
   }, [current?.index, follow]);
 
   const seek = (t: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = t + 0.01;
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = t + 0.01;
     setTime(t + 0.01);
     setFollow(true);
+    video.play().catch(() => {}); // "click a word to play from there" (a browser may refuse: then it just moves)
   };
   const q = query.trim().toLowerCase();
+  // [cue, its index]: a search keeps the line being edited, even once the edit no longer matches.
   const shownCues = useMemo(
-    () => (cues && q ? cues.filter((c) => c.text.toLowerCase().includes(q) || c.translation.toLowerCase().includes(q)) : cues),
-    [cues, q],
+    () =>
+      cues
+        ?.map((c, i) => [c, i] as const)
+        .filter(([c]) => !q || c.index === editing || c.text.toLowerCase().includes(q) || c.translation.toLowerCase().includes(q)),
+    [cues, q, editing],
   );
 
   /** A line as clickable words; the one being spoken is lit, search matches are marked. */
   const renderWords = (cue: Cue, text: string, rtl: boolean, lit: boolean) => {
-    const list = words(text);
-    const times = wordTimes(list, cue.start, cue.end);
+    const list = tokens(text);
+    const times = wordTimes(list.map((t) => t.text), cue.start, cue.end);
     const at = lit && current?.index === cue.index ? wordAt(times, time) : -1;
     return (
       <span dir={rtl ? 'rtl' : 'auto'}>
-        {list.map((w, i) => (
+        {list.map(({ text: w, space }, i) => (
           <span key={i}>
             <button
               type="button"
@@ -154,7 +163,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
             >
               {w}
             </button>
-            {i < list.length - 1 && !/\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}/u.test(w) ? ' ' : ''}
+            {space ? ' ' : ''}
           </span>
         ))}
       </span>
@@ -361,12 +370,12 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
               <span dir={dir} className="px-3 py-1.5 rounded-lg bg-black/80 text-white text-base md:text-lg font-semibold text-center">
                 {/* Dynamic captions: the word being spoken is lit. */}
                 {(() => {
-                  const list = words(current.translation);
-                  const at = wordAt(wordTimes(list, current.start, current.end), time);
-                  return list.map((w, i) => (
+                  const list = tokens(current.translation);
+                  const at = wordAt(wordTimes(list.map((t) => t.text), current.start, current.end), time);
+                  return list.map(({ text: w, space }, i) => (
                     <span key={i} className={i === at ? 'text-amber-300' : undefined}>
                       {w}
-                      {i < list.length - 1 ? ' ' : ''}
+                      {space ? ' ' : ''}
                     </span>
                   ));
                 })()}
@@ -429,11 +438,15 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
           </div>
           <ul
             ref={listRef}
-            onScroll={() => !programmaticScroll.current && setFollow(false)}
+            onScroll={() => {
+              if (!programmaticScroll.current) return setFollow(false); // scrolled by hand: stop following
+              // Our own smooth scroll: stay "ours" until its last scroll event has passed.
+              clearTimeout(scrollTimer.current);
+              scrollTimer.current = setTimeout(() => (programmaticScroll.current = false), 150);
+            }}
             className="relative space-y-2 max-h-[28rem] overflow-y-auto pr-1"
           >
-            {shownCues.map((cue) => {
-              const i = cues.indexOf(cue);
+            {shownCues.map(([cue, i]) => {
               const isCurrent = current?.index === cue.index;
               return (
                 <li
