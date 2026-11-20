@@ -131,7 +131,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       const parsed = parseVideoUrl(String(body.video_url ?? ''));
       if (!parsed) return apiError(400, 'E_URL_INVALID', 'Please enter a valid public video link.');
       if (isYouTubeUrl(parsed)) {
-        return apiError(400, 'E_YOUTUBE_UNSUPPORTED', 'YouTube links are not supported. Please upload the video file instead.');
+        return apiError(400, 'E_YOUTUBE_UNSUPPORTED',
+          "YouTube blocks our server, so YouTube links can't be downloaded. Upload the video file instead: if the video is yours, download it from YouTube Studio (Content → ⋮ → Download). Facebook, Instagram and TikTok links work.",
+        );
       }
       sourceKind = 'url';
       source = parsed;
