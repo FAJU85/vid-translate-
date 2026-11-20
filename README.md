@@ -185,7 +185,13 @@ The defaults, and every other website text and bot message, are in `content/site
    wait), then sends the files. If a job fails, **🔄 Try again** runs it again in the same message.
 
 On the website, choosing **Video with burned-in subtitles** shows the same designs and options
-(plus any colour) with a live preview of how the subtitles will look.
+(plus any colour) with a live preview of how the subtitles will look. Both offer **Show the
+original text too**: the original line, smaller, next to the translation.
+
+Every translation also comes with **subtitles in both languages** (`.srt`) and a plain-text
+**transcript** (original and translation). On the website you can fix any subtitle line and, for
+a video with burned-in subtitles, **render it again with your edits**: only the burn-in runs,
+because the Space keeps the source video with the job's files for 24 hours.
 
 `/status` lists recent jobs, `/cancel` stops the running one. The bot answers in Arabic to
 users whose Telegram is set to Arabic, in English otherwise.

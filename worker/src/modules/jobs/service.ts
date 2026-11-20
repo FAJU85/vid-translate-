@@ -32,6 +32,8 @@ export interface NewJob {
   mode: SubtitleMode;
   /** Burned-in subtitle style; only used when mode is 'hard'. */
   style?: SubtitleStyle | null;
+  /** 'rerender' jobs: the edited subtitles. */
+  cues?: unknown[];
   origin: string;
 }
 
@@ -71,6 +73,7 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     detected_lang: null,
     mode: p.mode,
     style: p.mode === 'hard' && p.style ? JSON.stringify(p.style) : null,
+    cues: p.cues ? JSON.stringify(p.cues) : null,
     status: p.sourceKind === 'upload' ? 'awaiting_upload' : 'queued',
     stage: 'queued',
     queue_position: null,
@@ -131,6 +134,7 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       tgt_lang: job.tgt_lang,
       subtitle_mode: job.mode,
       subtitle_style: job.style ? (JSON.parse(job.style) as SubtitleStyle) : undefined,
+      ...(job.source_kind === 'rerender' ? { parent_job_id: job.source, cues: JSON.parse(job.cues || '[]') as unknown[] } : {}),
       callback_url: `${job.origin}/api/callback`,
       title: job.title,
     });

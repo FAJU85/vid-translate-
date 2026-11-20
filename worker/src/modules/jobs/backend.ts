@@ -15,6 +15,8 @@ export interface InvokeBody {
   tgt_lang: string;
   subtitle_mode: string;
   subtitle_style?: object;
+  parent_job_id?: string;
+  cues?: unknown[];
   callback_url: string;
   title: string | null;
 }

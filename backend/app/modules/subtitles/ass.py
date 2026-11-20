@@ -46,6 +46,7 @@ class SubtitleStyle:
     color: str = "#FFFFFF"
     background: str = "outline"
     font: str = "modern"
+    bilingual: bool = False  # also show the original text, smaller, next to the translation
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
@@ -65,6 +66,7 @@ class SubtitleStyle:
             color=f"#{match.group(1).upper()}" if match else default.color,
             background=pick("background", BACKGROUNDS),
             font=pick("font", FONTS),
+            bilingual=data.get("bilingual") is True,
         )
 
     def to_dict(self) -> dict:
@@ -74,6 +76,7 @@ class SubtitleStyle:
             "color": self.color,
             "background": self.background,
             "font": self.font,
+            "bilingual": self.bilingual,
         }
 
 
@@ -98,7 +101,12 @@ def _ass_text(text: str) -> str:
     return "\\N".join(line.strip() for line in _wrap(text).split("\n"))
 
 
-def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None) -> str:
+ORIGINAL_SCALE = 0.72  # the original text, in two-language subtitles, is this much smaller
+ORIGINAL_COLOUR = "#E2E8F0"
+
+
+def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_lang: str | None = None) -> str:
+    """Styled subtitles in `lang`; with style.bilingual, the original (in `src_lang`) above them."""
     style = style or SubtitleStyle()
     font, bold, scale = FONTS[style.font]["arabic" if lang in RTL_LANGS else "latin"]
     font_size = round(SIZES[style.size] * scale, 1)
@@ -124,6 +132,7 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None) -> st
         "Alignment, MarginL, MarginR, MarginV, Encoding",
         f"Style: Default,{font},{font_size:g},{primary},{primary},{outline_colour},{back_colour},"
         f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin_v},1",
+        *([_original_style(style, src_lang, border_style, outline, outline_colour, back_colour, margin_v)] if style.bilingual else []),
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -133,4 +142,18 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None) -> st
         text = _ass_text(cue.translation or cue.text)
         if text:
             events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Default,,0,0,0,,{text}")
+        original = _ass_text(cue.text) if style.bilingual and cue.translation else ""
+        if original and original != text:
+            # Written after the translation: libass stacks a later bottom subtitle above an earlier one.
+            events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Original,,0,0,0,,{original}")
     return header + "\n" + "\n".join(events) + "\n"
+
+
+def _original_style(style: SubtitleStyle, src_lang: str | None, border_style, outline, outline_colour, back_colour, margin_v) -> str:
+    font, bold, scale = FONTS[style.font]["arabic" if (src_lang or "") in RTL_LANGS else "latin"]
+    size = round(SIZES[style.size] * scale * ORIGINAL_SCALE, 1)
+    colour = _ass_colour(ORIGINAL_COLOUR)
+    return (
+        f"Style: Original,{font},{size:g},{colour},{colour},{outline_colour},{back_colour},"
+        f"0,0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin_v},1"
+    )

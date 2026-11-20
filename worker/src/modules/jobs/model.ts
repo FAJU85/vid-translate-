@@ -1,6 +1,7 @@
 export type JobStatus = 'awaiting_upload' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 export type SubtitleMode = 'soft' | 'hard';
-export type SourceKind = 'url' | 'telegram' | 'upload';
+/** 'rerender': burn edited subtitles into the video kept from an earlier job (`source` = its id). */
+export type SourceKind = 'url' | 'telegram' | 'upload' | 'rerender';
 export type Channel = 'web' | 'telegram';
 
 export interface JobRow {
@@ -22,6 +23,8 @@ export interface JobRow {
   mode: SubtitleMode;
   /** JSON of the burned-in subtitle style (see style.ts), or null for the default. */
   style: string | null;
+  /** 'rerender' jobs: JSON of the edited subtitles [{start, end, text, translation}]. */
+  cues: string | null;
   status: JobStatus;
   stage: string;
   /** Place in the Space's queue (1 = next, 0 = running) and seconds until done, while active. */

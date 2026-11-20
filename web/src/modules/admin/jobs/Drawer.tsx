@@ -9,6 +9,8 @@ const OUTPUT_LABEL: Record<string, string> = {
   srt: 'Subtitles (.srt)',
   vtt: 'Subtitles (.vtt)',
   original_srt: 'Original-language subtitles (.srt)',
+  bilingual_srt: 'Both languages (.srt)',
+  transcript: 'Transcript (.txt)',
 };
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -141,6 +143,8 @@ export function Drawer({ job, password, busy, run, onClose }: {
                     <a href={shown.source} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-300 hover:underline break-all">
                       {shown.source} <ExternalLink className="w-3 h-3 shrink-0" />
                     </a>
+                  ) : (shown.source_kind as string) === 'rerender' ? (
+                    `Edited subtitles, rendered into the video of job ${shown.source}`
                   ) : shown.source_kind === 'upload' ? (
                     `Uploaded file: ${shown.source}`
                   ) : (

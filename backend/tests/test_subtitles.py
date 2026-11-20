@@ -59,7 +59,10 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     assert SubtitleStyle.from_dict({"size": [], "position": {}, "color": 5, "font": None}) == SubtitleStyle()
     assert SubtitleStyle.from_dict(["not", "a", "dict"]) == SubtitleStyle()
     style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box", "font": "bold"})
-    assert style.to_dict() == {"size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold"}
+    assert style.to_dict() == {
+        "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False,
+    }
+    assert SubtitleStyle.from_dict({"bilingual": "yes"}).bilingual is False  # only a real true turns it on
 
 
 def test_to_ass_fonts_per_writing_system():
@@ -215,3 +218,29 @@ def test_translations_without_spaces_are_cut_by_character():
     assert len(cues) >= 2
     assert all(len(c.translation) <= sentences.MAX_CUE_CHARS for c in cues)
     assert "".join(c.translation for c in cues) == text
+
+
+
+def test_two_language_subtitles():
+    cues = [subtitles.Cue(1, 0.0, 2.0, "Good morning", "صباح الخير"), subtitles.Cue(2, 5.0, 6.0, "Same", "Same")]
+    srt = subtitles.to_bilingual_srt(cues)
+    assert "1\n00:00:00,000 --> 00:00:02,000\nصباح الخير\nGood morning\n" in srt
+    assert "Same\nSame" not in srt  # identical lines are not repeated
+    ass = subtitles.to_ass(cues, "ar", SubtitleStyle(bilingual=True), "en")
+    styles = [l for l in ass.splitlines() if l.startswith("Style: ")]
+    assert len(styles) == 2 and styles[1].split(",")[1] == "Noto Sans"  # original in its own script's font
+    lines = [l for l in ass.splitlines() if l.startswith("Dialogue")]
+    assert lines[0].endswith(",Default,,0,0,0,,صباح الخير") and lines[1].endswith(",Original,,0,0,0,,Good morning")
+    assert len(lines) == 3  # no second line where original and translation are the same
+    assert "Original" not in subtitles.to_ass(cues, "ar", SubtitleStyle(), "en").split("[Events]")[1]
+
+
+def test_transcript_has_both_languages_in_paragraphs():
+    cues = [
+        subtitles.Cue(1, 0.0, 1.0, "One.", "واحد."),
+        subtitles.Cue(2, 1.2, 2.0, "Two.", "اثنان."),
+        subtitles.Cue(3, 6.0, 7.0, "Three.", "ثلاثة."),
+    ]
+    text = subtitles.to_transcript(cues, "en", "ar")
+    assert text.startswith("Original (en)\n\nOne. Two.\n\nThree.")
+    assert "Translation (ar)\n\nواحد. اثنان.\n\nثلاثة." in text

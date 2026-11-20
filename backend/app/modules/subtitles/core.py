@@ -184,6 +184,34 @@ def to_srt(cues: list[Cue], use_translation: bool = True) -> str:
     return "\n".join(blocks)
 
 
+def to_bilingual_srt(cues: list[Cue]) -> str:
+    """SRT with the translation and, under it, the original (one line each where they fit)."""
+    blocks = []
+    for n, cue in enumerate(cues, 1):
+        lines = [_wrap(cue.translation or cue.text)]
+        if cue.translation and cue.text != cue.translation:
+            lines.append(_wrap(cue.text))
+        blocks.append(f"{n}\n{_timestamp(cue.start, ',')} --> {_timestamp(cue.end, ',')}\n" + "\n".join(lines) + "\n")
+    return "\n".join(blocks)
+
+
+PARAGRAPH_PAUSE = 2.0  # seconds of silence that start a new paragraph in the transcript
+
+
+def to_transcript(cues: list[Cue], src_lang: str, tgt_lang: str) -> str:
+    """Plain text: the original, then the translation, in paragraphs at long pauses."""
+
+    def paragraphs(use_translation: bool) -> str:
+        out: list[list[str]] = [[]]
+        for i, cue in enumerate(cues):
+            if i and cue.start - cues[i - 1].end >= PARAGRAPH_PAUSE and out[-1]:
+                out.append([])
+            out[-1].append((cue.translation if use_translation else cue.text) or cue.text)
+        return "\n\n".join(" ".join(p) for p in out if p)
+
+    return f"Original ({src_lang})\n\n{paragraphs(False)}\n\n\nTranslation ({tgt_lang})\n\n{paragraphs(True)}\n"
+
+
 def to_vtt(cues: list[Cue], use_translation: bool = True) -> str:
     blocks = ["WEBVTT\n"]
     for n, cue in enumerate(cues, 1):

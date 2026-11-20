@@ -74,7 +74,9 @@
     "queue_line": "⏳ You're #{n} in line · about {min} min",
     "eta_line": "⏱ About {min} min left",
     "btn_retry": "🔄 Try again",
-    "retry_not_possible": "This job can't be retried. Send the video again."
+    "retry_not_possible": "This job can't be retried. Send the video again.",
+    "bilingual_off": "🌐 Show the original too: off",
+    "bilingual_on": "🌐 Show the original too: ✓ on"
   },
   "ar": {
     "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
@@ -151,6 +153,8 @@
     "queue_line": "⏳ ترتيبك في الانتظار: {n} · حوالي {min} دقيقة",
     "eta_line": "⏱ متبقٍ حوالي {min} دقيقة",
     "btn_retry": "🔄 أعد المحاولة",
-    "retry_not_possible": "لا يمكن إعادة هذه المهمة. أرسل الفيديو مرة أخرى."
+    "retry_not_possible": "لا يمكن إعادة هذه المهمة. أرسل الفيديو مرة أخرى.",
+    "bilingual_off": "🌐 عرض النص الأصلي أيضاً: متوقف",
+    "bilingual_on": "🌐 عرض النص الأصلي أيضاً: ✓ مفعّل"
   }
 }

@@ -21,6 +21,7 @@ export const JOBS_SCHEMA = [
     detected_lang TEXT,
     mode TEXT NOT NULL DEFAULT 'soft',
     style TEXT,
+    cues TEXT,
     status TEXT NOT NULL,
     stage TEXT NOT NULL DEFAULT 'queued',
     queue_position INTEGER,
@@ -46,6 +47,7 @@ export const JOBS_COLUMNS: AddedColumn[] = [
   { table: 'jobs', column: 'style', definition: 'TEXT' },
   { table: 'jobs', column: 'queue_position', definition: 'INTEGER' },
   { table: 'jobs', column: 'eta', definition: 'INTEGER' },
+  { table: 'jobs', column: 'cues', definition: 'TEXT' },
 ];
 
 export function getJob(env: Env, id: string): Promise<JobRow | null> {

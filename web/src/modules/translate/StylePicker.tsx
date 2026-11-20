@@ -30,6 +30,7 @@ export function rememberedStyle(): SubtitleStyle {
     color: typeof saved.color === 'string' && /^#[0-9a-f]{6}$/i.test(saved.color) ? saved.color.toUpperCase() : DEFAULT_STYLE.color,
     background: oneOf(['outline', 'box'], saved.background, DEFAULT_STYLE.background),
     font: oneOf(['modern', 'classic', 'bold'], saved.font, DEFAULT_STYLE.font),
+    bilingual: saved.bilingual === true,
   };
 }
 
@@ -71,7 +72,9 @@ const FONT_FAMILY: Record<SubtitleStyle['font'], { latin: string; arabic: string
   bold: { latin: "'Noto Sans', sans-serif", arabic: "'Noto Kufi Arabic', sans-serif", weight: 700, em: 0.97 },
 };
 
-const same = (a: SubtitleStyle, b: SubtitleStyle) => (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => a[k] === b[k]);
+// Ready-made designs leave "show the original too" as it is.
+const same = (a: SubtitleStyle, b: SubtitleStyle) =>
+  (['size', 'position', 'color', 'background', 'font'] as const).every((k) => a[k] === b[k]);
 
 // The renderer sizes text against a 288-pixel-high frame (18 = medium), by line height: letters
 // come out at 72.9% of that (Arabic and serif fonts are scaled on the server to match). In a 16:9 preview the
@@ -105,12 +108,16 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
     remember(next);
     onChange(next);
   };
-  const apply = (next: SubtitleStyle) => {
+  const apply = (preset: SubtitleStyle) => {
+    const next = { ...preset, bilingual: style.bilingual };
     remember(next);
     onChange(next);
   };
   const rtl = RTL.has(lang);
   const sample = rtl ? 'هذه معاينة لشكل الترجمة على الفيديو' : 'This is how your subtitles will look';
+  // The original language is not known yet: show English, or Arabic when translating into English.
+  const originalSample = lang === 'en' ? 'هذا هو النص الأصلي' : 'This is the original text';
+  const originalRtl = lang === 'en';
   const box = style.background === 'box';
   const placement =
     style.position === 'top' ? { top: '7.6%' } : style.position === 'middle' ? { top: '50%', transform: 'translateY(-50%)' } : { bottom: '7.6%' };
@@ -124,7 +131,11 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
         style={{ containerType: 'inline-size' }}
         aria-label="Subtitle preview"
       >
-        <div className="absolute inset-x-0 flex justify-center px-[4%]" style={placement}>
+        <div
+          className={`absolute inset-x-0 flex items-center gap-[0.6cqw] px-[4%] ${style.position === 'top' ? 'flex-col' : 'flex-col-reverse'}`}
+          style={placement}
+        >
+          {/* As on the video: the translation nearest the edge, the original beside it, smaller. */}
           <span
             dir={rtl ? 'rtl' : 'ltr'}
             className="text-center leading-snug"
@@ -141,6 +152,23 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
           >
             {sample}
           </span>
+          {style.bilingual && (
+            <span
+              dir={originalRtl ? 'rtl' : 'ltr'}
+              className="text-center leading-snug"
+              style={{
+                color: '#E2E8F0',
+                fontSize: cqw(FONT_SIZE[style.size] * 0.72, originalRtl ? FONT_FAMILY[style.font].em : 1),
+                fontFamily: originalRtl ? FONT_FAMILY[style.font].arabic : FONT_FAMILY[style.font].latin,
+                background: box ? 'rgba(0,0,0,0.62)' : 'transparent',
+                padding: box ? '0.15em 0.4em' : 0,
+                borderRadius: box ? '0.15em' : 0,
+                textShadow: box ? 'none' : '0 0 2px #000, 0 0 2px #000, 0 0 3px #000',
+              }}
+            >
+              {originalSample}
+            </span>
+          )}
         </div>
       </div>
 
@@ -180,6 +208,15 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
           <div className="text-xs text-slate-400 mb-1.5">Background</div>
           <Segmented value={style.background} options={BACKGROUNDS} onChange={(background) => update({ background })} />
         </div>
+        <label className="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer select-none sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={Boolean(style.bilingual)}
+            onChange={(e) => update({ bilingual: e.target.checked })}
+            className="w-4 h-4 accent-amber-400"
+          />
+          Show the original text too, in smaller letters
+        </label>
         <div>
           <div className="text-xs text-slate-400 mb-1.5">Text colour</div>
           <div className="flex flex-wrap items-center gap-2">
