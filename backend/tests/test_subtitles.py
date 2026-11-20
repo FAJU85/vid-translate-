@@ -106,3 +106,112 @@ def test_to_ass_text_is_safe_and_wrapped():
     dialogue = ass.strip().splitlines()[-1]
     assert "\\N" in dialogue                        # two lines
     assert "{" not in dialogue and "😀" not in dialogue and "👍" not in dialogue
+
+
+# ---------------------------------------------------------------- sentence-aware subtitles
+
+from app.modules.subtitles import sentences
+
+
+def words_of(text: str, start: float, step: float = 0.4) -> list:
+    """Words spoken one after another, each `step` seconds long."""
+    out = []
+    for i, w in enumerate(text.split()):
+        out.append((start + i * step, start + (i + 1) * step, " " + w))
+    return out
+
+
+def seg(words: list) -> tuple:
+    return (words[0][0], words[-1][1], "".join(w[2] for w in words), words)
+
+
+def test_a_sentence_split_across_two_asr_segments_is_joined():
+    a = words_of("Today we are going", 0.0)
+    b = words_of("to talk about subtitles. Then", a[-1][1])
+    out = subtitles.sentence_segments([seg(a), seg(b)])
+    assert [s[2] for s in out] == ["Today we are going to talk about subtitles.", "Then"]
+    assert out[0][0] == 0.0 and out[1][0] == b[-1][0]
+
+
+def test_sentences_end_at_arabic_punctuation_and_long_pauses():
+    w = words_of("هل أنت مستعد؟ نعم", 0.0) + words_of("بعد الصمت", 10.0)
+    out = subtitles.sentence_segments([seg(w)])
+    assert [s[2] for s in out] == ["هل أنت مستعد؟", "نعم", "بعد الصمت"]
+
+
+def test_very_long_unpunctuated_speech_is_cut_at_a_pause():
+    w = words_of("one two three four five six seven eight nine ten", 0.0, step=1.0)
+    w += words_of("eleven twelve thirteen fourteen fifteen", w[-1][1] + 0.6, step=1.0)
+    out = subtitles.sentence_segments([seg(w)])
+    assert len(out) == 2 and out[0][2].endswith("ten")  # cut at the 0.6 s pause
+
+
+def test_chinese_words_are_joined_without_spaces():
+    w = [(0.0, 0.3, "你"), (0.3, 0.6, "好"), (0.6, 0.9, "。")]
+    assert subtitles.sentence_segments([seg(w)])[0][2] == "你好。"
+
+
+def test_long_sentence_splits_at_the_comma_and_is_timed_from_its_words():
+    src = "When the meeting finished late in the evening, everyone went home and slept for a very long time."
+    w = words_of(src, 5.0)
+    tgt = "عندما انتهى الاجتماع في وقت متأخر من المساء، عاد الجميع إلى منازلهم وناموا لفترة طويلة جداً جداً."
+    cues = subtitles.build_cues([seg(w)], [tgt])
+    assert len(cues) == 2
+    assert cues[0].text.endswith("evening,") and cues[1].text.startswith("everyone")
+    assert cues[0].start == 5.0 and cues[1].start == w[8][0]  # second cue starts with "everyone"
+    assert cues[0].end <= cues[1].start - sentences.CUE_GAP + 1e-9
+    assert " ".join(c.translation for c in cues) == tgt
+
+
+def test_short_subtitles_stay_long_enough_to_read_but_never_overlap():
+    a = words_of("Hi.", 0.0, step=0.2)  # 0.2 s of speech
+    b = words_of("This next subtitle starts soon after.", 0.7)
+    cues = subtitles.build_cues([seg(a), seg(b)], ["مرحبا.", "يبدأ هذا السطر التالي بعد قليل."])
+    assert cues[0].end > a[-1][1]  # held on screen after the word
+    assert cues[0].end <= cues[1].start - sentences.CUE_GAP + 1e-9  # but not into the next one
+    last = cues[1]
+    assert last.end - last.start >= len(last.translation) / sentences.READING_CPS - 1e-9
+
+
+def test_segments_without_word_timings_still_work():
+    out = subtitles.sentence_segments([(0.0, 2.0, "plain segment")])
+    assert out == [(0.0, 2.0, "plain segment")]
+    cues = subtitles.build_cues(out, ["نص"])
+    assert (cues[0].start, cues[0].end) == (0.0, 2.0)
+
+
+def test_a_part_still_too_long_after_the_natural_cut_is_split_again():
+    # The comma is the natural cut, but it leaves the first part far over two lines.
+    src = ("However those who knew the sea and its ships and its harbours very well saw plainly "
+           "that nothing had happened to the vessel herself, for she sailed well.")
+    w = words_of(src, 0.0, step=0.3)
+    tgt = ("ومع ذلك فإن الذين يعرفون البحر وسفنه وموانئه جيداً رأوا بوضوح أنه لم يحدث شيء "
+           "للسفينة نفسها على الإطلاق في تلك الرحلة الطويلة، لأنها أبحرت جيداً.")
+    cues = subtitles.build_cues([seg(w)], [tgt])
+    assert all(len(c.translation) <= sentences.MAX_CUE_CHARS for c in cues)
+    assert " ".join(c.translation for c in cues) == tgt
+    assert all(a.end <= b.start for a, b in zip(cues, cues[1:]))
+
+
+def test_subtitles_starting_almost_together_never_overlap():
+    segs = [(0.0, 0.3, "Oh! No!", [(0.0, 0.1, " Oh!"), (0.1, 0.3, " No!")])]
+    cues = subtitles.build_cues(subtitles.sentence_segments(segs), ["آه!", "لا!"])
+    assert len(cues) == 2
+    assert cues[0].end <= cues[1].start - sentences.CUE_GAP + 1e-9
+    assert cues[0].end - cues[0].start >= sentences.MIN_FLASH - 1e-9
+
+
+def test_no_subtitle_lasts_longer_than_the_limit_even_with_a_short_translation():
+    w = [(0.0, 0.5, " Well,")] + [(1.2 + i * 0.5, 1.7 + i * 0.5, " word") for i in range(18)]
+    cues = subtitles.build_cues([(0.0, 10.2, "x", w)], ["حسنا، كلام قصير جدا هنا"])
+    assert all(c.end - c.start <= sentences.MAX_CUE_SECONDS + 1e-9 for c in cues)
+    assert all(a.end <= b.start for a, b in zip(cues, cues[1:]))
+
+
+def test_translations_without_spaces_are_cut_by_character():
+    w = [(i * 0.3, i * 0.3 + 0.3, " word") for i in range(30)]
+    text = "这是一个很长的句子" * 13  # 117 characters, no spaces
+    cues = subtitles.build_cues([(0.0, 9.0, "x", w)], [text])
+    assert len(cues) >= 2
+    assert all(len(c.translation) <= sentences.MAX_CUE_CHARS for c in cues)
+    assert "".join(c.translation for c in cues) == text

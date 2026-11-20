@@ -27,6 +27,8 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/tmp/tarjim"))
 # Speech recognition (faster-whisper). "small" is a sane default for a free CPU Space.
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 WHISPER_BEAM_SIZE = _int("WHISPER_BEAM_SIZE", 2)
+# Word timestamps let subtitles follow whole sentences and the speech itself (a little extra CPU).
+WORD_TIMESTAMPS = _bool("WORD_TIMESTAMPS", True)
 
 # Translation. "auto" = Gemini when GEMINI_API_KEY is set, otherwise the local NLLB model.
 TRANSLATOR = os.environ.get("TRANSLATOR", "auto").lower()

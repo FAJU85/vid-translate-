@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, asdict
 
+from . import sentences
+
 MAX_CUE_CHARS = 84      # two lines of ~42 characters
 MAX_CUE_SECONDS = 7.0
 MIN_CUE_SECONDS = 0.6
@@ -67,25 +69,71 @@ def clean_text(text: str) -> str:
     return " ".join(_GARBAGE.sub(" ", text or "").split())
 
 
-def clean_segments(segments: list[tuple[float, float, str]]) -> list[tuple[float, float, str]]:
-    """Normalise whitespace and drop empty ASR segments."""
+def clean_segments(segments: list[tuple]) -> list[tuple]:
+    """Normalise whitespace and drop empty ASR segments.
+
+    A segment is (start, end, text) or, with word timestamps, (start, end, text, words) where
+    words are (start, end, text); unreadable characters are removed from the words too.
+    """
     out = []
-    for start, end, raw in segments:
+    for seg in segments:
+        start, end, raw = seg[:3]
         text = clean_text(raw)
-        if text:
+        if not text:
+            continue
+        if len(seg) > 3 and seg[3]:
+            words = [(ws, we, _GARBAGE.sub("", wt)) for ws, we, wt in seg[3]]
+            out.append((start, max(end, start + MIN_CUE_SECONDS), text, [w for w in words if w[2].strip()]))
+        else:
             out.append((start, max(end, start + MIN_CUE_SECONDS), text))
     return out
 
 
-def build_cues(segments: list[tuple[float, float, str]], translations: list[str]) -> list[Cue]:
+def sentence_segments(segments: list[tuple]) -> list[tuple]:
+    """Regroup ASR segments into whole sentences (when they carry word timestamps)."""
+    return [
+        (s.start, s.end, s.text, s.words) if s.words else (s.start, s.end, s.text)
+        for s in sentences.sentences_from_segments(segments)
+    ]
+
+
+def _word_cues(words: list, translated: str, depth: int = 0) -> list[tuple[float, float, str, str]]:
+    """Subtitles for one sentence, timed from its words.
+
+    A part that is still longer than two lines after the split (a natural cut at a comma can
+    leave one side long) is split again.
+    """
+    groups = sentences.split_words_for_cues(words, translated)
+    pieces = sentences.split_text_like(translated, groups)
+    if len(pieces) != len(groups):  # the translation cannot be cut that many times
+        groups, pieces = [words], [translated]
+    out: list[tuple[float, float, str, str]] = []
+    for group, piece in zip(groups, pieces):
+        too_long = len(piece) > MAX_CUE_CHARS or group[-1][1] - group[0][0] > sentences.MAX_CUE_SECONDS
+        if too_long and len(group) > 1 and len(sentences.text_tokens(piece)) > 1 and depth < 4:
+            out.extend(_word_cues(group, piece, depth + 1))
+        else:
+            out.append((group[0][0], group[-1][1], sentences._join(group), piece))
+    return out
+
+
+def build_cues(segments: list[tuple], translations: list[str]) -> list[Cue]:
     """Pair segments with their translations and split over-long ones into readable cues.
 
     Segments are translated whole (better context for the translator) and only split
-    afterwards, with the time divided in proportion to the text.
+    afterwards. With word timestamps the split follows the words (pauses, commas) and each
+    subtitle is timed from its own words; without them the time is divided by text length.
     """
     cues: list[Cue] = []
-    for (start, end, text), translated in zip(segments, translations):
+    timed: list[int] = []  # indexes of cues timed from words
+    for seg, translated in zip(segments, translations):
+        start, end, text = seg[:3]
         translated = clean_text(translated) or text
+        if len(seg) > 3 and seg[3]:
+            for s, e, src, tgt in _word_cues(seg[3], translated):
+                timed.append(len(cues))
+                cues.append(Cue(len(cues) + 1, s, e, src, tgt))
+            continue
         duration = end - start
         parts = max(
             1,
@@ -104,6 +152,12 @@ def build_cues(segments: list[tuple[float, float, str]], translations: list[str]
             piece_end = cursor + duration * (len(tgt) / total)
             cues.append(Cue(len(cues) + 1, cursor, piece_end, src, tgt))
             cursor = piece_end
+    if timed:
+        times = [[c.start, c.end] for c in cues]
+        is_timed = set(timed)
+        sentences.settle_timing(times, [c.translation for c in cues], [i in is_timed for i in range(len(cues))])
+        for i in timed:
+            cues[i].start, cues[i].end = times[i]
     return cues
 
 
