@@ -4,6 +4,7 @@ import { LANGUAGES, isTargetLang } from '../../shared/languages';
 import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import {
   backendHealth,
+  canDub,
   canRetry,
   checkLimits,
   cancelJob,
@@ -64,7 +65,7 @@ async function publicJob(env: Env, job: JobRow) {
   const outputs: Record<string, string> = {};
   for (const [key, name] of Object.entries(names)) {
     const ext = name.split('.').pop();
-    const label: Record<string, string> = { original_srt: 'original', bilingual_srt: 'bilingual', transcript: 'transcript' };
+    const label: Record<string, string> = { original_srt: 'original', bilingual_srt: 'bilingual', transcript: 'transcript', dubbed: `${job.tgt_lang}.dubbed` };
     const download = key === 'cues' ? undefined : `${base}.${label[key] ?? job.tgt_lang}.${ext}`;
     outputs[`${key}_url`] = await fileLink(env, job.id, name, OUTPUT_LINK_TTL, download);
   }
@@ -140,8 +141,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const tgtLang = String(body.tgt_lang ?? 'ar');
     if (!isTargetLang(tgtLang)) return apiError(400, 'E_BAD_REQUEST', 'Unsupported target language.');
     const srcLang = /^[a-z]{2,3}$/.test(body.src_lang ?? '') ? body.src_lang : 'auto';
-    const mode = body.subtitle_mode === 'hard' ? 'hard' : 'soft';
-    const style = mode === 'hard' ? parseSubtitleStyle(body.style) : null;
+    const mode = body.subtitle_mode === 'hard' || body.subtitle_mode === 'dub' ? body.subtitle_mode : 'soft';
+    if (mode === 'dub' && !canDub(tgtLang)) {
+      return apiError(400, 'E_NO_VOICE', 'Dubbing is not available for this language yet. Choose subtitles instead.');
+    }
+    const style = mode === 'soft' ? null : parseSubtitleStyle(body.style);
 
     let sourceKind: 'url' | 'upload';
     let source: string;

@@ -11,6 +11,7 @@ const OUTPUT_LABEL: Record<string, string> = {
   original_srt: 'Original-language subtitles (.srt)',
   bilingual_srt: 'Both languages (.srt)',
   transcript: 'Transcript (.txt)',
+  dubbed: 'Dubbed video',
 };
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -156,7 +157,10 @@ export function Drawer({ job, password, busy, run, onClose }: {
                   <span className="uppercase">{shown.detected_lang ?? shown.src_lang}</span> → <span className="uppercase">{shown.tgt_lang}</span>
                   {shown.src_lang === 'auto' && shown.detected_lang && <span className="text-slate-500"> (detected)</span>}
                 </Row>
-                <Row label="Output">{shown.mode === 'hard' ? 'Video with burned-in subtitles' : 'Subtitle files'}</Row>
+                <Row label="Output">
+                  {shown.mode === 'hard' ? 'Video with burned-in subtitles' : shown.mode === 'dub' ? 'Dubbed video (translated voice)' : 'Subtitle files'}
+                </Row>
+                {shown.mode === 'dub' && <Row label="Voice">{shown.style?.voice === 'male' ? 'Male' : 'Female'}</Row>}
                 {shown.mode === 'hard' && (
                   <Row label="Subtitle style">
                     {shown.style ? (

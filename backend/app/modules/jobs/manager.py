@@ -20,7 +20,7 @@ log = logging.getLogger("tarjim.jobs")
 
 # Processing time per second of video, learned from finished jobs (a moving average per mode).
 # Starting values are measured on the free 2-CPU Space; burning subtitles in re-encodes the video.
-INITIAL_RATE = {"soft": 0.6, "hard": 1.4}
+INITIAL_RATE = {"soft": 0.6, "hard": 1.4, "dub": 0.9}
 RATE_SMOOTHING = 0.3
 UNKNOWN_DURATION = 300.0  # a video whose length is not known yet counts as 5 minutes
 OVERHEAD = 20.0  # seconds per job outside the per-minute work (download, start-up)

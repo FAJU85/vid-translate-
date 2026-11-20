@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import Callable
 
-from .. import media, speech, subtitles, translation
+from .. import media, speech, subtitles, translation, voice
 from ...shared import config, security
 from ...shared.errors import Cancelled, PipelineError
 from .model import KEPT_SOURCE, OUTPUT_FILES, STAGE_SPAN, UPLOAD_NAME, Job
@@ -49,7 +50,7 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     # 1. Fetch the media -----------------------------------------------------
     enter("downloading")
-    want_video = job.mode == "hard"
+    want_video = job.mode in ("hard", "dub")
     if job.source_kind == "upload":
         source = workdir / UPLOAD_NAME
         if not source.exists():
@@ -122,6 +123,11 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         outputs["mp4"] = OUTPUT_FILES["mp4"]
         source.replace(workdir / KEPT_SOURCE)  # kept for "render again with my edits"
 
+    # 5. Dubbing: the translation spoken over the original sound ---------------------
+    if job.mode == "dub":
+        enter("dubbing")
+        outputs["dubbed"] = _dub(job, workdir, source, cues, info, reporter("dubbing"), cancelled)
+
     job.outputs = outputs
 
 
@@ -164,3 +170,34 @@ def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
     media.burn_subtitles(source, BURN_FILE, workdir / OUTPUT_FILES["mp4"], info["duration"], cancelled, reporter("rendering"))
     outputs["mp4"] = OUTPUT_FILES["mp4"]
     job.outputs = outputs
+
+
+def _dub(job: Job, workdir: Path, source: Path, cues: list, info: dict, report, cancelled) -> str:
+    """Speak every subtitle in the target language and mix it over the quietened original sound."""
+    if not config.DUBBING_ENABLED:
+        raise PipelineError("E_NO_VOICE", "Dubbing is switched off on this server.")
+    style = subtitles.SubtitleStyle.from_dict(job.style)
+    if not voice.voice_for(job.tgt_lang, style.voice):
+        raise PipelineError("E_NO_VOICE", "Dubbing is not available for this language yet. Choose subtitles instead.")
+    lines_dir = workdir / "voice"
+    try:
+        clips = voice.synthesize(
+            [c.translation or c.text for c in cues], job.tgt_lang, style.voice, lines_dir, cancelled,
+            lambda f: report(f * 0.8),
+        )
+    except voice.VoiceError as exc:
+        raise PipelineError("E_TTS_FAILED", f"The voice service did not answer ({exc}). Try again later.") from exc
+    # Each line may last until the next one starts (a little after its subtitle ends at most).
+    lines = []
+    for i, (cue, clip) in enumerate(zip(cues, clips)):
+        if clip is None:
+            continue
+        nxt = cues[i + 1].start if i + 1 < len(cues) else info["duration"]
+        lines.append((cue.start, max(cue.end, min(nxt, cue.end + 1.5)), clip))
+    track = workdir / "dub.wav"
+    media.build_dub_track(lines, info["duration"], track)
+    media.mix_dub(source, track, workdir / OUTPUT_FILES["dubbed"], info["duration"], info["has_video"],
+                  cancelled, lambda f: report(0.8 + f * 0.2))
+    shutil.rmtree(lines_dir, ignore_errors=True)
+    track.unlink(missing_ok=True)
+    return OUTPUT_FILES["dubbed"]

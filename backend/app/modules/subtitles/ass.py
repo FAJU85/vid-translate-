@@ -47,6 +47,7 @@ class SubtitleStyle:
     background: str = "outline"
     font: str = "modern"
     bilingual: bool = False  # also show the original text, smaller, next to the translation
+    voice: str = "female"  # dubbing: the voice that speaks the translation (female / male)
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
@@ -67,6 +68,7 @@ class SubtitleStyle:
             background=pick("background", BACKGROUNDS),
             font=pick("font", FONTS),
             bilingual=data.get("bilingual") is True,
+            voice=pick("voice", ("female", "male")),
         )
 
     def to_dict(self) -> dict:
@@ -77,6 +79,7 @@ class SubtitleStyle:
             "background": self.background,
             "font": self.font,
             "bilingual": self.bilingual,
+            "voice": self.voice,
         }
 
 

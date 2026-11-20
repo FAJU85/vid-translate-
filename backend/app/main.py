@@ -32,6 +32,7 @@ MEDIA_TYPES = {
     "subtitles.vtt": "text/vtt",
     "cues.json": "application/json",
     "video.mp4": "video/mp4",
+    "dubbed.mp4": "video/mp4",
 }
 _models_ready = threading.Event()
 
@@ -74,7 +75,7 @@ class InvokeRequest(BaseModel):
     source_url: str | None = None
     src_lang: str = "auto"
     tgt_lang: str = "ar"
-    subtitle_mode: str = Field(default="soft", pattern="^(soft|hard)$")
+    subtitle_mode: str = Field(default="soft", pattern="^(soft|hard|dub)$")
     callback_url: str | None = None
     title: str | None = None
     # Burned-in subtitle style: {size, position, color, background}; unknown values use defaults.
@@ -137,6 +138,8 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
     _require_job_id(req.job_id)
     if req.tgt_lang not in translation.LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported target language: {req.tgt_lang}")
+    if req.subtitle_mode == "dub" and not config.DUBBING_ENABLED:
+        raise HTTPException(status_code=400, detail="Dubbing is switched off on this server")
     if req.source_kind in ("url", "direct"):
         if not req.source_url:
             raise HTTPException(status_code=400, detail="source_url is required")

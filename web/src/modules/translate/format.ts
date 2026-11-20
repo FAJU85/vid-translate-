@@ -21,6 +21,7 @@ export const STAGE_LABEL: Record<string, string> = {
   transcribing: 'Transcribing speech…',
   translating: 'Translating…',
   rendering: 'Burning subtitles into the video…',
+  dubbing: 'Recording the translated voice…',
   done: 'Done',
 };
 
@@ -40,11 +41,13 @@ const ERROR_TEXT: Record<string, string> = {
   E_RENDER_FAILED: 'The subtitled video could not be rendered.',
   E_BACKEND_DOWN: 'The translation server is not responding. Please try again in a few minutes.',
   E_BACKEND_RESTARTED: 'The translation server restarted in the middle of the job. Please submit the video again.',
+  E_TTS_FAILED: 'The translated voice could not be made.',
+  E_NO_VOICE: 'Dubbing is not available for this language yet. Choose subtitles instead.',
   E_CANCELLED: 'Cancelled.',
 };
 
 export function jobError(job: Job): string {
   const base = ERROR_TEXT[job.error_code ?? ''] ?? 'Something went wrong.';
-  const detail = ['E_DOWNLOAD_FAILED', 'E_VIDEO_TOO_LONG', 'E_NMT_FAILED'].includes(job.error_code ?? '') ? job.error_message : '';
+  const detail = ['E_DOWNLOAD_FAILED', 'E_VIDEO_TOO_LONG', 'E_NMT_FAILED', 'E_TTS_FAILED'].includes(job.error_code ?? '') ? job.error_message : '';
   return detail ? `${base} ${detail}` : base;
 }

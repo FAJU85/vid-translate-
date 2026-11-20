@@ -53,7 +53,7 @@ export function HistoryView({ config, onOpen }: { config: AppConfig | null; onOp
                 <div className="font-semibold text-white truncate">{job.title ?? job.source_url ?? 'Video'}</div>
                 <div className="mt-0.5 text-xs text-slate-400">
                   {new Date(job.created_at * 1000).toLocaleString()} · to {langName(job.tgt_lang)} ·{' '}
-                  {job.mode === 'hard' ? 'burned-in video' : 'subtitle file'}
+                  {job.mode === 'hard' ? 'burned-in video' : job.mode === 'dub' ? 'dubbed video' : 'subtitle file'}
                 </div>
               </div>
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${BADGE[job.status] ?? 'bg-amber-950 text-amber-300'}`}>

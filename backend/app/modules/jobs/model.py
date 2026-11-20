@@ -12,6 +12,7 @@ OUTPUT_FILES = {
     "bilingual_srt": "bilingual.srt",
     "transcript": "transcript.txt",
     "mp4": "video.mp4",
+    "dubbed": "dubbed.mp4",
 }
 # The source video of a burned-in job, kept with the outputs so edited subtitles can be rendered
 # again without downloading and transcribing anything ("rerender" jobs). Never published.
@@ -23,6 +24,7 @@ TERMINAL = {"done", "failed", "cancelled"}
 STAGE_SPAN = {
     "soft": {"downloading": (2, 15), "transcribing": (15, 80), "translating": (80, 99)},
     "hard": {"downloading": (2, 12), "transcribing": (12, 60), "translating": (60, 72), "rendering": (72, 99)},
+    "dub": {"downloading": (2, 12), "transcribing": (12, 55), "translating": (55, 65), "dubbing": (65, 99)},
     "rerender": {"rendering": (2, 99)},
 }
 
@@ -34,7 +36,7 @@ class Job:
     source_url: str | None
     src_lang: str               # ISO code or "auto"
     tgt_lang: str
-    mode: str                   # "soft" | "hard"
+    mode: str                   # "soft" (files) | "hard" (burned in) | "dub" (translated voice)
     callback_url: str | None
     style: dict | None = None   # burned-in subtitle style (subtitles.SubtitleStyle fields)
     cues: list | None = None    # rerender: the edited subtitles [{start, end, text, translation}]

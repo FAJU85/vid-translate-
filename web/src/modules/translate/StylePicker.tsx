@@ -31,10 +31,11 @@ export function rememberedStyle(): SubtitleStyle {
     background: oneOf(['outline', 'box'], saved.background, DEFAULT_STYLE.background),
     font: oneOf(['modern', 'classic', 'bold'], saved.font, DEFAULT_STYLE.font),
     bilingual: saved.bilingual === true,
+    voice: saved.voice === 'male' ? 'male' : 'female',
   };
 }
 
-function remember(style: SubtitleStyle): void {
+export function remember(style: SubtitleStyle): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(style));
   } catch {
@@ -109,7 +110,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
     onChange(next);
   };
   const apply = (preset: SubtitleStyle) => {
-    const next = { ...preset, bilingual: style.bilingual };
+    const next = { ...preset, bilingual: style.bilingual, voice: style.voice };
     remember(next);
     onChange(next);
   };

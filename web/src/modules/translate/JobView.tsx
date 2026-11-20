@@ -73,7 +73,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
 
   const langName = (code: string | null) => config?.languages.find((l) => l.code === code)?.en ?? code ?? '';
   const dir = job && RTL.has(job.tgt_lang) ? 'rtl' : 'ltr';
-  const videoUrl = job?.outputs.mp4_url ?? localVideoUrl;
+  const videoUrl = job?.outputs.mp4_url ?? job?.outputs.dubbed_url ?? localVideoUrl;
   const burnedIn = Boolean(job?.outputs.mp4_url);
   const current = useMemo(() => cues?.find((c) => time >= c.start && time < c.end), [cues, time]);
 
@@ -101,6 +101,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
     ['Both languages (.srt)', job.outputs.bilingual_srt_url],
     ['Transcript (.txt)', job.outputs.transcript_url],
     ['Subtitled video (.mp4)', job.outputs.mp4_url],
+    ['Dubbed video (.mp4)', job.outputs.dubbed_url],
   ];
 
   return (
@@ -254,7 +255,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                 {renderError && <p className="w-full text-xs text-rose-300">{renderError}</p>}
               </div>
             )}
-            {job.mode === 'hard' && !job.outputs.mp4_url && (
+            {((job.mode === 'hard' && !job.outputs.mp4_url) || (job.mode === 'dub' && !job.outputs.dubbed_url)) && (
               <p className="text-xs text-slate-400">The source has no picture, so only subtitle files were produced.</p>
             )}
           </>

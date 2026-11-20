@@ -3,7 +3,7 @@ import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type SubtitleMode } from '../../shared/api';
 import { uploadFile } from './upload';
 import { JobView } from './JobView';
-import { StylePicker, rememberedStyle } from './StylePicker';
+import { StylePicker, remember, rememberedStyle } from './StylePicker';
 import { SITE } from '../../shared/content';
 
 const SOURCE_LANGS = [
@@ -48,11 +48,16 @@ export function TranslateView({ config, jobId, onJob }: Props) {
   useEffect(() => () => void (localVideo && URL.revokeObjectURL(localVideo.url)), [localVideo]);
 
   const maxMb = config?.max_upload_mb ?? 500;
+  // Microsoft Edge has no voice for these (worker jobs/style.ts NO_DUB_LANGS).
+  const canDub = !['ku', 'ha'].includes(tgtLang);
+  useEffect(() => {
+    if (!canDub && mode === 'dub') setMode('soft');
+  }, [canDub, mode]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode, ...(mode === 'hard' ? { style } : {}) };
+    const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode, ...(mode !== 'soft' ? { style } : {}) };
     try {
       let job: Job;
       if (source === 'url') {
@@ -165,11 +170,39 @@ export function TranslateView({ config, jobId, onJob }: Props) {
             <select value={mode} onChange={(e) => setMode(e.target.value as SubtitleMode)} className={inputClass}>
               <option value="soft">Subtitle files only (faster)</option>
               <option value="hard">Video with burned-in subtitles</option>
+              <option value="dub" disabled={!canDub}>
+                Dubbed video (translated voice){canDub ? '' : ': not for this language'}
+              </option>
             </select>
           </label>
         </div>
 
         {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} />}
+        {mode === 'dub' && (
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-2">
+            <div className="text-sm font-medium text-slate-200">Voice</div>
+            <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-sm">
+              {(['female', 'male'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    const next = { ...style, voice: v };
+                    remember(next);
+                    setStyle(next);
+                  }}
+                  aria-pressed={(style.voice ?? 'female') === v}
+                  className={`px-3 py-1.5 rounded-lg ${(style.voice ?? 'female') === v ? 'bg-amber-400 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white'}`}
+                >
+                  {v === 'female' ? 'Female' : 'Male'}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">
+              Each subtitle is spoken in the target language by a Microsoft Edge voice, over the original sound turned down low. You also get the subtitle files.
+            </p>
+          </div>
+        )}
 
         {error && (
           <div role="alert" className="flex items-start gap-2 p-3 text-sm rounded-lg border border-rose-800 bg-rose-950/60 text-rose-200">
