@@ -28,12 +28,26 @@ export async function getChat(env: Env, chatId: number, defaultLang: string): Pr
   return row ?? { chat_id: chatId, tgt_lang: defaultLang, pending: null, style: null };
 }
 
-export async function saveChat(env: Env, chat: ChatRow): Promise<void> {
+type ChatField = 'tgt_lang' | 'pending' | 'style';
+
+/**
+ * Save only the given settings of a chat. Each button handler changes one setting, so two taps
+ * handled at the same time (say /style and "Video with subtitles") can never undo each other.
+ */
+export async function updateChat(
+  env: Env,
+  chatId: number,
+  defaultLang: string,
+  patch: Partial<Pick<ChatRow, ChatField>>,
+): Promise<void> {
+  const fields = (Object.keys(patch) as ChatField[]).filter((f) => ['tgt_lang', 'pending', 'style'].includes(f));
+  if (!fields.length) return;
+  const row = { tgt_lang: defaultLang, pending: null, style: null, ...patch };
   await env.DB.prepare(
     `INSERT INTO chats (chat_id, tgt_lang, pending, style, updated_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (chat_id) DO UPDATE SET tgt_lang = excluded.tgt_lang, pending = excluded.pending,
-       style = excluded.style, updated_at = excluded.updated_at`,
+     ON CONFLICT (chat_id) DO UPDATE SET ${fields.map((f) => `${f} = excluded.${f}`).join(', ')},
+       updated_at = excluded.updated_at`,
   )
-    .bind(chat.chat_id, chat.tgt_lang, chat.pending, chat.style ?? null, now())
+    .bind(chatId, row.tgt_lang, row.pending ?? null, row.style ?? null, now())
     .run();
 }

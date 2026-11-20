@@ -141,7 +141,7 @@ def status(job_id: str, authorization: str | None = Header(default=None)) -> dic
     job = manager.jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Unknown job")
-    return job.public()
+    return manager.public(job)
 
 
 @app.post("/cancel/{job_id}")

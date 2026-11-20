@@ -84,6 +84,48 @@ async function runAction(env: Env, ctx: ExecutionContext, action: Action, id: st
   return deleted.length ? { id, ok: true } : { id, ok: false, error: 'Cancel a job before deleting it.' };
 }
 
+const STATS_DAYS = 7;
+
+/** The site a link belongs to, for grouping: m./www./web. dropped, Facebook's short hosts merged. */
+export function siteOf(url: string): string {
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return 'invalid link';
+  }
+  host = host.replace(/^(www|m|web|mobile|vm|vt)\./, '');
+  if (host === 'fb.watch' || host === 'fb.com') return 'facebook.com';
+  if (host === 'youtu.be') return 'youtube.com';
+  return host;
+}
+
+/** Link downloads per site over the last week: how many worked, how many failed, and the last error. */
+async function siteStats(env: Env) {
+  const since = Date.now() / 1000 - STATS_DAYS * 86400;
+  const sites = new Map<string, { site: string; done: number; failed: number; last_error: string | null; last_failed_at: number | null; last_done_at: number | null }>();
+  for (const job of await allJobs(env)) {
+    if (job.source_kind !== 'url' || job.created_at < since || !['done', 'failed'].includes(job.status)) continue;
+    const site = siteOf(job.source);
+    const row = sites.get(site) ?? { site, done: 0, failed: 0, last_error: null, last_failed_at: null, last_done_at: null };
+    if (job.status === 'done') {
+      row.done += 1;
+      row.last_done_at = Math.max(row.last_done_at ?? 0, job.updated_at);
+    } else {
+      row.failed += 1;
+      if (!row.last_failed_at || job.updated_at > row.last_failed_at) {
+        row.last_failed_at = job.updated_at;
+        row.last_error = [job.error_code, job.error_message].filter(Boolean).join(': ').slice(0, 200) || null;
+      }
+    }
+    sites.set(site, row);
+  }
+  return {
+    days: STATS_DAYS,
+    sites: [...sites.values()].sort((a, b) => b.done + b.failed - (a.done + a.failed)),
+  };
+}
+
 /** /api/admin/jobs[/<id>]: the jobs dashboard on the /admin page. Needs the admin password. */
 export async function handleAdminJobs(request: Request, env: Env, ctx: ExecutionContext, path: string): Promise<Response> {
   if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
@@ -95,6 +137,7 @@ export async function handleAdminJobs(request: Request, env: Env, ctx: Execution
     return json(await adminJob(env, await refreshJob(env, job), true));
   }
 
+  if (path === '/api/admin/stats' && request.method === 'GET') return json(await siteStats(env));
   if (path !== '/api/admin/jobs') return apiError(404, 'E_NOT_FOUND', 'Not found.');
 
   if (request.method === 'GET') {

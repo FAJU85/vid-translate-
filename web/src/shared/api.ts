@@ -26,6 +26,12 @@ export interface Job {
   mode: SubtitleMode;
   error_code: string | null;
   error_message: string | null;
+  /** While waiting: place in line (1 = next); 0 while running; null otherwise. */
+  queue_position?: number | null;
+  /** Estimated seconds until the translation is ready, while queued or running. */
+  eta_seconds?: number | null;
+  /** "Try again" makes sense (the same link or Telegram file can be fetched again). */
+  can_retry?: boolean;
   created_at: number;
   updated_at: number;
   outputs: Partial<Record<'srt_url' | 'vtt_url' | 'original_srt_url' | 'cues_url' | 'mp4_url', string>>;
@@ -123,6 +129,8 @@ export const api = {
     call<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ ...body, client_id: clientId() }) }),
   start: (id: string) =>
     call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
+  retry: (id: string) =>
+    call<Job>(`/api/jobs/${id}/retry`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
   cancel: (id: string) =>
     call<Job>(`/api/jobs/${id}/cancel`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
 };
@@ -153,6 +161,19 @@ export interface AdminJob {
   outputs: Partial<Record<'srt' | 'vtt' | 'original_srt' | 'mp4', string>>;
 }
 
+/** Link downloads per site over the last `days` days (the /admin Insights page). */
+export interface SiteStats {
+  days: number;
+  sites: {
+    site: string;
+    done: number;
+    failed: number;
+    last_error: string | null;
+    last_failed_at: number | null;
+    last_done_at: number | null;
+  }[];
+}
+
 export type AdminAction = 'cancel' | 'retry' | 'delete';
 
 export interface AdminActionResult {
@@ -171,6 +192,7 @@ export const adminApi = {
   save: (password: string, settings: Partial<AdminSettings>) =>
     call<{ ok: true }>('/api/admin/settings', { method: 'POST', headers: auth(password), body: JSON.stringify(settings) }),
   jobs: (password: string) => call<AdminJob[]>('/api/admin/jobs', { headers: auth(password) }),
+  stats: (password: string) => call<SiteStats>('/api/admin/stats', { headers: auth(password) }),
   job: (password: string, id: string) => call<AdminJob>(`/api/admin/jobs/${id}`, { headers: auth(password) }),
   act: (password: string, action: AdminAction, ids: string[]) =>
     call<{ results: AdminActionResult[] }>('/api/admin/jobs', {

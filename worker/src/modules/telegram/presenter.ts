@@ -1,5 +1,5 @@
 import type { Env } from '../../shared/env';
-import { TERMINAL, claimDelivery, fileLink, setStatusMessage, type JobListener, type JobRow } from '../jobs';
+import { TERMINAL, canRetry, claimDelivery, fileLink, setStatusMessage, type JobListener, type JobRow } from '../jobs';
 import { editMessage, sendFile, sendMessage, type Keyboard } from './api';
 import { errorText, esc, langName, t, type UiLang } from './i18n';
 
@@ -28,15 +28,25 @@ function statusText(job: JobRow): string {
   const stage = waking ? 'stage_waking' : `stage_${job.status === 'queued' ? 'queued' : job.stage}`;
   const filled = Math.round(job.progress / 10);
   const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
-  return `🎬 <b>${title}</b>\n${bar} ${job.progress}%\n${t(ui, stage)}`;
+  const min = String(Math.max(1, Math.round((job.eta ?? 0) / 60)));
+  const wait =
+    job.status === 'queued' && job.dispatched && (job.queue_position ?? 0) >= 1 && job.eta
+      ? `\n${t(ui, 'queue_line', { n: String(job.queue_position), min })}`
+      : job.status === 'running' && job.eta
+        ? `\n${t(ui, 'eta_line', { min })}`
+        : '';
+  return `🎬 <b>${title}</b>\n${bar} ${job.progress}%\n${t(ui, stage)}${wait}`;
 }
 
 /** Create or update the single progress message of a Telegram job. */
 export async function showStatus(env: Env, job: JobRow): Promise<void> {
   if (job.channel !== 'telegram' || !job.chat_id) return;
-  const keyboard: Keyboard = TERMINAL.includes(job.status)
-    ? []
-    : [[{ text: t(job.ui_lang as UiLang, 'btn_cancel'), callback_data: `cancel:${job.id}` }]];
+  const ui = job.ui_lang as UiLang;
+  const keyboard: Keyboard = !TERMINAL.includes(job.status)
+    ? [[{ text: t(ui, 'btn_cancel'), callback_data: `cancel:${job.id}` }]]
+    : canRetry(job)
+      ? [[{ text: t(ui, 'btn_retry'), callback_data: `retry:${job.id}` }]]
+      : [];
   if (job.status_message_id) {
     await editMessage(env, job.chat_id, job.status_message_id, statusText(job), keyboard);
   } else {

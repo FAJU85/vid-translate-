@@ -10,6 +10,8 @@ import {
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
   activeJobs,
+  canRetry,
+  checkLimits,
   cancelJob,
   createJob,
   dispatch,
@@ -17,12 +19,13 @@ import {
   listJobs,
   maxPerHour,
   parseSubtitleStyle,
+  retryJob,
   type SubtitleMode,
   type SubtitleStyle,
 } from '../jobs';
 import { welcomeOverride } from '../settings';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
-import { getChat, saveChat, type ChatRow } from './chats';
+import { getChat, updateChat, type ChatRow } from './chats';
 import { esc, langName, t, uiLang, type UiLang } from './i18n';
 import { showStatus } from './presenter';
 
@@ -165,7 +168,7 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   }
 
   const sent = await sendMessage(env, chatId, t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) }), chooseKeyboard(ui, pending));
-  if (sent) await saveChat(env, { ...chat, pending: JSON.stringify({ ...pending, messageId: sent.message_id }) });
+  if (sent) await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: JSON.stringify({ ...pending, messageId: sent.message_id }) });
 }
 
 // ------------------------------------------------------------------ /style
@@ -252,7 +255,7 @@ async function startJob(
   });
   if (!job) return t(ui, error === 'busy' ? 'busy' : 'rate_limited', { n: maxPerHour(env) });
 
-  await saveChat(env, { ...chat, pending: null });
+  await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: null });
   await showStatus(env, job);
   ctx.waitUntil(dispatch(env, job));
   return null;
@@ -281,7 +284,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
     } else if (data.startsWith('setlang:')) {
       const code = data.slice(8);
       if (isTargetLang(code)) {
-        await saveChat(env, { ...chat, tgt_lang: code });
+        await updateChat(env, chatId, code, { tgt_lang: code });
         if (pending && pending.messageId === messageId) {
           await editMessage(env, chatId, messageId, t(ui, 'choose', { lang: langName(code, ui) }), chooseKeyboard(ui, pending));
         } else {
@@ -295,9 +298,22 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
         field === 'preset'
           ? parseSubtitleStyle(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current)
           : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
-      await saveChat(env, { ...chat, style: JSON.stringify(next) });
+      await updateChat(env, chatId, chat.tgt_lang, { style: JSON.stringify(next) });
       const menu = styleMenu(ui, next);
       await editMessage(env, chatId, messageId, menu.text, menu.keyboard);
+    } else if (data.startsWith('retry:')) {
+      const job = await getJob(env, data.slice(6));
+      if (!job || job.chat_id !== chatId || !canRetry(job)) {
+        alert = t(ui, 'retry_not_possible');
+      } else {
+        const limited = await checkLimits(env, { owner: job.owner, channel: 'telegram' });
+        if (limited) {
+          alert = t(ui, limited === 'busy' ? 'busy' : 'rate_limited', { n: maxPerHour(env) });
+        } else {
+          const copy = await retryJob(env, job); // also edits the progress message back to "queued"
+          if (copy) ctx.waitUntil(dispatch(env, copy));
+        }
+      }
     } else if (data.startsWith('cancel:')) {
       const job = await getJob(env, data.slice(7));
       if (job && job.chat_id === chatId) await cancelJob(env, job);

@@ -23,6 +23,8 @@ export const JOBS_SCHEMA = [
     style TEXT,
     status TEXT NOT NULL,
     stage TEXT NOT NULL DEFAULT 'queued',
+    queue_position INTEGER,
+    eta INTEGER,
     progress INTEGER NOT NULL DEFAULT 0,
     error_code TEXT,
     error_message TEXT,
@@ -40,7 +42,11 @@ export const JOBS_SCHEMA = [
 ];
 
 /** Columns added after the first release, for databases created before them. */
-export const JOBS_COLUMNS: AddedColumn[] = [{ table: 'jobs', column: 'style', definition: 'TEXT' }];
+export const JOBS_COLUMNS: AddedColumn[] = [
+  { table: 'jobs', column: 'style', definition: 'TEXT' },
+  { table: 'jobs', column: 'queue_position', definition: 'INTEGER' },
+  { table: 'jobs', column: 'eta', definition: 'INTEGER' },
+];
 
 export function getJob(env: Env, id: string): Promise<JobRow | null> {
   return env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first<JobRow>();

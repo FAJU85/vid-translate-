@@ -69,3 +69,18 @@ def test_errors_a_retry_cannot_fix_are_not_retried(monkeypatch, tmp_path):
     with pytest.raises(PipelineError):
         core.download_url("https://www.facebook.com/reel/1/", tmp_path, True, lambda: False, lambda p: None)
     assert calls == [1]
+
+
+def test_a_cancel_during_a_failing_try_stops_the_retries(monkeypatch, tmp_path):
+    calls = []
+    cancelled = {"now": False}
+
+    def fake(*args):
+        calls.append(1)
+        cancelled["now"] = True  # the user cancels while this try is failing
+        raise PipelineError("E_DOWNLOAD_FAILED", "Connection timed out")
+
+    monkeypatch.setattr(core, "_download_url", fake)
+    with pytest.raises(core.Cancelled):
+        core.download_url("https://www.facebook.com/reel/1/", tmp_path, True, lambda: cancelled["now"], lambda p: None)
+    assert calls == [1]

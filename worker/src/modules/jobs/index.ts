@@ -24,6 +24,7 @@ export {
   type SourceFile,
 } from './events';
 export {
+  canRetry,
   cancelJob,
   checkLimits,
   createJob,

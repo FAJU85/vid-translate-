@@ -67,6 +67,8 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
     """Download with yt-dlp (Facebook, Instagram, TikTok, X, direct links, ...)."""
     extra, attempts = site_options(url)
     for attempt in range(1, attempts + 1):
+        if attempt > 1 and cancelled():  # the user cancelled while the last try was failing
+            raise Cancelled()
         try:
             return _download_url(url, dest_dir, want_video, cancelled, progress, extra)
         except MediaError as exc:
