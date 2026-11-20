@@ -25,7 +25,8 @@ import { handleAdminJobs } from './admin';
 import { handleAdminLogin, handleAdminSettings, publicSettings, serveLogo } from '../settings';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
-const RERENDER_WINDOW = 23 * 3600; // a little under the Space's 24-hour file lifetime
+// Counted from when the job was created, which is before the Space made the job's folder (deleted after 24 hours).
+const RERENDER_WINDOW = 23 * 3600;
 const MAX_RENDER_CUES = 5000;
 
 const maxUploadMb = (env: Env) => Number(env.MAX_UPLOAD_MB) || 500;
@@ -44,18 +45,34 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
   };
 }
 
-/** Edited subtitles from the website: [{start, end, text, translation}], checked and trimmed. */
-function parseCues(input: unknown): { start: number; end: number; text: string; translation: string }[] | null {
-  if (!Array.isArray(input) || !input.length || input.length > MAX_RENDER_CUES) return null;
-  const out = [];
-  for (const raw of input) {
+const MAX_CUE_CHARS = 500;
+// D1 stores at most 2 MB per row: the edited subtitles stay well under that.
+const MAX_CUES_BYTES = 1_500_000;
+
+type EditedCue = { start: number; end: number; text: string; translation: string };
+
+/** Edited subtitles from the website: [{start, end, text, translation}], checked; never cut short. */
+function parseCues(input: unknown): { cues: EditedCue[] } | { error: string } {
+  const unreadable = { error: 'The subtitles could not be read.' };
+  if (!Array.isArray(input) || !input.length) return unreadable;
+  if (input.length > MAX_RENDER_CUES) return { error: `A video can have at most ${MAX_RENDER_CUES} subtitles.` };
+  const cues: EditedCue[] = [];
+  for (const [i, raw] of input.entries()) {
     const c = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const start = Number(c.start);
     const end = Number(c.end);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return null;
-    out.push({ start, end, text: String(c.text ?? '').slice(0, 500), translation: String(c.translation ?? '').slice(0, 500) });
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return unreadable;
+    const text = String(c.text ?? '');
+    const translation = String(c.translation ?? '');
+    if (text.length > MAX_CUE_CHARS || translation.length > MAX_CUE_CHARS) {
+      return { error: `Subtitle ${i + 1} is longer than ${MAX_CUE_CHARS} characters. Shorten it or split it.` };
+    }
+    cues.push({ start, end, text, translation });
   }
-  return out;
+  if (new TextEncoder().encode(JSON.stringify(cues)).length > MAX_CUES_BYTES) {
+    return { error: 'The subtitles are too long to render in one go.' };
+  }
+  return { cues };
 }
 
 /** What the website is allowed to see of a job. */
@@ -88,7 +105,7 @@ async function publicJob(env: Env, job: JobRow) {
     eta_seconds: job.status === 'queued' || job.status === 'running' ? job.eta : null,
     can_retry: canRetry(job),
     // The Space keeps the video of a burned-in job with its files (24 hours), for "render with my edits".
-    can_rerender: job.status === 'done' && job.mode === 'hard' && 'mp4' in names && Date.now() / 1000 - job.updated_at < RERENDER_WINDOW,
+    can_rerender: job.status === 'done' && job.mode === 'hard' && 'mp4' in names && Date.now() / 1000 - job.created_at < RERENDER_WINDOW,
     created_at: job.created_at,
     updated_at: job.updated_at,
     outputs,
@@ -212,8 +229,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       if (match[2] === '/render') {
         const pub = await publicJob(env, job);
         if (!pub.can_rerender) return apiError(400, 'E_BAD_REQUEST', 'This video can no longer be rendered again. Translate it again.');
-        const cues = parseCues(body?.cues);
-        if (!cues) return apiError(400, 'E_BAD_REQUEST', 'The subtitles could not be read.');
+        const parsed = parseCues(body?.cues);
+        if ('error' in parsed) return apiError(400, 'E_BAD_REQUEST', parsed.error);
+        const cues = parsed.cues;
         const style = body?.style ? parseSubtitleStyle(body.style) : job.style ? parseSubtitleStyle(JSON.parse(job.style)) : null;
         const { job: next, error } = await createJob(env, {
           channel: 'web',
