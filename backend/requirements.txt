@@ -6,4 +6,5 @@ ctranslate2>=4.5
 sentencepiece>=0.2
 huggingface_hub>=0.25
 # Unpinned on purpose: site extractors break often, a rebuild picks up fixes.
-yt-dlp[default]
+# curl-cffi: Chrome impersonation, without which Facebook does not answer this server.
+yt-dlp[default,curl-cffi]
