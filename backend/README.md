@@ -27,6 +27,7 @@ Set these under **Settings → Variables and secrets** of the Space.
 | `GEMINI_API_KEY` | secret | – | Use Gemini for translation (better quality); falls back to NLLB on errors. |
 | `GEMINI_MODEL` | variable | `gemini-2.5-flash` | Gemini model name. |
 | `WHISPER_MODEL` | variable | `small` | `tiny`, `base`, `small`, `medium`, `large-v3`… Larger is slower and more accurate. |
+| `WORD_TIMESTAMPS` | variable | `1` | Word timings for sentence-aware subtitles timed to the speech (about 6% more speech-recognition time). `0` turns them off. |
 | `MAX_DURATION_MIN` | variable | `60` | Longest video accepted. |
 | `MAX_UPLOAD_MB` | variable | `500` | Largest browser upload. |
 | `OUTPUT_TTL_HOURS` | variable | `24` | How long result files are kept. |

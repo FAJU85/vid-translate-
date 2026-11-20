@@ -55,7 +55,7 @@ is broken:
 | `media` | `download_url`, `download_direct`, `probe`, `extract_audio`, `burn_subtitles` | yt-dlp downloads and all ffmpeg work |
 | `speech` | `transcribe`, `warm_up` | Speech recognition with faster-whisper |
 | `translation` | `translate_texts`, `LANGUAGES`, `TranslationError`, `warm_up` | Gemini or local NLLB-200 translation |
-| `subtitles` | `clean_segments`, `build_cues`, `to_srt`, `to_vtt`, `Cue` | Pure cue shaping and file formats |
+| `subtitles` | `clean_segments`, `sentence_segments`, `build_cues`, `to_srt`, `to_vtt`, `to_ass`, `Cue` | Pure cue shaping (whole sentences and reading-speed cues from word timestamps) and file formats |
 | `jobs` | `Job`, `manager`, `OUTPUT_FILES`, `UPLOAD_NAME`, `TERMINAL` | The queue, and the pipeline that composes the bricks above |
 
 Baseplate: `shared/config.py`, `shared/security.py`, `shared/errors.py` (`PipelineError`, `Cancelled`).

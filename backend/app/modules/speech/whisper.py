@@ -46,8 +46,12 @@ def transcribe(
     duration: float,
     cancelled: Callable[[], bool],
     progress: Callable[[float], None],
-) -> tuple[list[tuple[float, float, str]], str]:
-    """Return ([(start, end, text), ...], detected_language)."""
+) -> tuple[list[tuple], str]:
+    """Return ([(start, end, text, words), ...], detected_language).
+
+    words is [(start, end, text), ...] with WORD_TIMESTAMPS on (the default), else empty: the
+    subtitles brick uses them to build whole sentences and time each subtitle to its words.
+    """
     import numpy as np
 
     model = get_model()
@@ -61,13 +65,15 @@ def transcribe(
         beam_size=config.WHISPER_BEAM_SIZE,
         vad_filter=True,
         condition_on_previous_text=False,
+        word_timestamps=config.WORD_TIMESTAMPS,
     )
     total = duration or info.duration or 0
-    out: list[tuple[float, float, str]] = []
+    out: list[tuple] = []
     for seg in segments:  # lazy generator: decoding happens here
         if cancelled():
             raise Cancelled()
-        out.append((seg.start, seg.end, seg.text))
+        words = [(w.start, w.end, w.word) for w in (seg.words or [])]
+        out.append((seg.start, seg.end, seg.text, words))
         if total:
             progress(min(1.0, seg.end / total))
     return out, info.language

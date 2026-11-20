@@ -89,7 +89,8 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         raise PipelineError("E_ASR_FAILED", f"Speech recognition failed: {exc.__class__.__name__}") from exc
     audio.unlink(missing_ok=True)
     job.detected_lang = detected
-    segments = subtitles.clean_segments(segments)
+    # Whole sentences (from word timestamps) translate better than Whisper's audio chunks.
+    segments = subtitles.sentence_segments(subtitles.clean_segments(segments))
     if not segments:
         raise PipelineError("E_NO_SPEECH", "No speech was detected in this video.")
 
@@ -97,7 +98,7 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     enter("translating")
     try:
         translations, job.engine = translation.translate_texts(
-            [text for _, _, text in segments], detected, job.tgt_lang, reporter("translating")
+            [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating")
         )
     except translation.TranslationError as exc:
         raise PipelineError("E_NMT_FAILED", str(exc)) from exc
