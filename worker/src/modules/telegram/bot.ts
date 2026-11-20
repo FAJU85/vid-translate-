@@ -10,6 +10,7 @@ import {
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
   activeJobs,
+  canDub,
   canRetry,
   checkLimits,
   cancelJob,
@@ -48,11 +49,13 @@ function isAllowed(env: Env, chatId: number): boolean {
 
 const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ? env.DEFAULT_TARGET_LANG! : 'ar');
 
-function chooseKeyboard(ui: UiLang, pending: Pending): Keyboard {
+function chooseKeyboard(ui: UiLang, pending: Pending, tgtLang: string): Keyboard {
   const rows: Keyboard = [[{ text: t(ui, 'btn_soft'), callback_data: 'go:soft' }]];
   if (pending.video) rows[0].push({ text: t(ui, 'btn_hard'), callback_data: 'go:hard' });
-  rows.push([{ text: t(ui, 'btn_lang'), callback_data: 'lang' }]);
-  if (pending.video) rows[1].push({ text: t(ui, 'btn_style'), callback_data: 'style' });
+  if (pending.video && canDub(tgtLang)) rows.push([{ text: t(ui, 'btn_dub'), callback_data: 'go:dub' }]);
+  const last: Keyboard[number] = [{ text: t(ui, 'btn_lang'), callback_data: 'lang' }];
+  if (pending.video) last.push({ text: t(ui, 'btn_style'), callback_data: 'style' });
+  rows.push(last);
   return rows;
 }
 
@@ -167,7 +170,7 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     return;
   }
 
-  const sent = await sendMessage(env, chatId, t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) }), chooseKeyboard(ui, pending));
+  const sent = await sendMessage(env, chatId, t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) }), chooseKeyboard(ui, pending, chat.tgt_lang));
   if (sent) await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: JSON.stringify({ ...pending, messageId: sent.message_id }) });
 }
 
@@ -183,9 +186,9 @@ const STYLE_COLORS: Record<string, string> = {
   pink: '#F472B6',
 };
 
-/** Same design (the "show the original too" switch is separate from the ready-made designs). */
+/** Same design (the "show the original too" switch and the voice are separate from the ready-made designs). */
 const sameStyle = (a: SubtitleStyle, b: SubtitleStyle) =>
-  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => k === 'bilingual' || a[k] === b[k]);
+  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => k === 'bilingual' || k === 'voice' || a[k] === b[k]);
 
 function chatStyle(chat: ChatRow): SubtitleStyle {
   return parseSubtitleStyle(chat.style ? JSON.parse(chat.style) : null);
@@ -223,6 +226,7 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     colors.slice(0, 3),
     colors.slice(3),
     [{ text: t(ui, style.bilingual ? 'bilingual_on' : 'bilingual_off'), callback_data: `st:bilingual:${style.bilingual ? 'off' : 'on'}` }],
+    (['female', 'male'] as const).map((v) => ({ text: mark(style.voice === v, t(ui, `voice_${v}`)), callback_data: `st:voice:${v}` })),
   ];
   return { text, keyboard };
 }
@@ -251,7 +255,7 @@ async function startJob(
     source: pending.source,
     title: pending.title ?? null,
     tgtLang: chat.tgt_lang,
-    mode: pending.video ? mode : 'soft',
+    mode: pending.video && (mode !== 'dub' || canDub(chat.tgt_lang)) ? mode : 'soft',
     style: chatStyle(chat),
     origin,
   });
@@ -275,8 +279,8 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
     const chat = await getChat(env, chatId, defaultLang(env));
     const pending = chat.pending ? (JSON.parse(chat.pending) as Pending) : null;
 
-    if (data === 'go:soft' || data === 'go:hard') {
-      alert = await startJob(env, ctx, origin, chat, ui, messageId, data === 'go:hard' ? 'hard' : 'soft');
+    if (data === 'go:soft' || data === 'go:hard' || data === 'go:dub') {
+      alert = await startJob(env, ctx, origin, chat, ui, messageId, data.slice(3) as SubtitleMode);
     } else if (data === 'style') {
       // From the "video with subtitles" choice: open the style menu below, keeping that message.
       const menu = styleMenu(ui, chatStyle(chat));
@@ -288,7 +292,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       if (isTargetLang(code)) {
         await updateChat(env, chatId, code, { tgt_lang: code });
         if (pending && pending.messageId === messageId) {
-          await editMessage(env, chatId, messageId, t(ui, 'choose', { lang: langName(code, ui) }), chooseKeyboard(ui, pending));
+          await editMessage(env, chatId, messageId, t(ui, 'choose', { lang: langName(code, ui) }), chooseKeyboard(ui, pending, code));
         } else {
           await editMessage(env, chatId, messageId, t(ui, 'lang_set', { lang: langName(code, ui) }));
         }
@@ -298,7 +302,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       const current = chatStyle(chat);
       const next =
         field === 'preset'
-          ? parseSubtitleStyle({ ...(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current), bilingual: current.bilingual })
+          ? parseSubtitleStyle({ ...(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current), bilingual: current.bilingual, voice: current.voice })
           : field === 'bilingual'
             ? { ...current, bilingual: value === 'on' }
             : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });

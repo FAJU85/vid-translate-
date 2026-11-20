@@ -13,6 +13,8 @@ export {
   SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
+  NO_DUB_LANGS,
+  canDub,
   parseSubtitleStyle,
   type SubtitleStyle,
 } from './style';

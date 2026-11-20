@@ -1,5 +1,6 @@
 export type JobStatus = 'awaiting_upload' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-export type SubtitleMode = 'soft' | 'hard';
+/** soft: subtitle files; hard: subtitles burned into the video; dub: the translation spoken over it. */
+export type SubtitleMode = 'soft' | 'hard' | 'dub';
 /** 'rerender': burn edited subtitles into the video kept from an earlier job (`source` = its id). */
 export type SourceKind = 'url' | 'telegram' | 'upload' | 'rerender';
 export type Channel = 'web' | 'telegram';

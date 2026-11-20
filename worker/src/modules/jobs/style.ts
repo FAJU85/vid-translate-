@@ -11,20 +11,22 @@ export interface SubtitleStyle {
   font: 'modern' | 'classic' | 'bold';
   /** Also show the original text, smaller, next to the translation. */
   bilingual: boolean;
+  /** Dubbing: the voice that speaks the translation. */
+  voice: 'female' | 'male';
 }
 
 export const SUBTITLE_SIZES = ['small', 'medium', 'large', 'xlarge'] as const;
 export const SUBTITLE_POSITIONS = ['bottom', 'middle', 'top'] as const;
 export const SUBTITLE_BACKGROUNDS = ['outline', 'box'] as const;
 export const SUBTITLE_FONTS = ['modern', 'classic', 'bold'] as const;
-export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', bilingual: false };
+export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', bilingual: false, voice: 'female' };
 
 /** Ready-made designs: one tap sets every field. */
 export const STYLE_PRESETS: Record<'cinema' | 'boldbox' | 'elegant' | 'social', SubtitleStyle> = {
   cinema: DEFAULT_STYLE,
-  boldbox: { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', bilingual: false },
-  elegant: { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', bilingual: false },
-  social: { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', bilingual: false },
+  boldbox: { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', bilingual: false, voice: 'female' },
+  elegant: { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', bilingual: false, voice: 'female' },
+  social: { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', bilingual: false, voice: 'female' },
 };
 
 const pick = <T extends string>(allowed: readonly T[], value: unknown, fallback: T): T =>
@@ -41,5 +43,10 @@ export function parseSubtitleStyle(input: unknown): SubtitleStyle {
     background: pick(SUBTITLE_BACKGROUNDS, raw.background, DEFAULT_STYLE.background),
     font: pick(SUBTITLE_FONTS, raw.font, DEFAULT_STYLE.font),
     bilingual: raw.bilingual === true,
+    voice: raw.voice === 'male' ? 'male' : 'female',
   };
 }
+
+/** Target languages with no Microsoft Edge voice: subtitles only. */
+export const NO_DUB_LANGS = ['ku', 'ha'];
+export const canDub = (lang: string) => !NO_DUB_LANGS.includes(lang);

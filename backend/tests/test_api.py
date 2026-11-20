@@ -202,3 +202,21 @@ def test_every_output_file_has_a_content_type():
     from app.modules.jobs import OUTPUT_FILES
 
     assert set(OUTPUT_FILES.values()) <= set(MEDIA_TYPES)
+
+
+def test_a_refused_rerender_leaves_no_video_behind(client, monkeypatch):
+    from app.modules.jobs import KEPT_SOURCE, manager
+
+    parent, job = JOB.format("f"), "0a0a0a0a-0000-4000-8000-0000000000ff"
+    kept = manager.job_dir(parent) / KEPT_SOURCE
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    kept.write_bytes(b"video")
+
+    def full(_job):
+        raise OverflowError
+
+    monkeypatch.setattr(manager, "submit", full)
+    body = {"job_id": job, "source_kind": "rerender", "parent_job_id": parent, "subtitle_mode": "hard",
+            "cues": [{"start": 0, "end": 1, "translation": "x"}]}
+    assert client.post("/invoke", json=body, headers=AUTH).status_code == 429
+    assert not (manager.job_dir(job) / KEPT_SOURCE).exists() and kept.exists()

@@ -15,6 +15,7 @@ the Polylith / modular-monolith idea applied to each of the three deployable par
   │   ├── speech             │   ├── telegram         │   ├── history
   │   ├── translation        │   └── web-api          │   └── telegram
   │   ├── subtitles          └── shared/   (baseplate)└── shared/          (baseplate)
+  │   ├── voice
   │   └── jobs
   └── shared/   (baseplate)
 ```
@@ -52,10 +53,11 @@ is broken:
 
 | Brick | Public interface | Does |
 | --- | --- | --- |
-| `media` | `download_url`, `download_direct`, `probe`, `extract_audio`, `burn_subtitles` | yt-dlp downloads and all ffmpeg work |
+| `media` | `download_url`, `download_direct`, `probe`, `extract_audio`, `burn_subtitles`, `build_dub_track`, `mix_dub` | yt-dlp downloads and all ffmpeg work (including mixing the dubbed voice over the original sound) |
 | `speech` | `transcribe`, `warm_up` | Speech recognition with faster-whisper |
 | `translation` | `translate_texts`, `LANGUAGES`, `TranslationError`, `warm_up` | Gemini or local NLLB-200 translation |
 | `subtitles` | `clean_segments`, `sentence_segments`, `build_cues`, `to_srt`, `to_vtt`, `to_ass`, `Cue` | Pure cue shaping (whole sentences and reading-speed cues from word timestamps) and file formats |
+| `voice` | `synthesize`, `voice_for`, `VOICES`, `VoiceError` | Dubbing voices: each translated line spoken with a free Microsoft Edge voice (edge-tts) |
 | `jobs` | `Job`, `manager`, `OUTPUT_FILES`, `UPLOAD_NAME`, `TERMINAL` | The queue, and the pipeline that composes the bricks above |
 
 Baseplate: `shared/config.py`, `shared/security.py`, `shared/errors.py` (`PipelineError`, `Cancelled`).

@@ -30,7 +30,7 @@ export interface NewJob {
   srcLang?: string;
   tgtLang: string;
   mode: SubtitleMode;
-  /** Burned-in subtitle style; only used when mode is 'hard'. */
+  /** Burned-in subtitle style (and the dubbing voice); only used when mode is 'hard' or 'dub'. */
   style?: SubtitleStyle | null;
   /** 'rerender' jobs: the edited subtitles. */
   cues?: unknown[];
@@ -72,7 +72,7 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     tgt_lang: p.tgtLang,
     detected_lang: null,
     mode: p.mode,
-    style: p.mode === 'hard' && p.style ? JSON.stringify(p.style) : null,
+    style: p.mode !== 'soft' && p.style ? JSON.stringify(p.style) : null,
     cues: p.cues ? JSON.stringify(p.cues) : null,
     status: p.sourceKind === 'upload' ? 'awaiting_upload' : 'queued',
     stage: 'queued',
@@ -145,7 +145,10 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       return true;
     }
     if (data && [400, 409, 422].includes(status)) {
-      await failJob(env, job, status === 409 ? 'E_INTERNAL' : 'E_URL_INVALID', String(data.error ?? ''));
+      const detail = String(data.error ?? '');
+      // The Space refuses dubbing when it is switched off there; that is not a bad link.
+      const code = status === 409 ? 'E_INTERNAL' : job.mode === 'dub' && /dubbing/i.test(detail) ? 'E_NO_VOICE' : 'E_URL_INVALID';
+      await failJob(env, job, code, detail);
       return false;
     }
     failure = `HTTP ${status}`; // asleep, building, busy (429) or misconfigured (401)
@@ -234,7 +237,7 @@ export async function cancelJob(env: Env, job: JobRow): Promise<void> {
 }
 
 // Failures another try cannot fix: the same video would fail the same way.
-const FINAL_ERRORS = ['E_VIDEO_TOO_LONG', 'E_FILE_TOO_LARGE', 'E_URL_INVALID', 'E_NO_SPEECH', 'E_MEDIA_INVALID', 'E_YOUTUBE_UNSUPPORTED'];
+const FINAL_ERRORS = ['E_VIDEO_TOO_LONG', 'E_FILE_TOO_LARGE', 'E_URL_INVALID', 'E_NO_SPEECH', 'E_MEDIA_INVALID', 'E_YOUTUBE_UNSUPPORTED', 'E_NO_VOICE'];
 
 /** Whether "Try again" makes sense for a job (the bot's and the website's retry button). */
 export function canRetry(job: JobRow): boolean {

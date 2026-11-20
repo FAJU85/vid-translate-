@@ -3,8 +3,11 @@ uvicorn[standard]>=0.30
 httpx>=0.27
 faster-whisper>=1.1
 ctranslate2>=4.5
+numpy>=1.24  # dubbing: placing the spoken lines
 sentencepiece>=0.2
 huggingface_hub>=0.25
 # Unpinned on purpose: site extractors break often, a rebuild picks up fixes.
 # curl-cffi: Chrome impersonation, without which Facebook does not answer this server.
 yt-dlp[default,curl-cffi]
+# Dubbing voices (Microsoft Edge online text-to-speech; see modules/voice).
+edge-tts>=7.0

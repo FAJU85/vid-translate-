@@ -1,6 +1,7 @@
 /** Baseplate: the typed client for the Worker's /api and the types every brick shares. */
 export type JobStatus = 'awaiting_upload' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-export type SubtitleMode = 'soft' | 'hard';
+/** soft: subtitle files; hard: subtitles burned in; dub: the translation spoken over the video. */
+export type SubtitleMode = 'soft' | 'hard' | 'dub';
 
 /** How burned-in subtitles look (only used with SubtitleMode 'hard'). */
 export interface SubtitleStyle {
@@ -11,6 +12,8 @@ export interface SubtitleStyle {
   font: 'modern' | 'classic' | 'bold';
   /** Also show the original text, smaller, next to the translation. */
   bilingual?: boolean;
+  /** Dubbing: the voice that speaks the translation. */
+  voice?: 'female' | 'male';
 }
 
 export interface Job {
@@ -39,7 +42,7 @@ export interface Job {
   created_at: number;
   updated_at: number;
   outputs: Partial<
-    Record<'srt_url' | 'vtt_url' | 'original_srt_url' | 'bilingual_srt_url' | 'transcript_url' | 'cues_url' | 'mp4_url', string>
+    Record<'srt_url' | 'vtt_url' | 'original_srt_url' | 'bilingual_srt_url' | 'transcript_url' | 'cues_url' | 'mp4_url' | 'dubbed_url', string>
   >;
   upload_url?: string;
 }

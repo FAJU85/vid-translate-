@@ -60,7 +60,7 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     assert SubtitleStyle.from_dict(["not", "a", "dict"]) == SubtitleStyle()
     style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box", "font": "bold"})
     assert style.to_dict() == {
-        "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False,
+        "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False, "voice": "female",
     }
     assert SubtitleStyle.from_dict({"bilingual": "yes"}).bilingual is False  # only a real true turns it on
 

@@ -10,6 +10,7 @@ import re
 import shutil
 import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +33,7 @@ MEDIA_TYPES = {
     "subtitles.vtt": "text/vtt",
     "cues.json": "application/json",
     "video.mp4": "video/mp4",
+    "dubbed.mp4": "video/mp4",
 }
 _models_ready = threading.Event()
 
@@ -74,7 +76,7 @@ class InvokeRequest(BaseModel):
     source_url: str | None = None
     src_lang: str = "auto"
     tgt_lang: str = "ar"
-    subtitle_mode: str = Field(default="soft", pattern="^(soft|hard)$")
+    subtitle_mode: str = Field(default="soft", pattern="^(soft|hard|dub)$")
     callback_url: str | None = None
     title: str | None = None
     # Burned-in subtitle style: {size, position, color, background}; unknown values use defaults.
@@ -108,8 +110,10 @@ def health() -> dict:
     }
 
 
-def _prepare_rerender(req: InvokeRequest) -> None:
-    """Link the video kept from the parent job into the new job's folder (no copy, no download)."""
+def _prepare_rerender(req: InvokeRequest) -> Path | None:
+    """Link the video kept from the parent job into the new job's folder (no copy, no download).
+
+    Returns the file it created, or None when it was already there (the same job sent again)."""
     if not req.parent_job_id or not JOB_ID_RE.match(req.parent_job_id) or not req.cues:
         raise HTTPException(status_code=400, detail="parent_job_id and cues are required")
     for cue in req.cues:
@@ -124,11 +128,13 @@ def _prepare_rerender(req: InvokeRequest) -> None:
         raise HTTPException(status_code=409, detail="The original video is no longer kept")
     target = manager.job_dir(req.job_id) / KEPT_SOURCE
     target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.exists():
-        try:
-            os.link(kept, target)
-        except OSError:
-            shutil.copyfile(kept, target)
+    if target.exists():
+        return None
+    try:
+        os.link(kept, target)
+    except OSError:
+        shutil.copyfile(kept, target)
+    return target
 
 
 @app.post("/invoke", status_code=202)
@@ -137,6 +143,9 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
     _require_job_id(req.job_id)
     if req.tgt_lang not in translation.LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported target language: {req.tgt_lang}")
+    if req.subtitle_mode == "dub" and not config.DUBBING_ENABLED:
+        raise HTTPException(status_code=400, detail="Dubbing is switched off on this server")
+    created = None  # a video this request linked into place, removed again if the job is refused
     if req.source_kind in ("url", "direct"):
         if not req.source_url:
             raise HTTPException(status_code=400, detail="source_url is required")
@@ -145,7 +154,7 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         except security.UnsafeUrl as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     elif req.source_kind == "rerender":
-        _prepare_rerender(req)
+        created = _prepare_rerender(req)
     elif not (manager.job_dir(req.job_id) / UPLOAD_NAME).exists():
         raise HTTPException(status_code=409, detail="No uploaded file for this job")
 
@@ -164,6 +173,8 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
     try:
         job = manager.submit(job)
     except OverflowError:
+        if created:  # nothing will clean up a video linked for a job that was not taken
+            created.unlink(missing_ok=True)
         raise HTTPException(status_code=429, detail="The backend queue is full") from None
     return {"job_id": job.id, "status": "accepted", "state": job.status, "queue": manager.pending_count()}
 

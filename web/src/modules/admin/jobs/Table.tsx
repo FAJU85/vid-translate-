@@ -117,7 +117,7 @@ export function Table({ jobs, props, onOrder }: { jobs: AdminJob[]; props: CardP
                 <span className="w-24 uppercase text-xs font-semibold text-slate-300">
                   {job.detected_lang ?? job.src_lang} → {job.tgt_lang}
                 </span>
-                <span className="w-28 hidden lg:block text-slate-400">{job.mode === 'hard' ? 'Burned in' : 'Subtitle file'}</span>
+                <span className="w-28 hidden lg:block text-slate-400">{job.mode === 'hard' ? 'Burned in' : job.mode === 'dub' ? 'Dubbed' : 'Subtitle file'}</span>
                 <span className="w-20 hidden lg:block text-right tabular-nums text-slate-400">{formatDuration(job.duration)}</span>
                 <span className="w-24 text-right tabular-nums text-slate-400" title={fullTime(job.created_at)}>
                   {relativeTime(job.created_at)}

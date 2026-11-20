@@ -27,6 +27,20 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/tmp/tarjim"))
 # Speech recognition (faster-whisper). "small" is a sane default for a free CPU Space.
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
 WHISPER_BEAM_SIZE = _int("WHISPER_BEAM_SIZE", 2)
+# Dubbing (translated voice, media.mix_dub + the voice brick). Off: the option is refused.
+DUBBING_ENABLED = _bool("DUBBING_ENABLED", True)
+
+
+def _volume(name: str, default: float) -> float:
+    """A 0-1 volume; anything unreadable keeps the default instead of stopping the server."""
+    try:
+        return min(1.0, max(0.0, float(os.environ.get(name, default))))
+    except ValueError:
+        return default
+
+
+DUB_BACKGROUND_VOLUME = _volume("DUB_BACKGROUND_VOLUME", 0.18)  # original sound under the voice
+
 # Word timestamps let subtitles follow whole sentences and the speech itself (a little extra CPU).
 WORD_TIMESTAMPS = _bool("WORD_TIMESTAMPS", True)
 

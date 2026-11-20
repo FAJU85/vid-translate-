@@ -88,22 +88,26 @@ async function deliver(env: Env, job: JobRow): Promise<void> {
   });
   if (!srtSent) await sendMessage(env, job.chat_id, t(ui, 'srt_link', { url: esc(srtUrl) }));
 
-  if (job.mode === 'hard') {
-    if (outputs.mp4) {
-      const videoUrl = await fileLink(env, job.id, 'video.mp4', LINK_TTL, `${base}.${job.tgt_lang}.mp4`);
-      const res = await fetch(videoUrl);
+  // The video: subtitles burned in (hard) or the translation spoken over it (dub).
+  const video = job.mode === 'hard' ? { key: 'mp4', file: 'video.mp4', name: `${base}.${job.tgt_lang}.mp4` }
+    : job.mode === 'dub' ? { key: 'dubbed', file: 'dubbed.mp4', name: `${base}.${job.tgt_lang}.dubbed.mp4` } : null;
+  if (video) {
+    if (outputs[video.key]) {
+      const videoUrl = await fileLink(env, job.id, video.file, LINK_TTL, video.name);
+      // A network error must still end in the link below: the delivery is already claimed.
+      const res = await fetch(videoUrl).catch(() => null);
       let sent = false;
-      if (res.ok && Number(res.headers.get('content-length')) <= TELEGRAM_UPLOAD_LIMIT) {
-        sent = await sendFile(env, 'sendVideo', 'video', res, `${base}.${job.tgt_lang}.mp4`, {
+      if (res?.ok && Number(res.headers.get('content-length')) <= TELEGRAM_UPLOAD_LIMIT) {
+        sent = await sendFile(env, 'sendVideo', 'video', res, video.name, {
           chat_id: chatId,
-          caption: t(ui, 'video_caption', { title }),
+          caption: t(ui, job.mode === 'dub' ? 'dub_caption' : 'video_caption', { title }),
           parse_mode: 'HTML',
           supports_streaming: 'true',
         });
       } else {
-        await res.body?.cancel();
+        await res?.body?.cancel();
       }
-      if (!sent) await sendMessage(env, job.chat_id, t(ui, 'video_link', { url: esc(videoUrl) }));
+      if (!sent) await sendMessage(env, job.chat_id, t(ui, job.mode === 'dub' ? 'dub_link' : 'video_link', { url: esc(videoUrl) }));
     } else {
       await sendMessage(env, job.chat_id, t(ui, 'audio_only_note'));
     }
