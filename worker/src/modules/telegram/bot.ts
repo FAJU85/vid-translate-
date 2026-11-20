@@ -183,8 +183,9 @@ const STYLE_COLORS: Record<string, string> = {
   pink: '#F472B6',
 };
 
+/** Same design (the "show the original too" switch is separate from the ready-made designs). */
 const sameStyle = (a: SubtitleStyle, b: SubtitleStyle) =>
-  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => a[k] === b[k]);
+  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => k === 'bilingual' || a[k] === b[k]);
 
 function chatStyle(chat: ChatRow): SubtitleStyle {
   return parseSubtitleStyle(chat.style ? JSON.parse(chat.style) : null);
@@ -221,6 +222,7 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     SUBTITLE_BACKGROUNDS.map((v) => ({ text: mark(style.background === v, t(ui, `bg_${v}`)), callback_data: `st:background:${v}` })),
     colors.slice(0, 3),
     colors.slice(3),
+    [{ text: t(ui, style.bilingual ? 'bilingual_on' : 'bilingual_off'), callback_data: `st:bilingual:${style.bilingual ? 'off' : 'on'}` }],
   ];
   return { text, keyboard };
 }
@@ -296,8 +298,10 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       const current = chatStyle(chat);
       const next =
         field === 'preset'
-          ? parseSubtitleStyle(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current)
-          : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
+          ? parseSubtitleStyle({ ...(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current), bilingual: current.bilingual })
+          : field === 'bilingual'
+            ? { ...current, bilingual: value === 'on' }
+            : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
       await updateChat(env, chatId, chat.tgt_lang, { style: JSON.stringify(next) });
       const menu = styleMenu(ui, next);
       await editMessage(env, chatId, messageId, menu.text, menu.keyboard);

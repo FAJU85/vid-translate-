@@ -24,6 +24,8 @@ import { handleAdminJobs } from './admin';
 import { handleAdminLogin, handleAdminSettings, publicSettings, serveLogo } from '../settings';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
+const RERENDER_WINDOW = 23 * 3600; // a little under the Space's 24-hour file lifetime
+const MAX_RENDER_CUES = 5000;
 
 const maxUploadMb = (env: Env) => Number(env.MAX_UPLOAD_MB) || 500;
 
@@ -41,6 +43,20 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
   };
 }
 
+/** Edited subtitles from the website: [{start, end, text, translation}], checked and trimmed. */
+function parseCues(input: unknown): { start: number; end: number; text: string; translation: string }[] | null {
+  if (!Array.isArray(input) || !input.length || input.length > MAX_RENDER_CUES) return null;
+  const out = [];
+  for (const raw of input) {
+    const c = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const start = Number(c.start);
+    const end = Number(c.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return null;
+    out.push({ start, end, text: String(c.text ?? '').slice(0, 500), translation: String(c.translation ?? '').slice(0, 500) });
+  }
+  return out;
+}
+
 /** What the website is allowed to see of a job. */
 async function publicJob(env: Env, job: JobRow) {
   const names = job.status === 'done' ? (JSON.parse(job.outputs || '{}') as Record<string, string>) : {};
@@ -48,7 +64,8 @@ async function publicJob(env: Env, job: JobRow) {
   const outputs: Record<string, string> = {};
   for (const [key, name] of Object.entries(names)) {
     const ext = name.split('.').pop();
-    const download = key === 'cues' ? undefined : `${base}.${key === 'original_srt' ? 'original' : job.tgt_lang}.${ext}`;
+    const label: Record<string, string> = { original_srt: 'original', bilingual_srt: 'bilingual', transcript: 'transcript' };
+    const download = key === 'cues' ? undefined : `${base}.${label[key] ?? job.tgt_lang}.${ext}`;
     outputs[`${key}_url`] = await fileLink(env, job.id, name, OUTPUT_LINK_TTL, download);
   }
   return {
@@ -69,6 +86,8 @@ async function publicJob(env: Env, job: JobRow) {
     queue_position: job.status === 'queued' && job.dispatched ? job.queue_position : job.status === 'running' ? 0 : null,
     eta_seconds: job.status === 'queued' || job.status === 'running' ? job.eta : null,
     can_retry: canRetry(job),
+    // The Space keeps the video of a burned-in job with its files (24 hours), for "render with my edits".
+    can_rerender: job.status === 'done' && job.mode === 'hard' && 'mp4' in names && Date.now() / 1000 - job.updated_at < RERENDER_WINDOW,
     created_at: job.created_at,
     updated_at: job.updated_at,
     outputs,
@@ -176,7 +195,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     );
   }
 
-  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry)?$/);
+  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry|\/render)?$/);
   if (match) {
     const job = await getJob(env, match[1]);
     if (!job) return apiError(404, 'E_JOB_NOT_FOUND', 'Job not found.');
@@ -186,6 +205,30 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (match[2] && method === 'POST') {
       const body = (await request.json().catch(() => null)) as Record<string, any> | null;
       if (job.owner !== `web:${body?.client_id}`) return apiError(403, 'E_FORBIDDEN', 'This job belongs to someone else.');
+      if (match[2] === '/render') {
+        const pub = await publicJob(env, job);
+        if (!pub.can_rerender) return apiError(400, 'E_BAD_REQUEST', 'This video can no longer be rendered again. Translate it again.');
+        const cues = parseCues(body?.cues);
+        if (!cues) return apiError(400, 'E_BAD_REQUEST', 'The subtitles could not be read.');
+        const style = body?.style ? parseSubtitleStyle(body.style) : job.style ? parseSubtitleStyle(JSON.parse(job.style)) : null;
+        const { job: next, error } = await createJob(env, {
+          channel: 'web',
+          owner: job.owner,
+          ip: request.headers.get('CF-Connecting-IP'),
+          sourceKind: 'rerender',
+          source: job.id,
+          title: job.title,
+          srcLang: job.detected_lang ?? job.src_lang,
+          tgtLang: job.tgt_lang,
+          mode: 'hard',
+          style,
+          cues,
+          origin: api.origin,
+        });
+        if (!next) return apiError(429, 'E_RATE_LIMITED', error === 'busy' ? 'Wait for your other translation to finish.' : 'You reached the limit for now. Try again later.');
+        ctx.waitUntil(dispatch(env, next));
+        return json(await publicJob(env, next), 201);
+      }
       if (match[2] === '/retry') {
         if (!canRetry(job)) return apiError(400, 'E_BAD_REQUEST', 'This translation cannot be retried. Start a new one.');
         const limited = await checkLimits(env, { owner: job.owner, ip: request.headers.get('CF-Connecting-IP'), channel: 'web' });

@@ -9,7 +9,7 @@ from typing import Callable
 from .. import media, speech, subtitles, translation
 from ...shared import config, security
 from ...shared.errors import Cancelled, PipelineError
-from .model import OUTPUT_FILES, STAGE_SPAN, UPLOAD_NAME, Job
+from .model import KEPT_SOURCE, OUTPUT_FILES, STAGE_SPAN, UPLOAD_NAME, Job
 
 log = logging.getLogger("tarjim.jobs")
 
@@ -21,7 +21,7 @@ Notify = Callable[[Job, bool], None]  # (job, force)
 
 def run(job: Job, workdir: Path, notify: Notify) -> None:
     """Process one job in ``workdir``, updating ``job`` and calling ``notify`` as it goes."""
-    spans = STAGE_SPAN[job.mode]
+    spans = STAGE_SPAN["rerender" if job.source_kind == "rerender" else job.mode]
     cancelled = lambda: job.cancel_requested  # noqa: E731
 
     def enter(stage: str) -> None:
@@ -42,6 +42,10 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
                 notify(job, False)
 
         return report
+
+    if job.source_kind == "rerender":
+        _rerender(job, workdir, enter, reporter, cancelled)
+        return
 
     # 1. Fetch the media -----------------------------------------------------
     enter("downloading")
@@ -104,27 +108,59 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         raise PipelineError("E_NMT_FAILED", str(exc)) from exc
     cues = subtitles.build_cues(segments, translations)
 
-    (workdir / OUTPUT_FILES["srt"]).write_text(subtitles.to_srt(cues), encoding="utf-8")
-    (workdir / OUTPUT_FILES["vtt"]).write_text(subtitles.to_vtt(cues), encoding="utf-8")
-    (workdir / OUTPUT_FILES["original_srt"]).write_text(subtitles.to_srt(cues, use_translation=False), encoding="utf-8")
-    (workdir / OUTPUT_FILES["cues"]).write_text(
-        json.dumps(
-            {"src_lang": detected, "tgt_lang": job.tgt_lang, "cues": [c.to_json() for c in cues]},
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-    outputs = {k: OUTPUT_FILES[k] for k in ("srt", "vtt", "original_srt", "cues")}
+    outputs = write_subtitle_files(workdir, cues, detected, job.tgt_lang)
 
     # 4. Burn-in (hard mode, only when there is a picture to burn into) ------------
     if job.mode == "hard" and info["has_video"]:
         enter("rendering")
         style = subtitles.SubtitleStyle.from_dict(job.style)
-        (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style), encoding="utf-8")
+        (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, detected), encoding="utf-8")
         media.burn_subtitles(
             source, BURN_FILE, workdir / OUTPUT_FILES["mp4"],
             info["duration"], cancelled, reporter("rendering"),
         )
         outputs["mp4"] = OUTPUT_FILES["mp4"]
+        source.replace(workdir / KEPT_SOURCE)  # kept for "render again with my edits"
 
+    job.outputs = outputs
+
+
+def write_subtitle_files(workdir: Path, cues: list, src_lang: str, tgt_lang: str) -> dict[str, str]:
+    """Every subtitle file a job offers; returns {output key: file name}."""
+    files = {
+        "srt": subtitles.to_srt(cues),
+        "vtt": subtitles.to_vtt(cues),
+        "original_srt": subtitles.to_srt(cues, use_translation=False),
+        "bilingual_srt": subtitles.to_bilingual_srt(cues),
+        "transcript": subtitles.to_transcript(cues, src_lang, tgt_lang),
+        "cues": json.dumps({"src_lang": src_lang, "tgt_lang": tgt_lang, "cues": [c.to_json() for c in cues]}, ensure_ascii=False),
+    }
+    for key, text in files.items():
+        (workdir / OUTPUT_FILES[key]).write_text(text, encoding="utf-8")
+    return {key: OUTPUT_FILES[key] for key in files}
+
+
+def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
+    """Burn edited subtitles into the video kept from an earlier job: no download, ASR or translation."""
+    enter("rendering")
+    source = workdir / KEPT_SOURCE
+    if not source.exists():
+        raise PipelineError("E_UPLOAD_MISSING", "The original video is no longer kept. Translate it again.")
+    info = media.probe(source)
+    job.duration = info["duration"]
+    cues = [
+        subtitles.Cue(i + 1, float(c["start"]), float(c["end"]), subtitles.clean_text(str(c.get("text", ""))),
+                      subtitles.clean_text(str(c.get("translation", ""))))
+        for i, c in enumerate(job.cues or [])
+    ]
+    cues = [c for c in cues if c.end > c.start and (c.text or c.translation)]
+    if not cues:
+        raise PipelineError("E_NO_SPEECH", "There are no subtitles to render.")
+    src_lang = job.src_lang if job.src_lang not in ("", "auto") else ""
+    job.detected_lang = src_lang or None
+    outputs = write_subtitle_files(workdir, cues, src_lang or "auto", job.tgt_lang)
+    style = subtitles.SubtitleStyle.from_dict(job.style)
+    (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang), encoding="utf-8")
+    media.burn_subtitles(source, BURN_FILE, workdir / OUTPUT_FILES["mp4"], info["duration"], cancelled, reporter("rendering"))
+    outputs["mp4"] = OUTPUT_FILES["mp4"]
     job.outputs = outputs

@@ -5,7 +5,9 @@ A base only wires bricks together and speaks HTTP; the work lives in ``app.modul
 from __future__ import annotations
 
 import logging
+import os
 import re
+import shutil
 import threading
 from contextlib import asynccontextmanager
 
@@ -15,7 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .modules import speech, subtitles, translation
-from .modules.jobs import OUTPUT_FILES, UPLOAD_NAME, Job, manager
+from .modules.jobs import KEPT_SOURCE, OUTPUT_FILES, UPLOAD_NAME, Job, manager
 from .shared import config, security
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -25,6 +27,8 @@ JOB_ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 MEDIA_TYPES = {
     "subtitles.srt": "application/x-subrip",
     "original.srt": "application/x-subrip",
+    "bilingual.srt": "application/x-subrip",
+    "transcript.txt": "text/plain; charset=utf-8",
     "subtitles.vtt": "text/vtt",
     "cues.json": "application/json",
     "video.mp4": "video/mp4",
@@ -66,7 +70,7 @@ app.add_middleware(
 
 class InvokeRequest(BaseModel):
     job_id: str
-    source_kind: str = Field(pattern="^(url|direct|upload)$")
+    source_kind: str = Field(pattern="^(url|direct|upload|rerender)$")
     source_url: str | None = None
     src_lang: str = "auto"
     tgt_lang: str = "ar"
@@ -75,6 +79,9 @@ class InvokeRequest(BaseModel):
     title: str | None = None
     # Burned-in subtitle style: {size, position, color, background}; unknown values use defaults.
     subtitle_style: dict | None = None
+    # rerender: burn these edited subtitles into the video kept from `parent_job_id`.
+    parent_job_id: str | None = None
+    cues: list[dict] | None = Field(default=None, max_length=5000)
 
 
 def _require_auth(authorization: str | None) -> None:
@@ -101,6 +108,29 @@ def health() -> dict:
     }
 
 
+def _prepare_rerender(req: InvokeRequest) -> None:
+    """Link the video kept from the parent job into the new job's folder (no copy, no download)."""
+    if not req.parent_job_id or not JOB_ID_RE.match(req.parent_job_id) or not req.cues:
+        raise HTTPException(status_code=400, detail="parent_job_id and cues are required")
+    for cue in req.cues:
+        try:
+            ok = 0 <= float(cue["start"]) < float(cue["end"]) and isinstance(cue.get("translation", ""), str)
+        except (KeyError, TypeError, ValueError):
+            ok = False
+        if not ok:
+            raise HTTPException(status_code=400, detail="Each cue needs start < end and text")
+    kept = manager.job_dir(req.parent_job_id) / KEPT_SOURCE
+    if not kept.exists():
+        raise HTTPException(status_code=409, detail="The original video is no longer kept")
+    target = manager.job_dir(req.job_id) / KEPT_SOURCE
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        try:
+            os.link(kept, target)
+        except OSError:
+            shutil.copyfile(kept, target)
+
+
 @app.post("/invoke", status_code=202)
 def invoke(req: InvokeRequest, authorization: str | None = Header(default=None)) -> dict:
     _require_auth(authorization)
@@ -114,6 +144,8 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
             security.assert_public_url(req.source_url)
         except security.UnsafeUrl as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    elif req.source_kind == "rerender":
+        _prepare_rerender(req)
     elif not (manager.job_dir(req.job_id) / UPLOAD_NAME).exists():
         raise HTTPException(status_code=409, detail="No uploaded file for this job")
 
@@ -127,6 +159,7 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         callback_url=req.callback_url,
         title=req.title,
         style=subtitles.SubtitleStyle.from_dict(req.subtitle_style).to_dict(),
+        cues=req.cues if req.source_kind == "rerender" else None,
     )
     try:
         job = manager.submit(job)

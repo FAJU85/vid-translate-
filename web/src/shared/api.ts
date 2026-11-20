@@ -9,6 +9,8 @@ export interface SubtitleStyle {
   color: string; // #RRGGBB
   background: 'outline' | 'box';
   font: 'modern' | 'classic' | 'bold';
+  /** Also show the original text, smaller, next to the translation. */
+  bilingual?: boolean;
 }
 
 export interface Job {
@@ -32,9 +34,13 @@ export interface Job {
   eta_seconds?: number | null;
   /** "Try again" makes sense (the same link or Telegram file can be fetched again). */
   can_retry?: boolean;
+  /** A burned-in video whose source is still kept: edited subtitles can be rendered into it. */
+  can_rerender?: boolean;
   created_at: number;
   updated_at: number;
-  outputs: Partial<Record<'srt_url' | 'vtt_url' | 'original_srt_url' | 'cues_url' | 'mp4_url', string>>;
+  outputs: Partial<
+    Record<'srt_url' | 'vtt_url' | 'original_srt_url' | 'bilingual_srt_url' | 'transcript_url' | 'cues_url' | 'mp4_url', string>
+  >;
   upload_url?: string;
 }
 
@@ -129,6 +135,14 @@ export const api = {
     call<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ ...body, client_id: clientId() }) }),
   start: (id: string) =>
     call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
+  render: (id: string, cues: Cue[]) =>
+    call<Job>(`/api/jobs/${id}/render`, {
+      method: 'POST',
+      body: JSON.stringify({
+        client_id: clientId(),
+        cues: cues.map(({ start, end, text, translation }) => ({ start, end, text, translation })),
+      }),
+    }),
   retry: (id: string) =>
     call<Job>(`/api/jobs/${id}/retry`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
   cancel: (id: string) =>
@@ -158,7 +172,7 @@ export interface AdminJob {
   error_message: string | null;
   created_at: number;
   updated_at: number;
-  outputs: Partial<Record<'srt' | 'vtt' | 'original_srt' | 'mp4', string>>;
+  outputs: Partial<Record<'srt' | 'vtt' | 'original_srt' | 'bilingual_srt' | 'transcript' | 'mp4', string>>;
 }
 
 /** Link downloads per site over the last `days` days (the /admin Insights page). */

@@ -14,7 +14,7 @@ from ...shared import config
 from ...shared.errors import Cancelled, PipelineError
 from . import pipeline
 from .callbacks import post_callback
-from .model import OUTPUT_FILES, TERMINAL, Job
+from .model import KEPT_SOURCE, OUTPUT_FILES, TERMINAL, Job
 
 log = logging.getLogger("tarjim.jobs")
 
@@ -167,7 +167,7 @@ class JobManager:
 
     def _cleanup_inputs(self, job: Job) -> None:
         workdir = self.job_dir(job.id)
-        keep = set(OUTPUT_FILES.values()) if job.status == "done" else set()
+        keep = {*OUTPUT_FILES.values(), KEPT_SOURCE} if job.status == "done" else set()
         for path in workdir.glob("*"):
             if path.name not in keep:
                 path.unlink(missing_ok=True)

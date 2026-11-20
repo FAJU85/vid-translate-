@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, CheckCircle2, Download, Link2, Loader2, Pencil, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, Download, Film, Link2, Loader2, Pencil, RotateCcw, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp } from './format';
 
@@ -34,6 +34,8 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const [copied, setCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Poll while the job is in progress.
@@ -96,6 +98,8 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
     [`Subtitles (.srt)`, job.outputs.srt_url],
     ['Subtitles (.vtt)', job.outputs.vtt_url],
     ['Original transcript (.srt)', job.outputs.original_srt_url],
+    ['Both languages (.srt)', job.outputs.bilingual_srt_url],
+    ['Transcript (.txt)', job.outputs.transcript_url],
     ['Subtitled video (.mp4)', job.outputs.mp4_url],
   ];
 
@@ -226,6 +230,30 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                 </a>
               )}
             </div>
+            {edited && cues && job.can_rerender && (
+              <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-amber-400/40 bg-amber-400/5">
+                <span className="flex-1 min-w-[12rem] text-sm text-amber-100">
+                  You changed the subtitles. Render the video again with your changes (only the burn-in runs, so it is quick).
+                </span>
+                <button
+                  disabled={rendering}
+                  onClick={() => {
+                    setRendering(true);
+                    setRenderError(null);
+                    api
+                      .render(job.id, cues)
+                      .then((next) => onRetried(next.id))
+                      .catch((err) => setRenderError(err instanceof Error ? err.message : 'Could not start the render.'))
+                      .finally(() => setRendering(false));
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 text-sm font-semibold"
+                >
+                  {rendering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />}
+                  Render video with my edits
+                </button>
+                {renderError && <p className="w-full text-xs text-rose-300">{renderError}</p>}
+              </div>
+            )}
             {job.mode === 'hard' && !job.outputs.mp4_url && (
               <p className="text-xs text-slate-400">The source has no picture, so only subtitle files were produced.</p>
             )}
@@ -259,7 +287,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
             Subtitles <span className="text-slate-500 font-normal">({cues.length} lines)</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5 mb-3">
-            Fix any line with the pencil, then download the edited .srt.
+            Fix any line with the pencil, then download the edited .srt or, for a video with burned-in subtitles, render it again.
           </p>
           <ul className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
             {cues.map((cue, i) => (

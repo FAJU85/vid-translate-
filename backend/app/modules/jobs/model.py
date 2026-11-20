@@ -9,8 +9,13 @@ OUTPUT_FILES = {
     "vtt": "subtitles.vtt",
     "original_srt": "original.srt",
     "cues": "cues.json",
+    "bilingual_srt": "bilingual.srt",
+    "transcript": "transcript.txt",
     "mp4": "video.mp4",
 }
+# The source video of a burned-in job, kept with the outputs so edited subtitles can be rendered
+# again without downloading and transcribing anything ("rerender" jobs). Never published.
+KEPT_SOURCE = "source_video.bin"
 UPLOAD_NAME = "upload.bin"
 TERMINAL = {"done", "failed", "cancelled"}
 
@@ -18,19 +23,21 @@ TERMINAL = {"done", "failed", "cancelled"}
 STAGE_SPAN = {
     "soft": {"downloading": (2, 15), "transcribing": (15, 80), "translating": (80, 99)},
     "hard": {"downloading": (2, 12), "transcribing": (12, 60), "translating": (60, 72), "rendering": (72, 99)},
+    "rerender": {"rendering": (2, 99)},
 }
 
 
 @dataclass
 class Job:
     id: str
-    source_kind: str            # "url" | "direct" | "upload"
+    source_kind: str            # "url" | "direct" | "upload" | "rerender" (edited cues, kept video)
     source_url: str | None
     src_lang: str               # ISO code or "auto"
     tgt_lang: str
     mode: str                   # "soft" | "hard"
     callback_url: str | None
     style: dict | None = None   # burned-in subtitle style (subtitles.SubtitleStyle fields)
+    cues: list | None = None    # rerender: the edited subtitles [{start, end, text, translation}]
     status: str = "queued"
     stage: str = "queued"
     progress: int = 0

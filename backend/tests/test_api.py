@@ -97,7 +97,7 @@ def test_upload_job_end_to_end_hard_mode(client, tmp_path):
     data = wait_done(client, job)
     assert data["status"] == "done", data
     assert data["detected_lang"] == "en"
-    assert set(data["outputs"]) == {"srt", "vtt", "original_srt", "cues", "mp4"}
+    assert set(data["outputs"]) == {"srt", "vtt", "original_srt", "bilingual_srt", "transcript", "cues", "mp4"}
 
     srt = client.get(f"/files/{job}/subtitles.srt", params=signed(f"file:{job}:subtitles.srt"))
     assert srt.status_code == 200 and "[ar] Hello there." in srt.text
@@ -108,6 +108,34 @@ def test_upload_job_end_to_end_hard_mode(client, tmp_path):
     assert client.get(f"/files/{job}/upload.bin", params=signed(f"file:{job}:upload.bin")).status_code == 404
     wrong = signed(f"file:{job}:subtitles.vtt")
     assert client.get(f"/files/{job}/subtitles.srt", params=wrong).status_code == 403
+    # The source video is kept for re-rendering, but never served.
+    kept = "source_video.bin"
+    assert client.get(f"/files/{job}/{kept}", params=signed(f"file:{job}:{kept}")).status_code == 404
+
+    # Render again with edited subtitles: no download, no ASR, no translation.
+    again = JOB.format("a")
+    edited = [{"start": 0.0, "end": 1.4, "text": "Hello there.", "translation": "مرحباً بكم يا أصدقاء"}]
+    body = {"job_id": again, "source_kind": "rerender", "parent_job_id": job, "tgt_lang": "ar",
+            "subtitle_mode": "hard", "cues": edited, "subtitle_style": {"bilingual": True}}
+    assert client.post("/invoke", json=body, headers=AUTH).status_code == 202
+    data = wait_done(client, again)
+    assert data["status"] == "done", data
+    assert {"mp4", "srt", "bilingual_srt"} <= set(data["outputs"])
+    srt = client.get(f"/files/{again}/subtitles.srt", params=signed(f"file:{again}:subtitles.srt"))
+    assert "مرحباً بكم يا أصدقاء" in srt.text
+    for name in ("bilingual.srt", "transcript.txt"):
+        got = client.get(f"/files/{again}/{name}", params=signed(f"file:{again}:{name}"))
+        assert got.status_code == 200 and "مرحباً بكم يا أصدقاء" in got.text
+    mp4 = client.get(f"/files/{again}/video.mp4", params=signed(f"file:{again}:video.mp4"))
+    assert mp4.status_code == 200 and mp4.content[4:8] == b"ftyp"
+
+
+def test_rerender_needs_a_kept_video_and_valid_cues(client):
+    body = {"job_id": JOB.format("b"), "source_kind": "rerender", "parent_job_id": JOB.format("c"), "subtitle_mode": "hard",
+            "cues": [{"start": 0, "end": 1, "translation": "x"}]}
+    assert client.post("/invoke", json=body, headers=AUTH).status_code == 409  # nothing kept for that job
+    assert client.post("/invoke", json={**body, "cues": [{"start": 2, "end": 1}]}, headers=AUTH).status_code == 400
+    assert client.post("/invoke", json={**body, "parent_job_id": "../x"}, headers=AUTH).status_code == 400
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
@@ -167,3 +195,10 @@ def test_cancel_frees_queue_slot_and_is_not_overwritten(client, tmp_path, monkey
     release.set()
     assert wait_done(client, first)["status"] == "cancelled"
     assert client.get(f"/status/{second}", headers=AUTH).json()["status"] == "cancelled"
+
+
+def test_every_output_file_has_a_content_type():
+    from app.main import MEDIA_TYPES
+    from app.modules.jobs import OUTPUT_FILES
+
+    assert set(OUTPUT_FILES.values()) <= set(MEDIA_TYPES)
