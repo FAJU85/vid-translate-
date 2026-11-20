@@ -73,6 +73,8 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     style: p.mode === 'hard' && p.style ? JSON.stringify(p.style) : null,
     status: p.sourceKind === 'upload' ? 'awaiting_upload' : 'queued',
     stage: 'queued',
+    queue_position: null,
+    eta: null,
     progress: 0,
     error_code: null,
     error_message: null,
@@ -179,6 +181,8 @@ export async function applyState(env: Env, job: JobRow, state: BackendState): Pr
     title: state.title || job.title,
     duration: state.duration ?? job.duration,
     detected_lang: state.detected_lang ?? job.detected_lang,
+    queue_position: state.queue_position ?? null,
+    eta: state.eta_seconds ?? null,
   };
   if (state.status === 'done') {
     Object.assign(patch, { status: 'done', stage: 'done', progress: 100, outputs: JSON.stringify(state.outputs ?? {}) });
@@ -201,7 +205,9 @@ export async function applyState(env: Env, job: JobRow, state: BackendState): Pr
   } else if (TERMINAL.includes(updated.status)) {
     await emitChanged(env, updated);
   } else {
-    const key = `${updated.stage}:${Math.floor(updated.progress / 10)}`;
+    // Tell listeners (the Telegram message) when the stage, the progress decile or the place in
+    // the queue changes.
+    const key = `${updated.stage}:${Math.floor(updated.progress / 10)}:${updated.queue_position ?? ''}`;
     if (key !== job.notified) {
       await store.updateJob(env, job.id, { notified: key });
       await emitChanged(env, updated);
@@ -223,6 +229,15 @@ export async function cancelJob(env: Env, job: JobRow): Promise<void> {
   await emitChanged(env, { ...job, status: 'cancelled' });
 }
 
+// Failures another try cannot fix: the same video would fail the same way.
+const FINAL_ERRORS = ['E_VIDEO_TOO_LONG', 'E_FILE_TOO_LARGE', 'E_URL_INVALID', 'E_NO_SPEECH', 'E_MEDIA_INVALID', 'E_YOUTUBE_UNSUPPORTED'];
+
+/** Whether "Try again" makes sense for a job (the bot's and the website's retry button). */
+export function canRetry(job: JobRow): boolean {
+  if (job.status === 'cancelled') return job.source_kind !== 'upload';
+  return job.status === 'failed' && job.source_kind !== 'upload' && !FINAL_ERRORS.includes(job.error_code ?? '');
+}
+
 /**
  * Run a failed or cancelled job again (the /admin dashboard). The Space remembers job ids, so the
  * retry is a fresh copy with a new id that replaces the old record. Browser uploads cannot be
@@ -236,6 +251,8 @@ export async function retryJob(env: Env, job: JobRow): Promise<JobRow | null> {
     id: crypto.randomUUID(),
     status: 'queued',
     stage: 'queued',
+    queue_position: null,
+    eta: null,
     progress: 0,
     error_code: null,
     error_message: null,

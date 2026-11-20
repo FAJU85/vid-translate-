@@ -24,6 +24,9 @@ export interface JobRow {
   style: string | null;
   status: JobStatus;
   stage: string;
+  /** Place in the Space's queue (1 = next, 0 = running) and seconds until done, while active. */
+  queue_position: number | null;
+  eta: number | null;
   progress: number;
   error_code: string | null;
   error_message: string | null;
@@ -48,6 +51,8 @@ export interface BackendState {
   detected_lang?: string | null;
   outputs?: Record<string, string> | null;
   error?: { code: string; message: string } | null;
+  queue_position?: number | null;
+  eta_seconds?: number | null;
 }
 
 export const TERMINAL: JobStatus[] = ['done', 'failed', 'cancelled'];

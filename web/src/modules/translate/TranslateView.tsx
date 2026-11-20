@@ -196,6 +196,7 @@ export function TranslateView({ config, jobId, onJob }: Props) {
             config={config}
             localVideoUrl={localVideo?.jobId === jobId ? localVideo.url : null}
             onClose={() => onJob(null)}
+            onRetried={(id) => onJob(id)}
           />
         )}
       </div>

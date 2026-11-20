@@ -44,6 +44,7 @@ class Job:
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     cancel_requested: bool = False
+    started_at: float | None = None  # when the pipeline picked it up
     _last_callback: float = 0.0
 
     def public(self) -> dict:

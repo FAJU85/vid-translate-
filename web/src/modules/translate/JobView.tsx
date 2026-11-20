@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, CheckCircle2, Download, Link2, Loader2, Pencil, X } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, Download, Link2, Loader2, Pencil, RotateCcw, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp } from './format';
 
@@ -8,11 +8,23 @@ interface Props {
   config: AppConfig | null;
   localVideoUrl: string | null;
   onClose: () => void;
+  /** A retry runs as a new job: show that one instead. */
+  onRetried: (jobId: string) => void;
 }
 
 const ACTIVE = new Set(['awaiting_upload', 'queued', 'running']);
 
-export function JobView({ jobId, config, localVideoUrl, onClose }: Props) {
+/** "You're #2 in line · about 6 min" while waiting, "About 4 min left" while running. */
+function waitLine(job: Job): string | null {
+  if (!job.eta_seconds) return null;
+  const min = Math.max(1, Math.round(job.eta_seconds / 60));
+  if (job.status === 'queued' && job.queue_position && job.queue_position >= 1) {
+    return `You're #${job.queue_position} in line · about ${min} min`;
+  }
+  return job.status === 'running' ? `About ${min} min left` : null;
+}
+
+export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Props) {
   const [job, setJob] = useState<Job | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cues, setCues] = useState<Cue[] | null>(null);
@@ -20,6 +32,8 @@ export function JobView({ jobId, config, localVideoUrl, onClose }: Props) {
   const [editing, setEditing] = useState<number | null>(null);
   const [time, setTime] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Poll while the job is in progress.
@@ -134,6 +148,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose }: Props) {
             >
               <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${job.progress}%` }} />
             </div>
+            {waitLine(job) && <p className="text-sm text-slate-300">{waitLine(job)}</p>}
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>You can leave this page open or come back later from “My translations”.</span>
               <button
@@ -149,9 +164,34 @@ export function JobView({ jobId, config, localVideoUrl, onClose }: Props) {
         {(job.status === 'failed' || job.status === 'cancelled') && (
           <div role="alert" className="flex items-start gap-2 p-3 text-sm rounded-lg border border-rose-800 bg-rose-950/60 text-rose-200">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{job.status === 'cancelled' ? 'This translation was cancelled.' : jobError(job)}</span>
+            <span className="flex-1">{job.status === 'cancelled' ? 'This translation was cancelled.' : jobError(job)}</span>
+            {job.can_retry ? (
+              <button
+                disabled={retrying}
+                onClick={() => {
+                  setRetrying(true);
+                  setRetryError(null);
+                  api
+                    .retry(job.id)
+                    .then((next) => onRetried(next.id))
+                    .catch((err) => setRetryError(err instanceof Error ? err.message : 'Could not try again.'))
+                    .finally(() => setRetrying(false));
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 text-xs font-semibold"
+              >
+                {retrying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                Try again
+              </button>
+            ) : (
+              job.source_url === null && (
+                <button onClick={onClose} className="shrink-0 px-3 py-1 rounded-lg border border-rose-700 text-xs text-rose-100 hover:bg-rose-900/50">
+                  Upload again
+                </button>
+              )
+            )}
           </div>
         )}
+        {retryError && <p className="text-xs text-rose-300">{retryError}</p>}
 
         {job.status === 'done' && (
           <>

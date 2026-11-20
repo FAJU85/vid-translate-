@@ -1,15 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings } from 'lucide-react';
+import { BarChart3, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings } from 'lucide-react';
 import { ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
+import { InsightsPanel } from './InsightsPanel';
 import { SettingsPanel } from './SettingsPanel';
 
 const PASSWORD_KEY = 'tarjim_admin_password';
 
-type Workspace = 'jobs' | 'settings';
+type Workspace = 'jobs' | 'insights' | 'settings';
 const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
   { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
+  { id: 'insights', label: 'Insights', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -21,7 +23,10 @@ function readPassword(): string {
   }
 }
 
-const workspaceFromHash = (): Workspace => (window.location.hash === '#settings' ? 'settings' : 'jobs');
+const workspaceFromHash = (): Workspace => {
+  const hash = window.location.hash.slice(1);
+  return hash === 'settings' || hash === 'insights' ? hash : 'jobs';
+};
 
 /** The /admin dashboard: sign in with ADMIN_PASSWORD, then the jobs board and the settings. */
 export function AdminView() {
@@ -33,7 +38,7 @@ export function AdminView() {
 
   const setWorkspace = (w: Workspace) => {
     setWorkspaceState(w);
-    window.history.replaceState(null, '', w === 'jobs' ? window.location.pathname : '#settings');
+    window.history.replaceState(null, '', w === 'jobs' ? window.location.pathname : `#${w}`);
   };
 
   async function signIn(e?: FormEvent) {
@@ -134,6 +139,10 @@ export function AdminView() {
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
         {workspace === 'jobs' ? (
           <JobsWorkspace password={password} onSettings={() => setWorkspace('settings')} />
+        ) : workspace === 'insights' ? (
+          <div className="h-full overflow-y-auto">
+            <InsightsPanel password={password} />
+          </div>
         ) : (
           <div className="h-full overflow-y-auto">
             <SettingsPanel password={password} />

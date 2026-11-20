@@ -165,6 +165,8 @@ sign in with the `ADMIN_PASSWORD` secret. It has two workspaces, in the left sid
   filters, and filters you save yourself. Keyboard: `Ctrl/⌘ K` command palette, `/` search,
   `1` `2` `3` views, arrows or `j` `k` `h` `l` to move, `Enter` to open, `x` to select, `c` cancel,
   `r` retry, `Delete` delete, `Space` then arrows to move a card between columns.
+- **Insights**: video links by site over the last 7 days (worked, failed, success rate, last
+  error), so a site that changes something and breaks shows at once.
 - **Settings**: the platform name, logo, accent colour, the home page heading and introduction,
   and the bot's welcome message (English and Arabic). Saving is live at once; a field left empty
   uses its default.
@@ -179,7 +181,8 @@ The defaults, and every other website text and bot message, are in `content/site
    `/style` (or the **🎨 Subtitle design** button) sets how burned-in subtitles look: a ready-made
    design (Cinema, Bold box, Elegant, Social) or each part on its own: font (Modern, Classic, Bold;
    Arabic in Noto Sans Arabic, Naskh or Kufi), size, position, background and colour.
-3. The bot edits one message with live progress, then sends the files.
+3. The bot edits one message with live progress (with your place in the queue and an estimated
+   wait), then sends the files. If a job fails, **🔄 Try again** runs it again in the same message.
 
 On the website, choosing **Video with burned-in subtitles** shows the same designs and options
 (plus any colour) with a live preview of how the subtitles will look.

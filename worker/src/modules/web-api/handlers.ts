@@ -4,6 +4,8 @@ import { LANGUAGES, isTargetLang } from '../../shared/languages';
 import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import {
   backendHealth,
+  canRetry,
+  checkLimits,
   cancelJob,
   createJob,
   dispatch,
@@ -13,6 +15,7 @@ import {
   maxPerHour,
   parseSubtitleStyle,
   refreshJob,
+  retryJob,
   startUploadedJob,
   uploadLink,
   type JobRow,
@@ -63,6 +66,9 @@ async function publicJob(env: Env, job: JobRow) {
     mode: job.mode,
     error_code: job.error_code,
     error_message: job.error_message,
+    queue_position: job.status === 'queued' && job.dispatched ? job.queue_position : job.status === 'running' ? 0 : null,
+    eta_seconds: job.status === 'queued' || job.status === 'running' ? job.eta : null,
+    can_retry: canRetry(job),
     created_at: job.created_at,
     updated_at: job.updated_at,
     outputs,
@@ -98,7 +104,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/admin/login' && method === 'POST') return handleAdminLogin(request, env);
   if (path === '/api/admin/settings' && (method === 'GET' || method === 'POST')) return handleAdminSettings(request, env);
   if (path === '/api/logo' && method === 'GET') return serveLogo(env);
-  if (path === '/api/admin/jobs' || path.startsWith('/api/admin/jobs/')) return handleAdminJobs(request, env, ctx, path);
+  if (path === '/api/admin/jobs' || path === '/api/admin/stats' || path.startsWith('/api/admin/jobs/')) {
+    return handleAdminJobs(request, env, ctx, path);
+  }
 
   if (path === '/api/jobs' && method === 'GET') {
     const client = url.searchParams.get('client_id') ?? '';
@@ -168,7 +176,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     );
   }
 
-  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel)?$/);
+  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry)?$/);
   if (match) {
     const job = await getJob(env, match[1]);
     if (!job) return apiError(404, 'E_JOB_NOT_FOUND', 'Job not found.');
@@ -178,6 +186,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (match[2] && method === 'POST') {
       const body = (await request.json().catch(() => null)) as Record<string, any> | null;
       if (job.owner !== `web:${body?.client_id}`) return apiError(403, 'E_FORBIDDEN', 'This job belongs to someone else.');
+      if (match[2] === '/retry') {
+        if (!canRetry(job)) return apiError(400, 'E_BAD_REQUEST', 'This translation cannot be retried. Start a new one.');
+        const limited = await checkLimits(env, { owner: job.owner, ip: request.headers.get('CF-Connecting-IP'), channel: 'web' });
+        if (limited) return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
+        const copy = await retryJob(env, job);
+        if (!copy) return apiError(400, 'E_BAD_REQUEST', 'This translation cannot be retried. Start a new one.');
+        ctx.waitUntil(dispatch(env, copy));
+        return json(await publicJob(env, copy), 201);
+      }
       if (match[2] === '/start') {
         if (job.status !== 'awaiting_upload') return json(await publicJob(env, job));
         // Unstarted uploads are not counted against the quota, so it is checked now.
