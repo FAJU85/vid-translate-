@@ -21,3 +21,13 @@
     font-family: 'JetBrains Mono', monospace;
   }
 }
+
+/* Dynamic captions preview: a pop-up word group grows in (backend ass.py: 85% to 100% in 120 ms). */
+@keyframes caption-pop {
+  from {
+    transform: scale(0.85);
+  }
+  to {
+    transform: scale(1);
+  }
+}

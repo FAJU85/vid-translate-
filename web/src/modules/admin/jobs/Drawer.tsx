@@ -168,6 +168,7 @@ export function Drawer({ job, password, busy, run, onClose }: {
                         <span className="w-3 h-3 rounded-full border border-slate-600" style={{ background: shown.style.color }} />
                         {shown.style.font ?? 'modern'} font, {shown.style.size === 'xlarge' ? 'extra large' : shown.style.size}, {shown.style.position},{' '}
                         {shown.style.background === 'box' ? 'dark box' : 'outline'}
+                        {shown.style.animation === 'highlight' ? ', word highlight' : shown.style.animation === 'pop' ? ', pop-up words' : ''}
                       </span>
                     ) : (
                       'Default'

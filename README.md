@@ -188,6 +188,15 @@ On the website, choosing **Video with burned-in subtitles** shows the same desig
 (plus any colour) with a live preview of how the subtitles will look. Both offer **Show the
 original text too**: the original line, smaller, next to the translation.
 
+**Dynamic captions** (the **Words** option, also in `/style`): *Word highlight* lights each word
+as it is spoken; *Pop-up words* shows a few words at a time, popping in, with the spoken one lit
+(the short-video look, used by the Social design). The translation has no timing of its own, so a
+word's time is estimated from its length within its subtitle.
+
+When a translation is done, the website shows an **interactive transcript** next to the player:
+the line being spoken stays in view with its current word lit, any word can be clicked to play
+from there, it can show the translation, the original or both, and it can be searched.
+
 Every translation also comes with **subtitles in both languages** (`.srt`) and a plain-text
 **transcript** (original and translation). On the website you can fix any subtitle line and, for
 a video with burned-in subtitles, **render it again with your edits**: only the burn-in runs,

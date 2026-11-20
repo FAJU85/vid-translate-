@@ -1,13 +1,14 @@
+import { useEffect, useState } from 'react';
 import type { SubtitleStyle } from '../../shared/api';
 
-export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern' };
+export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', animation: 'none' };
 
 /** Ready-made designs (the same four as the Telegram bot's /style). */
 const PRESETS: [string, string, SubtitleStyle][] = [
   ['cinema', '🎬 Cinema', DEFAULT_STYLE],
-  ['boldbox', '🟨 Bold box', { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold' }],
-  ['elegant', '✒️ Elegant', { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic' }],
-  ['social', '📱 Social', { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold' }],
+  ['boldbox', '🟨 Bold box', { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', animation: 'none' }],
+  ['elegant', '✒️ Elegant', { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', animation: 'none' }],
+  ['social', '📱 Social', { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', animation: 'pop' }],
 ];
 
 const STORAGE_KEY = 'tarjim_subtitle_style';
@@ -32,6 +33,7 @@ export function rememberedStyle(): SubtitleStyle {
     font: oneOf(['modern', 'classic', 'bold'], saved.font, DEFAULT_STYLE.font),
     bilingual: saved.bilingual === true,
     voice: saved.voice === 'male' ? 'male' : 'female',
+    animation: oneOf(['none', 'highlight', 'pop'] as const, saved.animation, 'none'),
   };
 }
 
@@ -63,6 +65,11 @@ const FONTS: [SubtitleStyle['font'], string][] = [
   ['classic', 'Classic'],
   ['bold', 'Bold'],
 ];
+const ANIMATIONS: [NonNullable<SubtitleStyle['animation']>, string][] = [
+  ['none', 'Static'],
+  ['highlight', 'Word highlight'],
+  ['pop', 'Pop-up words'],
+];
 const COLORS = ['#FFFFFF', '#FFD400', '#38BDF8', '#4ADE80', '#FB923C', '#F472B6'];
 
 // The fonts the server burns in, per writing system (backend subtitles/ass.py FONTS). `em` is how
@@ -75,7 +82,7 @@ const FONT_FAMILY: Record<SubtitleStyle['font'], { latin: string; arabic: string
 
 // Ready-made designs leave "show the original too" as it is.
 const same = (a: SubtitleStyle, b: SubtitleStyle) =>
-  (['size', 'position', 'color', 'background', 'font'] as const).every((k) => a[k] === b[k]);
+  (['size', 'position', 'color', 'background', 'font'] as const).every((k) => a[k] === b[k]) && (a.animation ?? 'none') === (b.animation ?? 'none');
 
 // The renderer sizes text against a 288-pixel-high frame (18 = medium), by line height: letters
 // come out at 72.9% of that (Arabic and serif fonts are scaled on the server to match). In a 16:9 preview the
@@ -116,6 +123,21 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
   };
   const rtl = RTL.has(lang);
   const sample = rtl ? 'هذه معاينة لشكل الترجمة على الفيديو' : 'This is how your subtitles will look';
+  // Dynamic captions: step through the sample's words like a speaker would.
+  const animation = style.animation ?? 'none';
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (animation === 'none') return;
+    const timer = setInterval(() => setTick((t) => t + 1), 420);
+    return () => clearInterval(timer);
+  }, [animation]);
+  const sampleWords = sample.split(' ');
+  const lit = tick % sampleWords.length;
+  const litColour = style.color.toUpperCase() === '#FFFFFF' ? '#FFD400' : style.color;
+  // Pop-up words: the group of up to three words the spoken one is in (backend ass.py _pop_chunks).
+  const group = Math.floor(lit / 3);
+  const shown = animation === 'pop' ? sampleWords.slice(group * 3, group * 3 + 3) : sampleWords;
+  const shownLit = animation === 'pop' ? lit - group * 3 : lit;
   // The original language is not known yet: show English, or Arabic when translating into English.
   const originalSample = lang === 'en' ? 'هذا هو النص الأصلي' : 'This is the original text';
   const originalRtl = lang === 'en';
@@ -151,7 +173,19 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
               textShadow: box ? 'none' : '0 0 2px #000, 0 0 2px #000, 0 0 3px #000',
             }}
           >
-            {sample}
+            {animation === 'none' ? (
+              sample
+            ) : (
+              // A new pop-up group grows in, like on the video.
+              <span key={animation === 'pop' ? group : 'line'} className={animation === 'pop' ? 'inline-block animate-[caption-pop_120ms_ease-out]' : undefined}>
+                {shown.map((w, i) => (
+                  <span key={i} style={{ color: i === shownLit ? litColour : '#FFFFFF' }}>
+                    {w}
+                    {i < shown.length - 1 ? ' ' : ''}
+                  </span>
+                ))}
+              </span>
+            )}
           </span>
           {style.bilingual && (
             <span
@@ -208,6 +242,17 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
         <div>
           <div className="text-xs text-slate-400 mb-1.5">Background</div>
           <Segmented value={style.background} options={BACKGROUNDS} onChange={(background) => update({ background })} />
+        </div>
+        <div className="sm:col-span-2">
+          <div className="text-xs text-slate-400 mb-1.5">Words</div>
+          <Segmented value={animation} options={ANIMATIONS} onChange={(a) => update({ animation: a })} />
+          <p className="mt-1 text-xs text-slate-500">
+            {animation === 'highlight'
+              ? 'Each word lights up as it is spoken.'
+              : animation === 'pop'
+                ? 'A few words at a time, popping in as they are spoken: the short-video look.'
+                : 'The whole line appears at once.'}
+          </p>
         </div>
         <label className="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer select-none sm:col-span-2">
           <input
