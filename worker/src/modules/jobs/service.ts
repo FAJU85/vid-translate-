@@ -145,7 +145,10 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       return true;
     }
     if (data && [400, 409, 422].includes(status)) {
-      await failJob(env, job, status === 409 ? 'E_INTERNAL' : 'E_URL_INVALID', String(data.error ?? ''));
+      const detail = String(data.error ?? '');
+      // The Space refuses dubbing when it is switched off there; that is not a bad link.
+      const code = status === 409 ? 'E_INTERNAL' : job.mode === 'dub' && /dubbing/i.test(detail) ? 'E_NO_VOICE' : 'E_URL_INVALID';
+      await failJob(env, job, code, detail);
       return false;
     }
     failure = `HTTP ${status}`; // asleep, building, busy (429) or misconfigured (401)

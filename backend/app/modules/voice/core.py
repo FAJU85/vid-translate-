@@ -108,10 +108,14 @@ def synthesize(
         done = 0
         tasks = [asyncio.create_task(_one(t, voice, p, semaphore)) for t, p in todo]
         try:
-            for finished in asyncio.as_completed(tasks):
-                await finished
-                done += 1
-                progress(done / max(1, len(tasks)))
+            pending = set(tasks)
+            while pending:  # wake every half second so a cancel is noticed even while the service is slow
+                finished, pending = await asyncio.wait(pending, timeout=0.5, return_when=asyncio.FIRST_COMPLETED)
+                for task in finished:
+                    task.result()  # raises the line's VoiceError
+                done += len(finished)
+                if finished:
+                    progress(done / max(1, len(tasks)))
                 if cancelled():
                     raise asyncio.CancelledError
         finally:

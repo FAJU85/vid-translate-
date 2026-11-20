@@ -94,9 +94,10 @@ async function deliver(env: Env, job: JobRow): Promise<void> {
   if (video) {
     if (outputs[video.key]) {
       const videoUrl = await fileLink(env, job.id, video.file, LINK_TTL, video.name);
-      const res = await fetch(videoUrl);
+      // A network error must still end in the link below: the delivery is already claimed.
+      const res = await fetch(videoUrl).catch(() => null);
       let sent = false;
-      if (res.ok && Number(res.headers.get('content-length')) <= TELEGRAM_UPLOAD_LIMIT) {
+      if (res?.ok && Number(res.headers.get('content-length')) <= TELEGRAM_UPLOAD_LIMIT) {
         sent = await sendFile(env, 'sendVideo', 'video', res, video.name, {
           chat_id: chatId,
           caption: t(ui, job.mode === 'dub' ? 'dub_caption' : 'video_caption', { title }),
@@ -104,7 +105,7 @@ async function deliver(env: Env, job: JobRow): Promise<void> {
           supports_streaming: 'true',
         });
       } else {
-        await res.body?.cancel();
+        await res?.body?.cancel();
       }
       if (!sent) await sendMessage(env, job.chat_id, t(ui, job.mode === 'dub' ? 'dub_link' : 'video_link', { url: esc(videoUrl) }));
     } else {

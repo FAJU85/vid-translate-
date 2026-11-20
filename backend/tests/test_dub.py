@@ -83,3 +83,36 @@ def test_every_target_language_but_two_has_both_voices():
     missing = {lang for lang in translation.LANGUAGES if not voice.voice_for(lang)}
     assert missing <= {"ku", "ha"}
     assert all(voice.voice_for(lang, "male") for lang in translation.LANGUAGES if lang not in missing)
+
+
+def test_an_unknown_video_length_still_fits_every_line(tmp_path):
+    track = tmp_path / "dub.wav"
+    media.build_dub_track([(2.0, 3.0, tone(tmp_path / "a.wav", 0.8))], 0.0, track)
+    rate, s = read(track)
+    assert len(s) >= 3 * rate and loud(s, rate, 2.1, 2.7)
+
+
+def test_a_cancel_is_noticed_while_the_voice_service_is_slow(tmp_path, monkeypatch):
+    import asyncio
+    import time
+
+    from app.modules.voice import core
+    from app.shared.errors import Cancelled
+
+    async def slow(text, voice_name, dest, semaphore):
+        await asyncio.sleep(30)
+
+    monkeypatch.setattr(core, "_one", slow)
+    started = time.monotonic()
+    with pytest.raises(Cancelled):
+        voice.synthesize(["hello"], "en", "female", tmp_path, lambda: time.monotonic() - started > 0.3, lambda _f: None)
+    assert time.monotonic() - started < 3
+
+
+def test_a_bad_background_volume_keeps_the_default(monkeypatch):
+    from app.shared import config
+
+    monkeypatch.setenv("X_VOL", "loud")
+    assert config._volume("X_VOL", 0.18) == 0.18
+    monkeypatch.setenv("X_VOL", "7")
+    assert config._volume("X_VOL", 0.18) == 1.0

@@ -284,7 +284,10 @@ def _decode(path: Path, tempo: float = 1.0):
     if abs(tempo - 1.0) > 0.01:
         args += ["-filter:a", f"atempo={tempo:.3f}"]
     args += ["-f", "f32le", "-ac", "1", "-ar", str(DUB_RATE), "-"]
-    proc = subprocess.run(args, capture_output=True, timeout=120)
+    try:
+        proc = subprocess.run(args, capture_output=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        raise MediaError("E_TTS_FAILED", "A spoken line took too long to read.") from None
     if proc.returncode != 0:
         raise MediaError("E_TTS_FAILED", "A spoken line could not be read.")
     return np.frombuffer(proc.stdout, dtype=np.float32)
@@ -300,6 +303,8 @@ def build_dub_track(lines: list[tuple[float, float, Path]], duration: float, des
 
     import numpy as np
 
+    # An unknown length (0) must not cut every line after the first second: fit the last line too.
+    duration = max(duration, max((end for _s, end, _c in lines), default=0.0))
     track = np.zeros(int((duration + 1) * DUB_RATE), dtype=np.float32)
     for start, latest_end, clip in lines:
         samples = _decode(clip)

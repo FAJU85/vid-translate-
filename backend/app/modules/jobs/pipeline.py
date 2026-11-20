@@ -180,24 +180,26 @@ def _dub(job: Job, workdir: Path, source: Path, cues: list, info: dict, report, 
     if not voice.voice_for(job.tgt_lang, style.voice):
         raise PipelineError("E_NO_VOICE", "Dubbing is not available for this language yet. Choose subtitles instead.")
     lines_dir = workdir / "voice"
-    try:
-        clips = voice.synthesize(
-            [c.translation or c.text for c in cues], job.tgt_lang, style.voice, lines_dir, cancelled,
-            lambda f: report(f * 0.8),
-        )
-    except voice.VoiceError as exc:
-        raise PipelineError("E_TTS_FAILED", f"The voice service did not answer ({exc}). Try again later.") from exc
-    # Each line may last until the next one starts (a little after its subtitle ends at most).
-    lines = []
-    for i, (cue, clip) in enumerate(zip(cues, clips)):
-        if clip is None:
-            continue
-        nxt = cues[i + 1].start if i + 1 < len(cues) else info["duration"]
-        lines.append((cue.start, max(cue.end, min(nxt, cue.end + 1.5)), clip))
     track = workdir / "dub.wav"
-    media.build_dub_track(lines, info["duration"], track)
-    media.mix_dub(source, track, workdir / OUTPUT_FILES["dubbed"], info["duration"], info["has_video"],
-                  cancelled, lambda f: report(0.8 + f * 0.2))
-    shutil.rmtree(lines_dir, ignore_errors=True)
-    track.unlink(missing_ok=True)
+    try:  # the spoken lines and the track are only steps: removed however the job ends
+        try:
+            clips = voice.synthesize(
+                [c.translation or c.text for c in cues], job.tgt_lang, style.voice, lines_dir, cancelled,
+                lambda f: report(f * 0.8),
+            )
+        except voice.VoiceError as exc:
+            raise PipelineError("E_TTS_FAILED", f"The voice service did not answer ({exc}). Try again later.") from exc
+        # Each line may last until the next subtitle starts, and at most a little after its own ends.
+        lines = []
+        for i, (cue, clip) in enumerate(zip(cues, clips, strict=True)):
+            if clip is None:
+                continue
+            nxt = cues[i + 1].start if i + 1 < len(cues) else max(info["duration"], cue.end)
+            lines.append((cue.start, min(nxt, cue.end + 1.5), clip))
+        media.build_dub_track(lines, info["duration"], track)
+        media.mix_dub(source, track, workdir / OUTPUT_FILES["dubbed"], info["duration"], info["has_video"],
+                      cancelled, lambda f: report(0.8 + f * 0.2))
+    finally:
+        shutil.rmtree(lines_dir, ignore_errors=True)
+        track.unlink(missing_ok=True)
     return OUTPUT_FILES["dubbed"]
