@@ -14,6 +14,8 @@ export interface SubtitleStyle {
   bilingual?: boolean;
   /** Dubbing: the voice that speaks the translation. */
   voice?: 'female' | 'male';
+  /** Dynamic captions: none, highlight (the spoken word lights up), pop (a few words at a time). */
+  animation?: 'none' | 'highlight' | 'pop';
 }
 
 export interface Job {

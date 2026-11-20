@@ -6,6 +6,7 @@ import { isYouTubeUrl, parseVideoUrl } from '../../shared/urls';
 import {
   STYLE_PRESETS,
   SUBTITLE_BACKGROUNDS,
+  SUBTITLE_ANIMATIONS,
   SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
@@ -210,6 +211,7 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     position: t(ui, `pos_${style.position}`),
     background: t(ui, `bg_${style.background}`),
     color: color ? t(ui, `color_${color}`) : style.color,
+    animation: t(ui, `anim_${style.animation}`),
   });
   const presets = (Object.keys(STYLE_PRESETS) as (keyof typeof STYLE_PRESETS)[]).map((k) => ({
     text: mark(preset === k, t(ui, `preset_${k}`)),
@@ -220,6 +222,7 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     presets.slice(0, 2),
     presets.slice(2),
     SUBTITLE_FONTS.map((v) => ({ text: mark(style.font === v, t(ui, `font_${v}`)), callback_data: `st:font:${v}` })),
+    SUBTITLE_ANIMATIONS.map((v) => ({ text: mark(style.animation === v, t(ui, `anim_${v}`)), callback_data: `st:animation:${v}` })),
     SUBTITLE_SIZES.map((v) => ({ text: mark(style.size === v, t(ui, `size_${v}`)), callback_data: `st:size:${v}` })),
     SUBTITLE_POSITIONS.map((v) => ({ text: mark(style.position === v, t(ui, `pos_${v}`)), callback_data: `st:position:${v}` })),
     SUBTITLE_BACKGROUNDS.map((v) => ({ text: mark(style.background === v, t(ui, `bg_${v}`)), callback_data: `st:background:${v}` })),

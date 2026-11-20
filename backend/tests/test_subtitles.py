@@ -60,7 +60,7 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     assert SubtitleStyle.from_dict(["not", "a", "dict"]) == SubtitleStyle()
     style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box", "font": "bold"})
     assert style.to_dict() == {
-        "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False, "voice": "female",
+        "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False, "voice": "female", "animation": "none",
     }
     assert SubtitleStyle.from_dict({"bilingual": "yes"}).bilingual is False  # only a real true turns it on
 
@@ -244,3 +244,45 @@ def test_transcript_has_both_languages_in_paragraphs():
     text = subtitles.to_transcript(cues, "en", "ar")
     assert text.startswith("Original (en)\n\nOne. Two.\n\nThree.")
     assert "Translation (ar)\n\nواحد. اثنان.\n\nثلاثة." in text
+
+
+def _events(ass_text):
+    return [line for line in ass_text.splitlines() if line.startswith("Dialogue:")]
+
+
+def test_word_highlight_lights_one_word_at_a_time_and_fills_the_cue():
+    from app.modules.subtitles.ass import word_times
+
+    cue = Cue(1, 1.0, 4.0, "x", "This is how dynamic captions look")
+    events = _events(to_ass([cue], "en", SubtitleStyle(animation="highlight")))
+    assert len(events) == 6  # one per word
+    assert all(e.count("\\1c&H") == 1 for e in events)
+    assert events[0].split(",")[1] == "0:00:01.00" and events[-1].split(",")[2] == "0:00:04.00"
+    for a, b in zip(events, events[1:]):
+        assert a.split(",")[2] == b.split(",")[1]  # no gap, no overlap: no flicker
+    times = word_times(["a", "bbbb", "cc"], 0.0, 2.0)
+    assert times[0][0] == 0.0 and times[1][1] - times[1][0] > times[0][1] - times[0][0]
+    assert times[-1][1] <= 2.0
+
+
+def test_pop_shows_a_few_words_at_a_time():
+    cue = Cue(1, 0.0, 6.0, "x", "one two three four five six seven")
+    events = _events(to_ass([cue], "en", SubtitleStyle(animation="pop")))
+    assert len(events) == 7
+    groups = [e for e in events if "\\fscx85" in e]  # each new group pops in once
+    assert len(groups) == 3
+    shown = [e.split(",,", 1)[1].split("}", 1)[1] for e in groups]
+    assert all(len(text.replace("{\\1c}", "").split()) <= 3 for text in shown)
+
+
+def test_animated_right_to_left_lines_keep_their_word_order():
+    cue = Cue(1, 0.0, 3.0, "x", "مرحباً بكم يا أصدقاء")
+    ass = to_ass([cue], "ar", SubtitleStyle(animation="highlight"))
+    style = next(line for line in ass.splitlines() if line.startswith("Style: Default"))
+    assert style.endswith(",-1")  # libass takes the direction from the text
+    assert to_ass([cue], "ar", SubtitleStyle()).count(",-1\n") == 0  # plain subtitles unchanged
+
+
+def test_an_unknown_animation_keeps_plain_subtitles():
+    assert SubtitleStyle.from_dict({"animation": "spin"}).animation == "none"
+    assert SubtitleStyle.from_dict({"animation": "pop"}).animation == "pop"

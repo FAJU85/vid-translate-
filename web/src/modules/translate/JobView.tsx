@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, CheckCircle2, Download, Film, Link2, Loader2, Pencil, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
-import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp } from './format';
+import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, wordAt, wordTimes, words } from './format';
 
 interface Props {
   jobId: string;
@@ -37,6 +37,12 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const [rendering, setRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Interactive transcript: which text to show, whether it follows the video, and a search.
+  const [view, setView] = useState<'both' | 'translation' | 'original'>('both');
+  const [follow, setFollow] = useState(true);
+  const [query, setQuery] = useState('');
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const programmaticScroll = useRef(false);
 
   // Poll while the job is in progress.
   useEffect(() => {
@@ -76,6 +82,84 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const videoUrl = job?.outputs.mp4_url ?? job?.outputs.dubbed_url ?? localVideoUrl;
   const burnedIn = Boolean(job?.outputs.mp4_url);
   const current = useMemo(() => cues?.find((c) => time >= c.start && time < c.end), [cues, time]);
+
+  // The player's own time updates come about four times a second: too coarse to light words, so
+  // while it plays the time is read every frame.
+  const playing = useRef(false);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let frame = 0;
+    const loop = () => {
+      setTime(video.currentTime);
+      if (playing.current) frame = requestAnimationFrame(loop);
+    };
+    const onPlay = () => {
+      playing.current = true;
+      frame = requestAnimationFrame(loop);
+    };
+    const onPause = () => {
+      playing.current = false;
+      cancelAnimationFrame(frame);
+    };
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    if (!video.paused) onPlay();
+    return () => {
+      onPause();
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+    };
+  }, [job?.status, videoUrl]);
+
+  // Keep the line being spoken in view in the transcript (scrolling the list, never the page).
+  useEffect(() => {
+    const list = listRef.current;
+    const row = current && list?.querySelector<HTMLElement>(`[data-cue="${current.index}"]`);
+    if (!follow || !list || !row) return;
+    const top = row.offsetTop - list.offsetTop - list.clientHeight / 3;
+    programmaticScroll.current = true;
+    list.scrollTo({ top, behavior: 'smooth' });
+    setTimeout(() => (programmaticScroll.current = false), 600);
+  }, [current?.index, follow]);
+
+  const seek = (t: number) => {
+    if (!videoRef.current) return;
+    videoRef.current.currentTime = t + 0.01;
+    setTime(t + 0.01);
+    setFollow(true);
+  };
+  const q = query.trim().toLowerCase();
+  const shownCues = useMemo(
+    () => (cues && q ? cues.filter((c) => c.text.toLowerCase().includes(q) || c.translation.toLowerCase().includes(q)) : cues),
+    [cues, q],
+  );
+
+  /** A line as clickable words; the one being spoken is lit, search matches are marked. */
+  const renderWords = (cue: Cue, text: string, rtl: boolean, lit: boolean) => {
+    const list = words(text);
+    const times = wordTimes(list, cue.start, cue.end);
+    const at = lit && current?.index === cue.index ? wordAt(times, time) : -1;
+    return (
+      <span dir={rtl ? 'rtl' : 'auto'}>
+        {list.map((w, i) => (
+          <span key={i}>
+            <button
+              type="button"
+              onClick={() => seek(times[i][0])}
+              title={`Play from ${timestamp(times[i][0], '.').slice(3, 8)}`}
+              className={`rounded px-0.5 -mx-0.5 transition-colors hover:bg-slate-700 ${
+                i === at ? 'bg-amber-400 text-slate-950' : q && w.toLowerCase().includes(q) ? 'bg-sky-500/30' : ''
+              }`}
+            >
+              {w}
+            </button>
+            {i < list.length - 1 && !/\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}/u.test(w) ? ' ' : ''}
+          </span>
+        ))}
+      </span>
+    );
+  };
 
   const editedSrtUrl = useMemo(
     () => (edited && cues ? URL.createObjectURL(new Blob([cuesToSrt(cues)], { type: 'application/x-subrip' })) : null),
@@ -275,70 +359,127 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
           {!burnedIn && current && (
             <div className="absolute inset-x-4 bottom-14 flex justify-center pointer-events-none">
               <span dir={dir} className="px-3 py-1.5 rounded-lg bg-black/80 text-white text-base md:text-lg font-semibold text-center">
-                {current.translation}
+                {/* Dynamic captions: the word being spoken is lit. */}
+                {(() => {
+                  const list = words(current.translation);
+                  const at = wordAt(wordTimes(list, current.start, current.end), time);
+                  return list.map((w, i) => (
+                    <span key={i} className={i === at ? 'text-amber-300' : undefined}>
+                      {w}
+                      {i < list.length - 1 ? ' ' : ''}
+                    </span>
+                  ));
+                })()}
               </span>
             </div>
           )}
         </div>
       )}
 
-      {job.status === 'done' && cues && cues.length > 0 && (
+      {job.status === 'done' && cues && cues.length > 0 && shownCues && (
         <div className="border-t border-slate-800 p-5">
-          <h3 className="text-sm font-semibold text-white">
-            Subtitles <span className="text-slate-500 font-normal">({cues.length} lines)</span>
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5 mb-3">
-            Fix any line with the pencil, then download the edited .srt or, for a video with burned-in subtitles, render it again.
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-white">
+              Interactive transcript <span className="text-slate-500 font-normal">({cues.length} lines)</span>
+            </h3>
+            <div className="inline-flex p-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+              {(
+                [
+                  ['both', 'Both'],
+                  ['translation', 'Translation'],
+                  ['original', 'Original'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setView(id)}
+                  aria-pressed={view === id}
+                  className={`px-2.5 py-1 rounded-md ${view === id ? 'bg-amber-400 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Click any word to play from there. Fix a line with the pencil, then download the edited .srt or, for a video with
+            burned-in subtitles, render it again.
           </p>
-          <ul className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
-            {cues.map((cue, i) => (
-              <li
-                key={cue.index}
-                className={`p-3 rounded-xl border text-sm ${
-                  current?.index === cue.index ? 'border-amber-400 bg-amber-950/20' : 'border-slate-800 bg-slate-950'
-                }`}
+          <div className="mt-3 mb-3 flex items-center gap-2">
+            <label className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search the transcript"
+                className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg bg-slate-950 border border-slate-800 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </label>
+            {q && <span className="text-xs text-slate-400 tabular-nums">{shownCues.length} found</span>}
+            {!follow && videoUrl && (
+              <button
+                type="button"
+                onClick={() => setFollow(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800"
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <button
-                    className="font-mono text-xs text-amber-400 hover:underline"
-                    onClick={() => {
-                      if (videoRef.current) videoRef.current.currentTime = cue.start;
-                    }}
-                  >
-                    {timestamp(cue.start, '.').slice(0, 8)} – {timestamp(cue.end, '.').slice(0, 8)}
-                  </button>
-                  <button
-                    aria-label={editing === cue.index ? 'Finish editing' : 'Edit line'}
-                    onClick={() => setEditing(editing === cue.index ? null : cue.index)}
-                    className="p-1 text-slate-400 hover:text-white"
-                  >
-                    {editing === cue.index ? <Check className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <p className="text-slate-400 leading-relaxed" dir="auto">
-                    {cue.text}
-                  </p>
-                  {editing === cue.index ? (
-                    <textarea
-                      dir={dir}
-                      autoFocus
-                      rows={2}
-                      value={cue.translation}
-                      onChange={(e) => {
-                        setCues(cues.map((c, j) => (j === i ? { ...c, translation: e.target.value } : c)));
-                        setEdited(true);
-                      }}
-                      className="w-full p-2 rounded-lg bg-slate-900 border border-amber-400/60 text-white focus:outline-none"
-                    />
-                  ) : (
-                    <p dir={dir} className="text-white font-medium leading-relaxed">
-                      {cue.translation}
-                    </p>
-                  )}
-                </div>
-              </li>
-            ))}
+                <Crosshair className="w-3.5 h-3.5" /> Follow video
+              </button>
+            )}
+          </div>
+          <ul
+            ref={listRef}
+            onScroll={() => !programmaticScroll.current && setFollow(false)}
+            className="relative space-y-2 max-h-[28rem] overflow-y-auto pr-1"
+          >
+            {shownCues.map((cue) => {
+              const i = cues.indexOf(cue);
+              const isCurrent = current?.index === cue.index;
+              return (
+                <li
+                  key={cue.index}
+                  data-cue={cue.index}
+                  className={`p-3 rounded-xl border text-sm transition-colors ${
+                    isCurrent ? 'border-amber-400 bg-amber-950/20' : 'border-slate-800 bg-slate-950'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <button className="font-mono text-xs text-amber-400 hover:underline" onClick={() => seek(cue.start)}>
+                      {timestamp(cue.start, '.').slice(0, 8)} – {timestamp(cue.end, '.').slice(0, 8)}
+                    </button>
+                    <button
+                      aria-label={editing === cue.index ? 'Finish editing' : 'Edit line'}
+                      onClick={() => setEditing(editing === cue.index ? null : cue.index)}
+                      className="p-1 text-slate-400 hover:text-white"
+                    >
+                      {editing === cue.index ? <Check className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <div className={`grid gap-2 ${view === 'both' ? 'md:grid-cols-2' : ''}`}>
+                    {view !== 'translation' && (
+                      <p dir="auto" className="text-slate-400 leading-relaxed">{renderWords(cue, cue.text, false, view === 'original')}</p>
+                    )}
+                    {view !== 'original' &&
+                      (editing === cue.index ? (
+                        <textarea
+                          dir={dir}
+                          autoFocus
+                          rows={2}
+                          value={cue.translation}
+                          onChange={(e) => {
+                            setCues(cues.map((c, j) => (j === i ? { ...c, translation: e.target.value } : c)));
+                            setEdited(true);
+                          }}
+                          className="w-full p-2 rounded-lg bg-slate-900 border border-amber-400/60 text-white focus:outline-none"
+                        />
+                      ) : (
+                        <p dir={dir} className="text-white font-medium leading-relaxed">{renderWords(cue, cue.translation, dir === 'rtl', true)}</p>
+                      ))}
+                  </div>
+                </li>
+              );
+            })}
+            {q && shownCues.length === 0 && <li className="text-sm text-slate-500 py-4 text-center">No line contains “{query}”.</li>}
           </ul>
         </div>
       )}
