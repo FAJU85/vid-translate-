@@ -33,7 +33,7 @@ from app.shared.errors import PipelineError
 ])
 def test_facebook_links_use_chrome_impersonation_over_ipv4(url):
     opts, attempts = core.site_options(url)
-    assert str(opts["impersonate"]).startswith("chrome")
+    assert opts["impersonate"] == "chrome"
     assert opts["source_address"] == "0.0.0.0" and attempts == 3
 
 

@@ -55,10 +55,8 @@ def site_options(url: str) -> tuple[dict, int]:
     """
     host = (urlparse(url).hostname or "").lower()
     if _FACEBOOK.search(host):
-        from yt_dlp.networking.impersonate import ImpersonateTarget
-
         return {
-            "impersonate": ImpersonateTarget.from_str("chrome"),
+            "impersonate": "chrome",  # turned into yt-dlp's ImpersonateTarget at download time
             "source_address": "0.0.0.0",  # IPv4 only
             "extractor_retries": 3,
         }, 3
@@ -84,6 +82,11 @@ def _download_url(
     url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn, progress: ProgressFn, extra: dict
 ) -> tuple[Path, dict]:
     import yt_dlp
+
+    if isinstance(extra.get("impersonate"), str):
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        extra = {**extra, "impersonate": ImpersonateTarget.from_str(extra["impersonate"])}
 
     def hook(d: dict) -> None:
         if cancelled():
