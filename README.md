@@ -192,8 +192,12 @@ To keep the bot private, set `ALLOWED_CHAT_IDS` in `wrangler.toml`.
 ## Limits worth knowing
 
 - **YouTube links are not supported.** YouTube refuses downloads from datacenter servers
-  ("Sign in to confirm you're not a bot"), so the bot and the website ask for the file instead,
-  before any job starts. Some other sites do the same; the bot then says so and asks for the file.
+  ("Sign in to confirm you're not a bot"), even from a real Chrome browser, so the bot and the
+  website ask for the file instead, before any job starts. Some other sites do the same; the bot
+  then says so and asks for the file.
+- **Facebook links work** because the Space downloads them with Chrome's connection fingerprint
+  (yt-dlp with curl-cffi impersonation), over IPv4, with up to three tries. Without it Facebook
+  never answers the Space. Instagram and TikTok links work as they are.
 - **Free Spaces sleep** after a period without traffic. The first job afterwards waits while the
   Space boots; the bot shows "Waking up the translation server" and retries every minute for
   about 15 minutes.

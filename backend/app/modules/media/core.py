@@ -2,16 +2,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlparse
 
 import httpx
 
 from ...shared import config, security, worker_http
 from ...shared.errors import Cancelled, PipelineError as MediaError
+
+log = logging.getLogger("media")
 
 ProgressFn = Callable[[float], None]
 CancelFn = Callable[[], bool]
@@ -37,8 +41,48 @@ def is_site_block(message: str) -> bool:
     return bool(_SITE_BLOCK.search(message))
 
 
+_FACEBOOK = re.compile(r"(^|\.)(facebook\.com|fb\.watch|fb\.com)$")
+
+
+def site_options(url: str) -> tuple[dict, int]:
+    """Extra yt-dlp options for a site, and how many times to try it.
+
+    Facebook never answers this server unless the request looks like Chrome at the connection
+    level (TLS fingerprint): with curl-cffi's Chrome impersonation it answers at once. Some of its
+    addresses also stall at random (and it publishes IPv6 ones this server cannot use), so
+    Facebook goes over IPv4 and gets three tries. Measured from the Space: 5 of 6 downloads
+    succeeded on the first try, the failure was a stalled connection.
+    """
+    host = (urlparse(url).hostname or "").lower()
+    if _FACEBOOK.search(host):
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        return {
+            "impersonate": ImpersonateTarget.from_str("chrome"),
+            "source_address": "0.0.0.0",  # IPv4 only
+            "extractor_retries": 3,
+        }, 3
+    return {}, 1
+
+
 def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn, progress: ProgressFn) -> tuple[Path, dict]:
-    """Download with yt-dlp (YouTube, X, TikTok, Vimeo, direct links, ...)."""
+    """Download with yt-dlp (Facebook, Instagram, TikTok, X, direct links, ...)."""
+    extra, attempts = site_options(url)
+    for attempt in range(1, attempts + 1):
+        try:
+            return _download_url(url, dest_dir, want_video, cancelled, progress, extra)
+        except MediaError as exc:
+            if attempt == attempts or exc.code not in ("E_DOWNLOAD_FAILED", "E_SITE_BLOCKED"):
+                raise
+            log.warning("download attempt %d of %d failed (%s); retrying", attempt, attempts, exc.message)
+            for partial in dest_dir.glob("source.*"):
+                partial.unlink(missing_ok=True)
+    raise AssertionError("unreachable")
+
+
+def _download_url(
+    url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn, progress: ProgressFn, extra: dict
+) -> tuple[Path, dict]:
     import yt_dlp
 
     def hook(d: dict) -> None:
@@ -62,6 +106,7 @@ def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn
         "max_filesize": config.MAX_DOWNLOAD_BYTES,
         "merge_output_format": "mp4",
         "progress_hooks": [hook],
+        **extra,
     }
     if config.YTDLP_PROXY:
         opts["proxy"] = config.YTDLP_PROXY
