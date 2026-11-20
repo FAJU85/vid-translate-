@@ -29,6 +29,7 @@ MIN_CUE_SECONDS = 1.0
 READING_CPS = 17.0  # characters per second a viewer can comfortably read
 CUE_GAP = 0.08  # seconds kept between two subtitles
 TAIL = 0.3  # subtitles stay a little after the last word ends
+MIN_FLASH = 0.3  # the shortest a subtitle is ever shown, even when the next one starts at once
 
 
 @dataclass
@@ -170,13 +171,50 @@ def split_words_for_cues(words: list[Word], translated: str) -> list[list[Word]]
         rest = rest[cut + 1 :]
         parts -= 1
     groups.append(rest)
-    return groups
+    # A natural cut (a pause right after the first word, say) can leave one part long in time even
+    # when the text is short: split any part still over MAX_CUE_SECONDS again.
+    out: list[list[Word]] = []
+    for group in groups:
+        if len(group) > 1 and group[-1][1] - group[0][0] > MAX_CUE_SECONDS:
+            out.extend(_split_by_time(group))
+        else:
+            out.append(group)
+    return out
+
+
+def _split_by_time(words: list[Word]) -> list[list[Word]]:
+    """Halve a run of words at its most natural point until no part is over MAX_CUE_SECONDS."""
+    if len(words) < 2 or words[-1][1] - words[0][0] <= MAX_CUE_SECONDS:
+        return [words]
+    mid = (words[0][0] + words[-1][1]) / 2
+    # Stay near the middle in time: only breaks in the middle half of the run are considered.
+    lo = next((i for i, w in enumerate(words) if w[1] >= words[0][0] + (mid - words[0][0]) / 2), 0)
+    hi = next((i for i, w in enumerate(words) if w[0] >= mid + (words[-1][1] - mid) / 2), len(words) - 1)
+    lo = min(lo, len(words) - 2)  # a break after word i, for i in [lo, hi), keeps both sides non-empty
+    hi = min(max(hi, lo + 1), len(words) - 1)
+    cut = _best_break(words, lo, hi)
+    return _split_by_time(words[: cut + 1]) + _split_by_time(words[cut + 1 :])
+
+
+LONG_RUN = 20  # a "word" this long has no spaces to cut at (Chinese, Japanese, Thai): cut by character
+
+
+def text_tokens(text: str) -> list[Word]:
+    """Cut points of a text: its words, or single characters inside long runs without spaces."""
+    tokens: list[Word] = []
+    for word in text.split():
+        if len(word) > LONG_RUN:
+            tokens.append((0.0, 0.0, " " + word[0]))
+            tokens.extend((0.0, 0.0, ch) for ch in word[1:])
+        else:
+            tokens.append((0.0, 0.0, " " + word))
+    return tokens
 
 
 def split_text_like(text: str, groups: list[list[Word]]) -> list[str]:
     """Cut a translation into as many pieces as the speech was cut into, in the same proportions,
     at the most natural places (punctuation, before a link word, never after one)."""
-    tokens = [(0.0, 0.0, " " + t) for t in text.split()]
+    tokens = text_tokens(text)
     if len(groups) <= 1 or len(tokens) < len(groups):
         return [text]
     sizes = [len(_join(g)) or 1 for g in groups]
@@ -199,17 +237,27 @@ def split_text_like(text: str, groups: list[list[Word]]) -> list[str]:
     return pieces
 
 
-def settle_timing(times: list[list[float]], texts: list[str]) -> None:
+def settle_timing(times: list[list[float]], texts: list[str], movable: list[bool] | None = None) -> None:
     """In place: [start, end] pairs (in order) made readable without overlapping the next one.
 
     A subtitle stays at least until its last word ends (plus a short tail), at least
-    MIN_CUE_SECONDS, and long enough to read at READING_CPS; never past MAX_CUE_SECONDS, and
-    never into the next subtitle.
+    MIN_CUE_SECONDS, and long enough to read at READING_CPS; never past MAX_CUE_SECONDS, and never
+    into the next subtitle. When two subtitles start almost together (a quick "Oh! No!"), the
+    first keeps a short minimum and the next one, if `movable`, starts a moment later.
     """
+    movable = movable or [True] * len(times)
     for i, (pair, text) in enumerate(zip(times, texts)):
         start, spoken_end = pair
         wanted = max(spoken_end + TAIL, start + MIN_CUE_SECONDS, start + len(text) / READING_CPS)
-        end = min(wanted, max(start + MAX_CUE_SECONDS, spoken_end))
+        end = min(wanted, start + MAX_CUE_SECONDS)  # a very short translation over long speech
         if i + 1 < len(times):
-            end = min(end, max(times[i + 1][0] - CUE_GAP, start + 0.2))
+            nxt = times[i + 1]
+            end = min(end, nxt[0] - CUE_GAP)
+            if end < start + MIN_FLASH:
+                end = start + MIN_FLASH
+                if movable[i + 1]:
+                    nxt[0] = max(nxt[0], end + CUE_GAP)
+                    nxt[1] = max(nxt[1], nxt[0] + MIN_FLASH)
+                else:
+                    end = max(start + 0.01, min(end, nxt[0]))
         pair[1] = end

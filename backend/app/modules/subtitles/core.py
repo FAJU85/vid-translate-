@@ -109,7 +109,8 @@ def _word_cues(words: list, translated: str, depth: int = 0) -> list[tuple[float
         groups, pieces = [words], [translated]
     out: list[tuple[float, float, str, str]] = []
     for group, piece in zip(groups, pieces):
-        if len(piece) > MAX_CUE_CHARS and len(group) > 1 and len(piece.split()) > 1 and depth < 4:
+        too_long = len(piece) > MAX_CUE_CHARS or group[-1][1] - group[0][0] > sentences.MAX_CUE_SECONDS
+        if too_long and len(group) > 1 and len(sentences.text_tokens(piece)) > 1 and depth < 4:
             out.extend(_word_cues(group, piece, depth + 1))
         else:
             out.append((group[0][0], group[-1][1], sentences._join(group), piece))
@@ -153,9 +154,10 @@ def build_cues(segments: list[tuple], translations: list[str]) -> list[Cue]:
             cursor = piece_end
     if timed:
         times = [[c.start, c.end] for c in cues]
-        sentences.settle_timing(times, [c.translation for c in cues])
+        is_timed = set(timed)
+        sentences.settle_timing(times, [c.translation for c in cues], [i in is_timed for i in range(len(cues))])
         for i in timed:
-            cues[i].end = times[i][1]
+            cues[i].start, cues[i].end = times[i]
     return cues
 
 

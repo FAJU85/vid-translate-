@@ -191,3 +191,27 @@ def test_a_part_still_too_long_after_the_natural_cut_is_split_again():
     assert all(len(c.translation) <= sentences.MAX_CUE_CHARS for c in cues)
     assert " ".join(c.translation for c in cues) == tgt
     assert all(a.end <= b.start for a, b in zip(cues, cues[1:]))
+
+
+def test_subtitles_starting_almost_together_never_overlap():
+    segs = [(0.0, 0.3, "Oh! No!", [(0.0, 0.1, " Oh!"), (0.1, 0.3, " No!")])]
+    cues = subtitles.build_cues(subtitles.sentence_segments(segs), ["آه!", "لا!"])
+    assert len(cues) == 2
+    assert cues[0].end <= cues[1].start - sentences.CUE_GAP + 1e-9
+    assert cues[0].end - cues[0].start >= sentences.MIN_FLASH - 1e-9
+
+
+def test_no_subtitle_lasts_longer_than_the_limit_even_with_a_short_translation():
+    w = [(0.0, 0.5, " Well,")] + [(1.2 + i * 0.5, 1.7 + i * 0.5, " word") for i in range(18)]
+    cues = subtitles.build_cues([(0.0, 10.2, "x", w)], ["حسنا، كلام قصير جدا هنا"])
+    assert all(c.end - c.start <= sentences.MAX_CUE_SECONDS + 1e-9 for c in cues)
+    assert all(a.end <= b.start for a, b in zip(cues, cues[1:]))
+
+
+def test_translations_without_spaces_are_cut_by_character():
+    w = [(i * 0.3, i * 0.3 + 0.3, " word") for i in range(30)]
+    text = "这是一个很长的句子" * 13  # 117 characters, no spaces
+    cues = subtitles.build_cues([(0.0, 9.0, "x", w)], [text])
+    assert len(cues) >= 2
+    assert all(len(c.translation) <= sentences.MAX_CUE_CHARS for c in cues)
+    assert "".join(c.translation for c in cues) == text
