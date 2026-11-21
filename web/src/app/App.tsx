@@ -68,20 +68,25 @@ function Site() {
 
   useEffect(() => {
     if (!awaitingSince) return;
-    const before = me?.balance?.total_seconds ?? 0;
+    // A new payment, not any rise in the balance (a refund also raises it).
+    const before = me?.payments?.count ?? 0;
+    let cancelled = false;
     const timer = setInterval(async () => {
       if (Date.now() - awaitingSince > PAYMENT_WAIT_MS) return setAwaitingSince(null);
       const next = await accountApi.me().catch(() => null);
-      if (!next) return;
+      if (!next || cancelled) return; // an answer that came after the wait ended
       setMe(next);
-      if ((next.balance?.total_seconds ?? 0) > before) {
+      if ((next.payments?.count ?? 0) > before) {
         setAwaitingSince(null);
         setPaidNotice(true);
         setTab('translate');
         setResume((n) => n + 1);
       }
     }, PAYMENT_POLL_MS);
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingSince]);
 

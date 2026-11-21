@@ -166,7 +166,7 @@ export interface Me {
   } | null;
   allowances?: { guest_trial: number; signup_bonus: number; daily: number; daily_period: number };
   /** How to pay (credits on only): card (Stripe) and Telegram Stars (the bot). */
-  payments?: { card: boolean; stars: boolean; bot_username: string | null; stars_prices: Record<string, number> } | null;
+  payments?: { card: boolean; stars: boolean; bot_username: string | null; stars_prices: Record<string, number>; count: number } | null;
   sign_in: { telegram: boolean; email: boolean; google: boolean };
 }
 export interface LedgerEntry {

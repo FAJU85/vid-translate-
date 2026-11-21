@@ -95,6 +95,10 @@ async function me(env: Env, request: Request, api: AccountsContext, clientId: st
           stars: Boolean(await api.botUsername()),
           bot_username: await api.botUsername(),
           stars_prices: Object.fromEntries(Object.values(PRODUCTS).map((p) => [p.id, starsPrice(env, p)])),
+          // How many payments this person has made: the website waits for this to go up.
+          count: holder
+            ? ((await env.DB.prepare('SELECT COUNT(*) AS n FROM payments WHERE account_id = ?').bind(holder.id).first<{ n: number }>())?.n ?? 0)
+            : 0,
         }
       : null,
     sign_in: { telegram: Boolean(await api.botUsername()), email: emailConfigured(env), google: googleConfigured(env) },

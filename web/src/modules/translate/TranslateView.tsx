@@ -80,6 +80,8 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
 
   // Paid after a refusal: the same video (link or file, still in this tab) starts again.
   const formRef = useRef<HTMLFormElement | null>(null);
+  // Changing the video or its options after a refusal means it is not the same request any more.
+  useEffect(() => setErrorCode(null), [source, videoUrl, file, srcLang, tgtLang, mode]);
   useEffect(() => {
     if (resume && errorCode && CREDIT_ERRORS.has(errorCode)) formRef.current?.requestSubmit();
     // eslint-disable-next-line react-hooks/exhaustive-deps

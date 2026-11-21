@@ -230,6 +230,7 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
               try {
                 const { url } = await accountApi.portal();
                 if (tab) tab.location.href = url;
+                else window.location.href = url; // no new tab allowed: open it here (nothing is lost)
               } catch (err) {
                 tab?.close();
                 setError(err instanceof ApiError ? err.message : 'Could not open the subscription page.');

@@ -47,11 +47,13 @@ export async function fulfil(env: Env, p: Payment): Promise<boolean> {
            ON CONFLICT (account_id, bucket) DO UPDATE SET seconds = seconds + ?2, expires_at = NULL`,
         ).bind(p.accountId, seconds)
       : // This month's plan credits replace last month's. A day of grace after the period, so a
-        // renewal that arrives a little late does not leave a gap.
+        // renewal that arrives a little late does not leave a gap. An older invoice arriving after a
+        // newer one (Stripe does not promise the order) is recorded but changes nothing.
         env.DB.prepare(
           `INSERT INTO credit_buckets (account_id, bucket, seconds, expires_at) VALUES (?1, 'monthly', ?2, ?3)
-           ON CONFLICT (account_id, bucket) DO UPDATE SET seconds = ?2, expires_at = ?3`,
-        ).bind(p.accountId, seconds, (p.periodEnd && p.periodEnd > ts ? p.periodEnd : ts + PLAN_PERIOD) + 86400);
+           ON CONFLICT (account_id, bucket) DO UPDATE SET seconds = ?2, expires_at = ?3
+           WHERE credit_buckets.expires_at IS NULL OR credit_buckets.expires_at <= ?3`,
+        ).bind(p.accountId, seconds, (p.periodEnd ?? ts + PLAN_PERIOD) + 86400);
   try {
     // One transaction: the payment row, the credits and the ledger line, or none of them. The same
     // payment twice fails on the payment's id, and nothing is given again.
@@ -66,7 +68,8 @@ export async function fulfil(env: Env, p: Payment): Promise<boolean> {
         ts,
       ),
       credit,
-      env.DB.prepare("INSERT INTO credit_ledger (account_id, job_id, kind, seconds, detail, created_at) VALUES (?, NULL, 'grant', ?, ?, ?)").bind(
+      // Only when the credits were given (changes() is the statement just before).
+      env.DB.prepare("INSERT INTO credit_ledger (account_id, job_id, kind, seconds, detail, created_at) SELECT ?, NULL, 'grant', ?, ?, ? WHERE changes() > 0").bind(
         p.accountId,
         seconds,
         `${product.kind === 'pack' ? 'topup' : 'monthly'}: ${product.name} (${p.provider})`,

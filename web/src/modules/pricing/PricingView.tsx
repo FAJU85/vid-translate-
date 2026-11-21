@@ -30,6 +30,8 @@ function BuyButtons({ product, me, onSignIn, onPaymentStarted, wide }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A blocked new tab: the page is offered as a link (leaving this tab would lose a chosen file).
+  const [manual, setManual] = useState<string | null>(null);
   const pay = me?.payments;
   if (!pay || (!pay.card && !pay.stars)) {
     return (
@@ -46,9 +48,10 @@ function BuyButtons({ product, me, onSignIn, onPaymentStarted, wide }: {
     const tab = window.open('about:blank', '_blank');
     try {
       const { url } = await accountApi.checkout(product);
-      if (tab) tab.location.href = url;
-      else window.location.href = url;
-      onPaymentStarted();
+      if (tab) {
+        tab.location.href = url;
+        onPaymentStarted();
+      } else setManual(url);
     } catch (err) {
       tab?.close();
       setError(err instanceof ApiError ? err.message : 'The payment page could not be opened.');
@@ -81,6 +84,11 @@ function BuyButtons({ product, me, onSignIn, onPaymentStarted, wide }: {
           </a>
         )}
       </div>
+      {manual && (
+        <a href={manual} target="_blank" rel="noreferrer" onClick={() => { setManual(null); onPaymentStarted(); }} className="block text-xs text-amber-300 underline">
+          Open the payment page
+        </a>
+      )}
       {error && <p className="text-xs text-rose-300">{error}</p>}
     </div>
   );

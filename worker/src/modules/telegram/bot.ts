@@ -485,13 +485,15 @@ export async function handleWebhook(request: Request, env: Env, ctx: ExecutionCo
   if (!env.TELEGRAM_WEBHOOK_SECRET || !safeEqual(secret, env.TELEGRAM_WEBHOOK_SECRET)) {
     return apiError(401, 'E_UNAUTHORIZED', 'Bad webhook secret.');
   }
-  const update = await request.json().catch(() => null);
+  const update = (await request.json().catch(() => null)) as any;
   if (update) {
     try {
       await handleUpdate(env, ctx, origin, update);
     } catch (err) {
-      // Always answer 200: Telegram would otherwise redeliver the same update for hours.
       console.error('update failed', (err as Error).stack ?? err);
+      // A payment that could not be recorded is asked for again (counting it twice is prevented by
+      // its id); anything else answers 200, or Telegram would redeliver it for hours.
+      if (update.message?.successful_payment) return apiError(500, 'E_PAYMENT', 'Payment not recorded yet.');
     }
   }
   return json({ ok: true });
@@ -515,10 +517,13 @@ let updatesChecked = false;
  */
 export async function ensureWebhookUpdates(env: Env): Promise<void> {
   if (updatesChecked || !env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET) return;
-  updatesChecked = true;
   const info = await tg<{ url?: string; allowed_updates?: string[] }>(env, 'getWebhookInfo');
-  if (!info?.url || UPDATES.every((u) => info.allowed_updates?.includes(u))) return;
-  await tg(env, 'setWebhook', { url: info.url, secret_token: env.TELEGRAM_WEBHOOK_SECRET, allowed_updates: UPDATES });
+  if (!info) return; // Telegram did not answer: try again on the next cron
+  if (info.url && !UPDATES.every((u) => info.allowed_updates?.includes(u))) {
+    const ok = await tg(env, 'setWebhook', { url: info.url, secret_token: env.TELEGRAM_WEBHOOK_SECRET, allowed_updates: UPDATES });
+    if (!ok) return;
+  }
+  updatesChecked = true;
 }
 
 /** Registers the webhook and the command menu with Telegram. */
