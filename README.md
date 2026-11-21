@@ -43,6 +43,8 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `EMAIL_FROM` | Worker | With `RESEND_API_KEY`: the sender, e.g. `Kavox <login@yourdomain.com>` (a domain verified in Resend). |
 | `GOOGLE_CLIENT_ID` | Worker | Optional: "Continue with Google". An OAuth client (Google Cloud console → APIs & Services → Credentials → Web application) with the redirect URI `https://YOUR-WORKER/api/auth/google/callback`. |
 | `GOOGLE_CLIENT_SECRET` | Worker | With `GOOGLE_CLIENT_ID`: that client's secret. |
+| `STRIPE_SECRET_KEY` | Worker | Optional: card payments on the website. Stripe dashboard → Developers → API keys (`sk_live_…`, or `sk_test_…` to try). |
+| `STRIPE_WEBHOOK_SECRET` | Worker | With `STRIPE_SECRET_KEY`: Developers → Webhooks → add the endpoint `https://YOUR-WORKER/api/stripe/webhook` with the events `checkout.session.completed` and `invoice.paid`, then copy its signing secret (`whsec_…`). |
 | `GEMINI_API_KEY` | Space | Optional: better translation. |
 | `YTDLP_COOKIES` | Space | Optional: for sites that need a login to download. |
 | `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |
@@ -188,7 +190,24 @@ Without bought credits or a plan, a video may be at most 90 seconds long and dub
 one preview of up to 15 seconds (given back if it fails). The website shows the cost before a job
 starts, what is left after, and a **Pricing** tab with the plans (Starter $9 for 30 credits, Pro
 $29 for 150, Business $79 for 600 a month) and packs (15 credits for $7, 40 for $16), the free
-credits and the limits. Payments come next; until then the buttons say so.
+credits and the limits.
+
+**Payments** (when credits are on):
+
+- **Telegram Stars**, in the bot, need nothing set up: `/buy` (or **⭐ Stars** on the Pricing tab)
+  sends an invoice for a pack, or a Stars subscription link for a plan (Telegram renews it every
+  30 days). Prices are converted at 50 Stars per dollar (`STARS_PER_USD` in `wrangler.toml`
+  changes it). Stars arrive in the bot's balance (@BotFather → your bot → Payments, or the
+  Fragment platform, to withdraw).
+- **Cards (Stripe)**, on the website, with `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`: **Pay
+  by card** opens Stripe Checkout in a new tab (a one-off payment for a pack, a monthly subscription
+  for a plan). In Stripe → Settings → Billing → Customer portal, save the settings once: that is the
+  page **Manage subscription** in the account panel opens (cancel, change card, invoices).
+
+Packs add credits that never expire; a plan sets that month's credits at each payment (unused
+ones do not carry over). Every payment is counted once, however often its notice arrives. The
+website waits for the credits after opening a payment, then restarts the video that was refused.
+Buying needs an account (signing in), so the credits are kept.
 
 ## Admin dashboard (jobs, name, logo, colour, texts)
 

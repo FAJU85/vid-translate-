@@ -13,6 +13,10 @@ const AdminView = lazy(() => import('../modules/admin').then((m) => ({ default: 
 
 const IS_ADMIN = window.location.pathname.replace(/\/+$/, '') === '/admin';
 
+// How long the website keeps checking for credits after a payment page or the bot was opened.
+const PAYMENT_WAIT_MS = 30 * 60 * 1000;
+const PAYMENT_POLL_MS = 4000;
+
 const SIGNIN_NOTICE: Record<string, string> = {
   ok: 'You are signed in.',
   expired: 'That sign-in link has expired or was already used. Ask for a new one.',
@@ -45,16 +49,41 @@ function Site() {
     return result ? SIGNIN_NOTICE[result] ?? null : null;
   });
   const [accountOpen, setAccountOpen] = useState(Boolean(signinNotice));
+  // Stripe sends people back to /?paid=1 in the payment tab: the original tab carries on by itself.
+  const [paidTab] = useState(() => new URLSearchParams(window.location.search).get('paid') === '1');
+  // Waiting for a payment: when the balance grows, go back and start the refused video again.
+  const [awaitingSince, setAwaitingSince] = useState<number | null>(null);
+  const [resume, setResume] = useState(0);
+  const [paidNotice, setPaidNotice] = useState(false);
   const refreshMe = () => accountApi.me().then(setMe, () => {});
 
   useEffect(() => {
     refreshMe();
     const url = new URL(window.location.href);
-    if (url.searchParams.has('signin')) {
-      url.searchParams.delete('signin');
+    if (url.searchParams.has('signin') || url.searchParams.has('paid') || url.searchParams.has('tab')) {
+      ['signin', 'paid', 'tab'].forEach((k) => url.searchParams.delete(k));
       window.history.replaceState(null, '', url);
     }
   }, []);
+
+  useEffect(() => {
+    if (!awaitingSince) return;
+    const before = me?.balance?.total_seconds ?? 0;
+    const timer = setInterval(async () => {
+      if (Date.now() - awaitingSince > PAYMENT_WAIT_MS) return setAwaitingSince(null);
+      const next = await accountApi.me().catch(() => null);
+      if (!next) return;
+      setMe(next);
+      if ((next.balance?.total_seconds ?? 0) > before) {
+        setAwaitingSince(null);
+        setPaidNotice(true);
+        setTab('translate');
+        setResume((n) => n + 1);
+      }
+    }, PAYMENT_POLL_MS);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaitingSince]);
 
   useEffect(() => {
     api
@@ -97,6 +126,22 @@ function Site() {
         />
       )}
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-8">
+        {paidTab && (
+          <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
+            Payment received, thank you! Your credits are added in a few seconds. If you started a translation in another
+            tab, it continues there by itself; you can close this one.
+          </div>
+        )}
+        {paidNotice && (
+          <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
+            Payment received: your credits are here.
+          </div>
+        )}
+        {awaitingSince && (
+          <div className="mb-6 p-3 text-sm rounded-xl border border-slate-700 bg-slate-900 text-slate-200">
+            Waiting for your payment… Finish it in the other tab or in Telegram; this page carries on by itself.
+          </div>
+        )}
         {configError && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">
             The service is not reachable right now. If you run this site, check that <code>VITE_API_BASE</code> points
@@ -113,6 +158,7 @@ function Site() {
             me={me}
             onPricing={() => setTab('pricing')}
             onSignIn={() => setAccountOpen(true)}
+            resume={resume}
           />
         </div>
         {tab === 'history' && (
@@ -125,7 +171,9 @@ function Site() {
           />
         )}
         {tab === 'telegram' && <TelegramView config={config} />}
-        {tab === 'pricing' && <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} />}
+        {tab === 'pricing' && (
+          <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} onPaymentStarted={() => setAwaitingSince(Date.now())} />
+        )}
       </main>
       <footer className="border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500">
         {SITE.brand.footer}

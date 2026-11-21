@@ -223,6 +223,23 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           </section>
         )}
 
+        {account?.card_customer && me.payments?.card && (
+          <button
+            onClick={async () => {
+              const tab = window.open('about:blank', '_blank');
+              try {
+                const { url } = await accountApi.portal();
+                if (tab) tab.location.href = url;
+              } catch (err) {
+                tab?.close();
+                setError(err instanceof ApiError ? err.message : 'Could not open the subscription page.');
+              }
+            }}
+            className="block text-sm text-amber-300 hover:underline"
+          >
+            Manage subscription and invoices
+          </button>
+        )}
         {account && (
           <button onClick={signOut} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white">
             <LogOut className="w-4 h-4" /> Sign out

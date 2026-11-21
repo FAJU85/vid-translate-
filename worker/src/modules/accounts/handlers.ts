@@ -24,6 +24,8 @@ import {
   paid,
   verified,
 } from './allowances';
+import { createCheckout, createPortal, stripeConfigured } from './payments';
+import { PRODUCTS, isProduct, starsPrice } from './products';
 import { BUCKETS, SECONDS_PER_CREDIT, balance, balances, creditsEnabled, grant, history, type Bucket } from './credits';
 import { accountFor, getAccount, listAccounts, type Account } from './store';
 
@@ -54,6 +56,7 @@ function publicAccount(a: Account) {
     email: a.email,
     email_verified: Boolean(a.email_verified),
     linked: { telegram: a.telegram_id !== null, google: a.google_sub !== null, email: Boolean(a.email && a.email_verified) },
+    card_customer: Boolean(a.stripe_customer),
     created_at: a.created_at,
   };
 }
@@ -85,6 +88,15 @@ async function me(env: Env, request: Request, api: AccountsContext, clientId: st
         }
       : null,
     allowances: { guest_trial: GUEST_TRIAL_SECONDS, signup_bonus: SIGNUP_BONUS_SECONDS, daily: DAILY_SECONDS, daily_period: DAILY_PERIOD },
+    // How people can pay (only while credits are on): cards (Stripe) and Telegram Stars (the bot).
+    payments: enabled
+      ? {
+          card: stripeConfigured(env),
+          stars: Boolean(await api.botUsername()),
+          bot_username: await api.botUsername(),
+          stars_prices: Object.fromEntries(Object.values(PRODUCTS).map((p) => [p.id, starsPrice(env, p)])),
+        }
+      : null,
     sign_in: { telegram: Boolean(await api.botUsername()), email: emailConfigured(env), google: googleConfigured(env) },
   };
 }
@@ -114,6 +126,34 @@ export async function handleAccounts(request: Request, env: Env, path: string, a
     const account = (await currentAccount(env, request)) ?? (creditsEnabled(env) && UUID.test(client) ? await accountFor(env, { kind: 'guest', client }) : null);
     if (!account) return json([]);
     return json(await history(env, account.id));
+  }
+
+  // Buy with a card: a Stripe Checkout page (opened in a new tab); the webhook gives the credits.
+  if (path === '/api/billing/checkout' && method === 'POST') {
+    if (!creditsEnabled(env) || !stripeConfigured(env)) return apiError(501, 'E_NOT_CONFIGURED', 'Card payments are not available.');
+    const account = await currentAccount(env, request);
+    // Credits bought while signed out would stay with one browser: sign in first.
+    if (!account) return apiError(401, 'E_SIGN_IN', 'Sign in first, so your credits are kept in your account.');
+    const body = (await request.json().catch(() => null)) as { product?: string } | null;
+    if (!isProduct(body?.product)) return apiError(400, 'E_BAD_REQUEST', 'Unknown product.');
+    try {
+      return json({ url: await createCheckout(env, api.origin, account, PRODUCTS[body.product]) });
+    } catch (err) {
+      console.error('checkout failed', (err as Error).message);
+      return apiError(502, 'E_PAYMENT', 'The payment page could not be opened. Try again in a moment.');
+    }
+  }
+
+  if (path === '/api/billing/portal' && method === 'POST') {
+    const account = await currentAccount(env, request);
+    if (!account || !stripeConfigured(env)) return apiError(401, 'E_SIGN_IN', 'Sign in first.');
+    try {
+      const url = await createPortal(env, api.origin, account);
+      return url ? json({ url }) : apiError(404, 'E_NOT_FOUND', 'No card subscription on this account.');
+    } catch (err) {
+      console.error('portal failed', (err as Error).message);
+      return apiError(502, 'E_PAYMENT', 'The subscription page could not be opened. Try again in a moment.');
+    }
   }
 
   if (path === '/api/auth/logout' && method === 'POST') {
