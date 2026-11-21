@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
-import { ApiError, api, type AppConfig, type Job, type SubtitleMode } from '../../shared/api';
+import { ApiError, api, type AppConfig, type Job, type Me, type SubtitleMode } from '../../shared/api';
+import { CostPreview } from './CostPreview';
 import { readDuration, uploadFile } from './upload';
 import { JobView } from './JobView';
 import { StylePicker, remember, rememberedStyle } from './StylePicker';
@@ -31,9 +32,16 @@ interface Props {
   onJob: (id: string | null) => void;
   /** A job was submitted (credits may have been set aside): refresh the balance shown. */
   onCreditsChanged?: () => void;
+  /** Who is translating, their credits and free limits (credits on only). */
+  me?: Me | null;
+  onPricing?: () => void;
+  onSignIn?: () => void;
 }
 
-export function TranslateView({ config, jobId, onJob, onCreditsChanged }: Props) {
+// Refusals the website answers with an offer: more credits, or signing in for free ones.
+const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
+
+export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn }: Props) {
   const [source, setSource] = useState<'url' | 'upload'>('url');
   const [videoUrl, setVideoUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -43,6 +51,18 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged }: Props)
   const [style, setStyle] = useState(rememberedStyle);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  // The chosen file's length, read by the browser, for the cost preview.
+  const [fileDuration, setFileDuration] = useState<number | null>(null);
+  useEffect(() => {
+    setFileDuration(null);
+    if (!file || !me?.credits_enabled) return;
+    let live = true;
+    readDuration(file).then((d) => live && setFileDuration(d));
+    return () => {
+      live = false;
+    };
+  }, [file, me?.credits_enabled]);
   // Object URL of the file uploaded in this session, used to preview soft-subtitle results.
   const [localVideo, setLocalVideo] = useState<{ jobId: string; url: string } | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
@@ -59,6 +79,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged }: Props)
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
     const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode, ...(mode !== 'soft' ? { style } : {}) };
     try {
       let job: Job;
@@ -84,6 +105,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged }: Props)
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setErrorCode(err instanceof ApiError ? err.code : null);
     } finally {
       setBusy(null);
       onCreditsChanged?.();
@@ -208,10 +230,32 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged }: Props)
           </div>
         )}
 
+        <CostPreview
+          me={me ?? null}
+          mode={mode}
+          duration={source === 'upload' ? fileDuration : null}
+          isLink={source === 'url'}
+          onPricing={() => onPricing?.()}
+        />
+
         {error && (
           <div role="alert" className="flex items-start gap-2 p-3 text-sm rounded-lg border border-rose-800 bg-rose-950/60 text-rose-200">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{error}</span>
+            <div className="space-y-2">
+              <span>{error}</span>
+              {errorCode && CREDIT_ERRORS.has(errorCode) && (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => onPricing?.()} className="px-3 py-1.5 rounded-lg bg-amber-400 text-xs font-semibold text-slate-950 hover:bg-amber-300">
+                    See plans and credit packs
+                  </button>
+                  {!me?.account && (
+                    <button type="button" onClick={() => onSignIn?.()} className="px-3 py-1.5 rounded-lg border border-slate-600 text-xs text-slate-100 hover:bg-slate-800">
+                      Sign in for free credits
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

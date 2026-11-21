@@ -29,15 +29,19 @@ import {
 } from '../jobs';
 import { welcomeOverride } from '../settings';
 import {
+  DAILY_SECONDS,
+  FREE_MAX_VIDEO_SECONDS,
   SECONDS_PER_CREDIT,
   accountForTelegram,
-  balance,
   cancelTelegramLogin,
   chargeJob,
+  checkJob,
   confirmTelegramLogin,
   creditsEnabled,
   describeTelegramLogin,
-  estimateSeconds,
+  freshBalance,
+  type Account,
+  type Refusal,
 } from '../accounts';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, updateChat, type ChatRow } from './chats';
@@ -73,15 +77,26 @@ function creditText(seconds: number): { credits: string; time: string } {
  * Set a job's credits aside. When that is not possible (spent meanwhile, or an error), the job is
  * stopped, so it can never run unpaid; its status message shows why. True when it may run.
  */
-async function safeCharge(env: Env, accountId: string, job: JobRow, hint?: number | null): Promise<boolean> {
+async function safeCharge(env: Env, account: Account, job: JobRow, hint?: number | null): Promise<boolean> {
   try {
-    if ((await chargeJob(env, accountId, job, hint)).ok) return true;
-    await stopJob(env, job, 'E_NO_CREDITS', '');
+    const result = await chargeJob(env, account, job, hint);
+    if (result.ok) return true;
+    await stopJob(env, job, REFUSAL_CODE[result.reason], '');
   } catch (err) {
     console.error('charging failed for', job.id, (err as Error).stack ?? err);
     await stopJob(env, job, 'E_INTERNAL', '');
   }
   return false;
+}
+
+const REFUSAL_CODE: Record<Refusal, string> = { credits: 'E_NO_CREDITS', free_limit: 'E_FREE_LIMIT', dub_paid: 'E_DUB_PAID' };
+
+/** The bot's answer when a job cannot start: too few credits, too long for free, dubbing. */
+async function refusalText(env: Env, ui: UiLang, account: Account, mode: SubtitleMode, hint?: number | null): Promise<string | null> {
+  const result = await checkJob(env, account, mode, hint);
+  if (result.ok) return null;
+  const vars = { need: creditText(result.need).credits, have: creditText(result.have).credits, max: FREE_MAX_VIDEO_SECONDS };
+  return t(ui, result.reason === 'credits' ? 'no_credits' : result.reason, vars);
 }
 
 const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ? env.DEFAULT_TARGET_LANG! : 'ar');
@@ -153,9 +168,20 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     return;
   }
   if (command === '/balance') {
+    if (!creditsEnabled(env)) {
+      await sendMessage(env, chatId, t(ui, 'balance_free'));
+      return;
+    }
     const account = await accountForTelegram(env, msg.from?.id ?? chatId, msg.from?.first_name ?? null);
-    const seconds = (await balance(env, account.id)).total_seconds;
-    await sendMessage(env, chatId, creditsEnabled(env) ? t(ui, 'balance', creditText(seconds)) : t(ui, 'balance_free'));
+    const b = await freshBalance(env, account);
+    const daily = b.buckets.find((x) => x.bucket === 'daily');
+    let text = t(ui, 'balance', creditText(b.total_seconds));
+    // Used up today's free credits: say when the next ones come.
+    if (daily?.expires_at && !daily.seconds) {
+      const hours = Math.max(1, Math.ceil((daily.expires_at - Date.now() / 1000) / 3600));
+      text += '\n' + t(ui, 'next_daily', { hours, credits: creditText(DAILY_SECONDS).credits });
+    }
+    await sendMessage(env, chatId, text);
     return;
   }
   if (command === '/start' || command === '/help') {
@@ -312,9 +338,8 @@ async function startJob(
   const finalMode: SubtitleMode = pending.video && (mode !== 'dub' || canDub(chat.tgt_lang)) ? mode : 'soft';
   const account = creditsEnabled(env) ? await accountForTelegram(env, chat.chat_id) : null;
   if (account) {
-    const need = estimateSeconds(pending.duration, finalMode);
-    const have = (await balance(env, account.id)).total_seconds;
-    if (have < need) return t(ui, 'no_credits', { need: creditText(need).credits, have: creditText(have).credits });
+    const refusal = await refusalText(env, ui, account, finalMode, pending.duration);
+    if (refusal) return refusal;
   }
   const { job, error } = await createJob(env, {
     channel: 'telegram',
@@ -334,7 +359,7 @@ async function startJob(
 
   await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: null });
   await showStatus(env, job);
-  if (account && !(await safeCharge(env, account.id, job, pending.duration))) return null;
+  if (account && !(await safeCharge(env, account, job, pending.duration))) return null;
   ctx.waitUntil(dispatch(env, job));
   return null;
 }
@@ -402,13 +427,12 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
           alert = t(ui, limited === 'busy' ? 'busy' : 'rate_limited', { n: maxPerHour(env) });
         } else {
           const account = creditsEnabled(env) ? await accountForTelegram(env, chatId) : null;
-          const need = estimateSeconds(job.duration, job.mode);
-          const have = account ? (await balance(env, account.id)).total_seconds : 0;
-          if (account && have < need) {
-            alert = t(ui, 'no_credits', { need: creditText(need).credits, have: creditText(have).credits });
+          const refusal = account ? await refusalText(env, ui, account, job.mode, job.duration) : null;
+          if (refusal) {
+            alert = refusal;
           } else {
             const copy = await retryJob(env, job); // also edits the progress message back to "queued"
-            if (copy && (!account || (await safeCharge(env, account.id, copy, job.duration)))) ctx.waitUntil(dispatch(env, copy));
+            if (copy && (!account || (await safeCharge(env, account, copy, job.duration)))) ctx.waitUntil(dispatch(env, copy));
           }
         }
       }

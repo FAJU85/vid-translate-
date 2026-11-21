@@ -24,7 +24,17 @@ import {
 } from '../jobs';
 import { handleAdminJobs } from './admin';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
-import { SECONDS_PER_CREDIT, accountForWeb, balance, chargeJob, creditsEnabled, estimateSeconds, handleAccounts, releaseJob } from '../accounts';
+import {
+  FREE_MAX_VIDEO_SECONDS,
+  SECONDS_PER_CREDIT,
+  accountForWeb,
+  chargeJob,
+  checkJob,
+  creditsEnabled,
+  handleAccounts,
+  releaseJob,
+  type Refusal,
+} from '../accounts';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
 // Counted from when the job was created, which is before the Space made the job's folder (deleted after 24 hours).
@@ -35,17 +45,27 @@ const maxUploadMb = (env: Env) => Number(env.MAX_UPLOAD_MB) || 500;
 
 const credits = (seconds: number) => (seconds / SECONDS_PER_CREDIT).toFixed(2);
 
-/** 402 with what a video needs and what the account has, so the website can offer more credits. */
-const noCredits = (need: number, have: number) =>
-  json(
-    {
-      error_code: 'E_NO_CREDITS',
-      message: `This video needs ${credits(need)} credits and you have ${credits(have)}.`,
-      need_seconds: need,
-      have_seconds: have,
-    },
-    402,
-  );
+const REFUSAL: Record<Refusal, { status: number; code: string; message: (need: number, have: number) => string }> = {
+  credits: {
+    status: 402,
+    code: 'E_NO_CREDITS',
+    message: (need, have) => `This video needs ${credits(need)} credits and you have ${credits(have)}.`,
+  },
+  free_limit: {
+    status: 402,
+    code: 'E_FREE_LIMIT',
+    message: () => `Free videos can be up to ${FREE_MAX_VIDEO_SECONDS} seconds long. Get credits to translate longer videos.`,
+  },
+  dub_paid: {
+    status: 402,
+    code: 'E_DUB_PAID',
+    message: () => 'Dubbing needs credits (your free preview is used or the video is longer than 15 seconds).',
+  },
+};
+
+/** 402 with why, what a video needs and what the account has, so the website can offer more credits. */
+const refused = (reason: Refusal, need: number, have: number) =>
+  json({ error_code: REFUSAL[reason].code, message: REFUSAL[reason].message(need, have), need_seconds: need, have_seconds: have }, REFUSAL[reason].status);
 
 /** A video's length as the browser read it (seconds), when it sent one. */
 const durationHint = (value: unknown) => {
@@ -53,13 +73,12 @@ const durationHint = (value: unknown) => {
   return Number.isFinite(n) && n > 0 && n < 24 * 3600 ? n : null;
 };
 
-/** Before creating a job: refuse at once when even its estimated cost is more than the balance. */
+/** Before creating a job: refuse at once when it could not start (credits, free limits). */
 async function creditCheck(env: Env, request: Request, clientId: string, mode: string, hint: number | null): Promise<Response | null> {
   if (!creditsEnabled(env)) return null;
   const account = await accountForWeb(env, request, clientId);
-  const need = estimateSeconds(hint, mode);
-  const have = (await balance(env, account.id)).total_seconds;
-  return have < need ? noCredits(need, have) : null;
+  const result = await checkJob(env, account, mode, hint);
+  return result.ok ? null : refused(result.reason, result.need, result.have);
 }
 
 /** Set the job's credits aside; if that fails (spent meanwhile), stop the job and answer 402. */
@@ -67,10 +86,10 @@ async function charge(env: Env, request: Request, clientId: string, job: JobRow,
   if (!creditsEnabled(env)) return null;
   try {
     const account = await accountForWeb(env, request, clientId);
-    const result = await chargeJob(env, account.id, job, hint);
+    const result = await chargeJob(env, account, job, hint);
     if (result.ok) return null;
-    await stopJob(env, job, 'E_NO_CREDITS', 'Not enough credits.');
-    return noCredits(result.need, result.have);
+    await stopJob(env, job, REFUSAL[result.reason].code, REFUSAL[result.reason].message(result.need, result.have));
+    return refused(result.reason, result.need, result.have);
   } catch (err) {
     // Never leave a job ready to run without its credits set aside.
     console.error('charging failed for', job.id, (err as Error).stack ?? err);

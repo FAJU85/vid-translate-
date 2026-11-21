@@ -163,6 +163,8 @@ function merge(a: Breakdown, b: Breakdown): Breakdown {
 interface Hold {
   job_id: string;
   account_id: string;
+  /** Set aside under the free limits (no bought credits or plan then). */
+  free: number;
   breakdown: string;
   seconds: number;
   status: 'held' | 'charged' | 'refunded';
@@ -181,7 +183,14 @@ const updateHold = (env: Env, hold: Hold, set: { seconds: number; breakdown: Bre
  * happen together or not at all. False when the balance is too low. A second call for the same job
  * (a repeated request) takes nothing more.
  */
-export async function reserve(env: Env, accountId: string, jobId: string, seconds: number, title: string | null): Promise<boolean> {
+export async function reserve(
+  env: Env,
+  accountId: string,
+  jobId: string,
+  seconds: number,
+  title: string | null,
+  free = false,
+): Promise<boolean> {
   if ((await getHold(env, jobId))?.status === 'held') return true;
   for (let attempt = 0; attempt < 2; attempt++) {
     const parts = await plan(env, accountId, seconds);
@@ -191,8 +200,8 @@ export async function reserve(env: Env, accountId: string, jobId: string, second
         ...takeStatements(env, accountId, parts),
         guardNotNegative(env, accountId),
         env.DB.prepare(
-          "INSERT INTO credit_holds (job_id, account_id, breakdown, seconds, status, created_at) VALUES (?, ?, ?, ?, 'held', ?)",
-        ).bind(jobId, accountId, JSON.stringify(parts), seconds, now()),
+          "INSERT INTO credit_holds (job_id, account_id, breakdown, seconds, status, free, created_at) VALUES (?, ?, ?, ?, 'held', ?, ?)",
+        ).bind(jobId, accountId, JSON.stringify(parts), seconds, free ? 1 : 0, now()),
         log(env, accountId, 'reserve', -seconds, jobId, title),
       ]);
       return true;
@@ -304,4 +313,10 @@ export async function history(env: Env, accountId: string, limit = 100): Promise
     .bind(accountId, limit)
     .all<LedgerEntry>();
   return results;
+}
+
+/** Who a job's credits were set aside for, and whether under the free limits. Null: no hold. */
+export async function holdInfo(env: Env, jobId: string): Promise<{ account_id: string; free: boolean; status: string } | null> {
+  const hold = await getHold(env, jobId);
+  return hold && { account_id: hold.account_id, free: Boolean(hold.free), status: hold.status };
 }

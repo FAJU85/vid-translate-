@@ -1,3 +1,4 @@
+import type { AddedColumn } from '../../shared/db';
 import { now, type Env } from '../../shared/env';
 
 /**
@@ -14,6 +15,8 @@ export const ACCOUNTS_SCHEMA = [
     google_sub TEXT UNIQUE,
     telegram_id INTEGER UNIQUE,
     guest_client TEXT UNIQUE,
+    welcomed INTEGER NOT NULL DEFAULT 0,
+    dub_preview_used INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     last_seen INTEGER NOT NULL
   )`,
@@ -64,8 +67,16 @@ export const ACCOUNTS_SCHEMA = [
     breakdown TEXT NOT NULL,
     seconds INTEGER NOT NULL,
     status TEXT NOT NULL,
+    free INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
   )`,
+];
+
+/** Columns added after the tables first shipped (databases made earlier get them with ALTER TABLE). */
+export const ACCOUNTS_COLUMNS: AddedColumn[] = [
+  { table: 'accounts', column: 'welcomed', definition: 'INTEGER NOT NULL DEFAULT 0' },
+  { table: 'accounts', column: 'dub_preview_used', definition: 'INTEGER NOT NULL DEFAULT 0' },
+  { table: 'credit_holds', column: 'free', definition: 'INTEGER NOT NULL DEFAULT 0' },
 ];
 
 export interface Account {
@@ -76,6 +87,10 @@ export interface Account {
   google_sub: string | null;
   telegram_id: number | null;
   guest_client: string | null;
+  /** The one-time welcome credits were given. */
+  welcomed: number;
+  /** The one free dubbing preview was used. */
+  dub_preview_used: number;
   created_at: number;
   last_seen: number;
 }
@@ -138,6 +153,8 @@ export async function accountFor(env: Env, identity: Identity, current?: Account
     google_sub: null,
     telegram_id: null,
     guest_client: null,
+    welcomed: 0,
+    dub_preview_used: 0,
     created_at: ts,
     last_seen: ts,
     ...(COLUMNS[identity.kind](identity) as Partial<Account>),

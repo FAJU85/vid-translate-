@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { HistoryView } from '../modules/history';
+import { PricingView } from '../modules/pricing';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
 import { AccountButton, AccountDialog } from '../modules/account';
@@ -32,7 +33,8 @@ export default function App() {
 }
 
 function Site() {
-  const [tab, setTab] = useState<NavTab>('translate');
+  // ?tab=pricing opens the prices (links from the bot).
+  const [tab, setTab] = useState<NavTab>(() => (new URLSearchParams(window.location.search).get('tab') === 'pricing' ? 'pricing' : 'translate'));
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [configError, setConfigError] = useState(false);
@@ -74,7 +76,7 @@ function Site() {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-amber-400 selection:text-slate-950">
-      <Header tab={tab} onTab={setTab} account={
+      <Header tab={tab} onTab={setTab} showPricing={Boolean(me?.credits_enabled)} account={
           <AccountButton
             me={me}
             onOpen={() => {
@@ -103,7 +105,15 @@ function Site() {
         )}
         {/* Stays mounted so an upload in progress survives switching tabs. */}
         <div className={tab === 'translate' ? '' : 'hidden'}>
-          <TranslateView config={config} jobId={jobId} onJob={setJobId} onCreditsChanged={refreshMe} />
+          <TranslateView
+            config={config}
+            jobId={jobId}
+            onJob={setJobId}
+            onCreditsChanged={refreshMe}
+            me={me}
+            onPricing={() => setTab('pricing')}
+            onSignIn={() => setAccountOpen(true)}
+          />
         </div>
         {tab === 'history' && (
           <HistoryView
@@ -115,6 +125,7 @@ function Site() {
           />
         )}
         {tab === 'telegram' && <TelegramView config={config} />}
+        {tab === 'pricing' && <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} />}
       </main>
       <footer className="border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500">
         {SITE.brand.footer}

@@ -17,7 +17,7 @@ import {
 } from './modules/jobs';
 import { CHATS_COLUMNS, CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
-import { ACCOUNTS_SCHEMA, billingListener } from './modules/accounts';
+import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, billingListener } from './modules/accounts';
 import { handleApi } from './modules/web-api';
 
 // Telegram follows job progress through the jobs brick's listener port, and supplies the files
@@ -28,7 +28,7 @@ registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 
 const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA];
-const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS];
+const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);

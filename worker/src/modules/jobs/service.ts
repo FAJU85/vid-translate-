@@ -177,7 +177,8 @@ async function cancelOnBackend(env: Env, jobId: string): Promise<void> {
 export async function applyState(env: Env, job: JobRow, state: BackendState): Promise<void> {
   if (TERMINAL.includes(job.status)) {
     // Cancelled here but still alive on the Space (its /cancel call was lost): tell it again.
-    const stoppedHere = job.status === 'cancelled' || (job.status === 'failed' && job.error_code === 'E_NO_CREDITS');
+    const stoppedHere =
+      job.status === 'cancelled' || (job.status === 'failed' && ['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID'].includes(job.error_code ?? ''));
     if (stoppedHere && ['queued', 'running'].includes(state.status)) await cancelOnBackend(env, job.id);
     return;
   }

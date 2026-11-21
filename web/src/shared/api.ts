@@ -151,6 +151,18 @@ export interface Me {
   credits_enabled: boolean;
   seconds_per_credit: number;
   balance: Balance | null;
+  /** The free credits and limits that apply now (credits on only). */
+  free: {
+    paid: boolean;
+    verified: boolean;
+    daily_seconds: number;
+    next_daily_at: number | null;
+    /** Longest video allowed without bought credits; null when there are bought credits. */
+    max_video_seconds: number | null;
+    dub_preview_available: boolean;
+    dub_preview_max_seconds: number;
+  } | null;
+  allowances?: { guest_trial: number; signup_bonus: number; daily: number; daily_period: number };
   sign_in: { telegram: boolean; email: boolean; google: boolean };
 }
 export interface LedgerEntry {
