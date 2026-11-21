@@ -45,7 +45,8 @@ export async function sendStarsInvoice(env: Env, chatId: number, userId: number,
   const price = [{ label: p.name, amount: starsPrice(env, p) }];
   const description = t(ui, p.kind === 'plan' ? 'buy_plan_description' : 'buy_pack_description', { credits: p.credits });
   if (p.kind === 'pack') {
-    await tg(env, 'sendInvoice', { chat_id: chatId, title: p.name, description, payload, currency: 'XTR', prices: price });
+    // With a start parameter, a forwarded copy opens the bot (its own invoice) instead of paying this one.
+    await tg(env, 'sendInvoice', { chat_id: chatId, title: p.name, description, payload, currency: 'XTR', prices: price, start_parameter: `buy_${product}` });
     return;
   }
   const link = await tg<string>(env, 'createInvoiceLink', {
@@ -67,7 +68,16 @@ const parsePayload = (payload: unknown) => {
 /** Telegram asks before charging: accept only what this bot sells, in Stars, at today's price. */
 export async function answerPreCheckout(env: Env, query: any): Promise<void> {
   const parsed = parsePayload(query.invoice_payload);
-  const ok = Boolean(parsed && query.currency === 'XTR' && query.total_amount === starsPrice(env, PRODUCTS[parsed.product]));
+  // Only the person the invoice was made for can pay it (the credits go to that account), and only
+  // while credits are on.
+  const buyer = parsed && query.from?.id ? await accountForTelegram(env, query.from.id) : null;
+  const ok = Boolean(
+    parsed &&
+      creditsEnabled(env) &&
+      buyer?.id === parsed.accountId &&
+      query.currency === 'XTR' &&
+      query.total_amount === starsPrice(env, PRODUCTS[parsed.product]),
+  );
   await tg(env, 'answerPreCheckoutQuery', {
     pre_checkout_query_id: query.id,
     ok,

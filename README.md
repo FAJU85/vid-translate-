@@ -44,7 +44,7 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `GOOGLE_CLIENT_ID` | Worker | Optional: "Continue with Google". An OAuth client (Google Cloud console → APIs & Services → Credentials → Web application) with the redirect URI `https://YOUR-WORKER/api/auth/google/callback`. |
 | `GOOGLE_CLIENT_SECRET` | Worker | With `GOOGLE_CLIENT_ID`: that client's secret. |
 | `STRIPE_SECRET_KEY` | Worker | Optional: card payments on the website. Stripe dashboard → Developers → API keys (`sk_live_…`, or `sk_test_…` to try). |
-| `STRIPE_WEBHOOK_SECRET` | Worker | With `STRIPE_SECRET_KEY`: Developers → Webhooks → add the endpoint `https://YOUR-WORKER/api/stripe/webhook` with the events `checkout.session.completed` and `invoice.paid`, then copy its signing secret (`whsec_…`). |
+| `STRIPE_WEBHOOK_SECRET` | Worker | With `STRIPE_SECRET_KEY`: Developers → Webhooks → add the endpoint `https://YOUR-WORKER/api/stripe/webhook` with the events `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `invoice.paid`, then copy its signing secret (`whsec_…`). |
 | `GEMINI_API_KEY` | Space | Optional: better translation. |
 | `YTDLP_COOKIES` | Space | Optional: for sites that need a login to download. |
 | `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |

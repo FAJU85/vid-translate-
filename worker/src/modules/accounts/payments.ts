@@ -120,7 +120,9 @@ export async function createCheckout(env: Env, origin: string, account: Account,
     form['subscription_data[metadata][account_id]'] = account.id;
     form['subscription_data[metadata][product]'] = product.id;
   }
-  if (account.email && account.email_verified) form.customer_email = account.email;
+  // The same Stripe customer every time, so all of a person's plans show in one "Manage subscription".
+  if (account.stripe_customer) form.customer = account.stripe_customer;
+  else if (account.email && account.email_verified) form.customer_email = account.email;
   const session = await stripe<{ url: string }>(env, 'POST', 'checkout/sessions', form);
   return session.url;
 }
@@ -158,7 +160,9 @@ export async function handleStripeWebhook(env: Env, request: Request): Promise<R
   if (event.type === 'checkout.session.completed' && obj.customer && obj.metadata?.account_id) {
     await env.DB.prepare('UPDATE accounts SET stripe_customer = ? WHERE id = ?').bind(obj.customer, obj.metadata.account_id).run();
   }
-  if (event.type === 'checkout.session.completed' && obj.mode === 'payment' && obj.payment_status === 'paid') {
+  // A payment method that takes time (a bank debit) completes "unpaid" and succeeds later.
+  const checkoutDone = event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded';
+  if (checkoutDone && obj.mode === 'payment' && obj.payment_status === 'paid') {
     const product = obj.metadata?.product;
     if (isProduct(product) && obj.metadata?.account_id) {
       await fulfil(env, {
