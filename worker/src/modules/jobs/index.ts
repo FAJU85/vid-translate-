@@ -32,6 +32,8 @@ export {
   checkLimits,
   createJob,
   dispatch,
+  failJob,
+  stopJob,
   maxPerHour,
   refreshJob,
   retryJob,

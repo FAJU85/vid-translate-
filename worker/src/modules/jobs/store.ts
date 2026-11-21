@@ -132,8 +132,11 @@ export async function claimDelivery(env: Env, id: string): Promise<boolean> {
 }
 
 /** The Space confirmed a cancelled job is stopped: it no longer counts as handed off. */
+/** Jobs this side stopped that the Space must stop too: cancelled ones, and ones stopped for lack of credits. */
+const STOPPED_HERE = "(status = 'cancelled' OR (status = 'failed' AND error_code = 'E_NO_CREDITS'))";
+
 export async function confirmBackendCancel(env: Env, id: string): Promise<void> {
-  await env.DB.prepare(`UPDATE jobs SET dispatched = 0 WHERE id = ? AND status = 'cancelled'`).bind(id).run();
+  await env.DB.prepare(`UPDATE jobs SET dispatched = 0 WHERE id = ? AND ${STOPPED_HERE}`).bind(id).run();
 }
 
 export async function touchActive(env: Env, id: string, ts: number): Promise<void> {
@@ -159,7 +162,7 @@ export async function staleDispatched(env: Env, updatedBefore: number): Promise<
 }
 
 export async function unconfirmedCancels(env: Env, updatedAfter: number): Promise<string[]> {
-  const res = await env.DB.prepare(`SELECT id FROM jobs WHERE status = 'cancelled' AND dispatched = 1 AND updated_at > ? LIMIT 10`)
+  const res = await env.DB.prepare(`SELECT id FROM jobs WHERE ${STOPPED_HERE} AND dispatched = 1 AND updated_at > ? LIMIT 10`)
     .bind(updatedAfter)
     .all<{ id: string }>();
   return res.results.map((r) => r.id);

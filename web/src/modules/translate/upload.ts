@@ -31,3 +31,22 @@ export async function uploadFile(
   }
   throw new ApiError('E_BACKEND_DOWN', 'The translation server is not responding. Please try again later.');
 }
+
+/** The file's length in seconds as the browser reads it (for the credit estimate), or null. */
+export function readDuration(file: File, timeoutMs = 5000): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const media = document.createElement(file.type.startsWith('audio/') ? 'audio' : 'video');
+    const done = (value: number | null) => {
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      media.removeAttribute('src');
+      resolve(value);
+    };
+    const timer = setTimeout(() => done(null), timeoutMs);
+    media.preload = 'metadata';
+    media.onloadedmetadata = () => done(Number.isFinite(media.duration) && media.duration > 0 ? media.duration : null);
+    media.onerror = () => done(null);
+    media.src = url;
+  });
+}

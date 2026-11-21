@@ -2,7 +2,8 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { HistoryView } from '../modules/history';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
-import { api, type AppConfig } from '../shared/api';
+import { AccountButton, AccountDialog } from '../modules/account';
+import { accountApi, api, type AppConfig, type Me } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
 
@@ -10,6 +11,13 @@ import { Header, type NavTab } from './Header';
 const AdminView = lazy(() => import('../modules/admin').then((m) => ({ default: m.AdminView })));
 
 const IS_ADMIN = window.location.pathname.replace(/\/+$/, '') === '/admin';
+
+const SIGNIN_NOTICE: Record<string, string> = {
+  ok: 'You are signed in.',
+  expired: 'That sign-in link has expired or was already used. Ask for a new one.',
+  failed: 'Signing in with Google did not work. Please try again.',
+  unavailable: 'That way of signing in is not available.',
+};
 
 export default function App() {
   return IS_ADMIN ? (
@@ -28,6 +36,23 @@ function Site() {
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [configError, setConfigError] = useState(false);
+  const [me, setMe] = useState<Me | null>(null);
+  // Coming back from an email link or Google: ?signin=ok|expired|failed|unavailable.
+  const [signinNotice, setSigninNotice] = useState<string | null>(() => {
+    const result = new URLSearchParams(window.location.search).get('signin');
+    return result ? SIGNIN_NOTICE[result] ?? null : null;
+  });
+  const [accountOpen, setAccountOpen] = useState(Boolean(signinNotice));
+  const refreshMe = () => accountApi.me().then(setMe, () => {});
+
+  useEffect(() => {
+    refreshMe();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('signin')) {
+      url.searchParams.delete('signin');
+      window.history.replaceState(null, '', url);
+    }
+  }, []);
 
   useEffect(() => {
     api
@@ -49,7 +74,26 @@ function Site() {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-amber-400 selection:text-slate-950">
-      <Header tab={tab} onTab={setTab} />
+      <Header tab={tab} onTab={setTab} account={
+          <AccountButton
+            me={me}
+            onOpen={() => {
+              refreshMe(); // the balance may have changed since (a job finished or was refunded)
+              setAccountOpen(true);
+            }}
+          />
+        } />
+      {accountOpen && me && (
+        <AccountDialog
+          me={me}
+          notice={signinNotice}
+          onChange={setMe}
+          onClose={() => {
+            setAccountOpen(false);
+            setSigninNotice(null);
+          }}
+        />
+      )}
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-8">
         {configError && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">
@@ -59,7 +103,7 @@ function Site() {
         )}
         {/* Stays mounted so an upload in progress survives switching tabs. */}
         <div className={tab === 'translate' ? '' : 'hidden'}>
-          <TranslateView config={config} jobId={jobId} onJob={setJobId} />
+          <TranslateView config={config} jobId={jobId} onJob={setJobId} onCreditsChanged={refreshMe} />
         </div>
         {tab === 'history' && (
           <HistoryView

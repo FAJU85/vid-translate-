@@ -26,6 +26,8 @@ ALLOWED_ORIGINS = "*"
 DEFAULT_TARGET_LANG = "ar"
 MAX_JOBS_PER_HOUR = "5"
 MAX_UPLOAD_MB = "500"
+# "1" to count and charge credits (see README → Accounts and credits). Off until free allowances and payments exist.
+CREDITS_ENABLED = "0"
 # Optional: restrict the bot to these Telegram chat ids (comma-separated).
 # ALLOWED_CHAT_IDS = "123456789"
 

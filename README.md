@@ -39,6 +39,10 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `TELEGRAM_BOT_TOKEN` | Worker | From @BotFather. |
 | `TELEGRAM_WEBHOOK_SECRET` | Worker | Another random string (letters, digits, `_`, `-`). |
 | `ADMIN_PASSWORD` | Worker | Password of the `/admin` settings page (at least 8 characters). Unset: the page stays locked. |
+| `RESEND_API_KEY` | Worker | Optional: email sign-in links, sent with [Resend](https://resend.com) (free: 3,000 emails a month). |
+| `EMAIL_FROM` | Worker | With `RESEND_API_KEY`: the sender, e.g. `Kavox <login@yourdomain.com>` (a domain verified in Resend). |
+| `GOOGLE_CLIENT_ID` | Worker | Optional: "Continue with Google". An OAuth client (Google Cloud console → APIs & Services → Credentials → Web application) with the redirect URI `https://YOUR-WORKER/api/auth/google/callback`. |
+| `GOOGLE_CLIENT_SECRET` | Worker | With `GOOGLE_CLIENT_ID`: that client's secret. |
 | `GEMINI_API_KEY` | Space | Optional: better translation. |
 | `YTDLP_COOKIES` | Space | Optional: for sites that need a login to download. |
 | `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |
@@ -152,10 +156,35 @@ Once the site has its URL, set `ALLOWED_ORIGINS` in `wrangler.toml` (and `CORS_O
 on the Space) to that URL and redeploy, so other websites cannot use your API from a browser.
 This is a browser-only restriction: direct HTTP calls are still limited only by the rate limits.
 
+## Accounts and credits
+
+People can sign in on the website (the **Sign in** button in the header) to keep one account for
+the website and the bot:
+
+- **Telegram**: always available. The website opens the bot with a one-time code; the bot shows
+  when and from which country the sign-in was asked and signs the website in only after **Yes,
+  sign me in** (so a link someone else sends cannot sign them in as you). Nothing to set up.
+- **Email link**: with `RESEND_API_KEY` and `EMAIL_FROM` set. A link valid for 15 minutes.
+- **Google**: with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set.
+
+Signed in, another method can be added to the same account. Without signing in, the browser has a
+guest account of its own. Signing in uses a cookie of the Worker's own domain, so it needs the
+website served by the Worker (the default setup); a site on another domain can still translate,
+but not sign in.
+
+**Credits** (1 credit = 60 seconds of video, counted by the second, 10 seconds at least; dubbing
+costs twice) are **off** until `CREDITS_ENABLED = "1"` in `wrangler.toml`. When on, a job's
+credits are set aside when it starts, settled to the video's real length once the Space has
+measured it (a video longer than the credits cover is stopped before the heavy work), and given
+back if it fails or is cancelled. Re-rendering edited subtitles is free. Credits are spent from
+what expires first: free daily credits, then a monthly plan, bonus credits, and bought credits
+last. In the bot, `/balance` shows them. On `/admin`, **Accounts** lists people and lets you add
+or remove credits. Free allowances, prices and payments come next.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and
-sign in with the `ADMIN_PASSWORD` secret. It has two workspaces, in the left sidebar:
+sign in with the `ADMIN_PASSWORD` secret. Its workspaces are in the left sidebar:
 
 - **Jobs**: every translation from the website and the bot, shown as a **board** (Queued,
   Translating, Done, Failed, Cancelled), a sortable **table** or a **calendar**. Click a job to
@@ -165,6 +194,8 @@ sign in with the `ADMIN_PASSWORD` secret. It has two workspaces, in the left sid
   filters, and filters you save yourself. Keyboard: `Ctrl/⌘ K` command palette, `/` search,
   `1` `2` `3` views, arrows or `j` `k` `h` `l` to move, `Enter` to open, `x` to select, `c` cancel,
   `r` retry, `Delete` delete, `Space` then arrows to move a card between columns.
+- **Accounts**: everyone who signed in or used the bot, with their credits; open one to add or
+  remove credits (and see their history).
 - **Insights**: video links by site over the last 7 days (worked, failed, success rate, last
   error), so a site that changes something and breaks shows at once.
 - **Settings**: the platform name, logo, accent colour, the home page heading and introduction,

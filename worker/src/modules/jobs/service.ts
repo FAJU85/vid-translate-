@@ -177,7 +177,8 @@ async function cancelOnBackend(env: Env, jobId: string): Promise<void> {
 export async function applyState(env: Env, job: JobRow, state: BackendState): Promise<void> {
   if (TERMINAL.includes(job.status)) {
     // Cancelled here but still alive on the Space (its /cancel call was lost): tell it again.
-    if (job.status === 'cancelled' && ['queued', 'running'].includes(state.status)) await cancelOnBackend(env, job.id);
+    const stoppedHere = job.status === 'cancelled' || (job.status === 'failed' && job.error_code === 'E_NO_CREDITS');
+    if (stoppedHere && ['queued', 'running'].includes(state.status)) await cancelOnBackend(env, job.id);
     return;
   }
 
@@ -225,6 +226,14 @@ export async function applyState(env: Env, job: JobRow, state: BackendState): Pr
 export async function failJob(env: Env, job: JobRow, code: string, message: string): Promise<void> {
   if (TERMINAL.includes(job.status)) return;
   if (!(await store.updateActiveJob(env, job.id, { status: 'failed', error_code: code, error_message: message }))) return;
+  await emitChanged(env, { ...job, status: 'failed', error_code: code, error_message: message });
+}
+
+/** End a job as failed with `code` and stop it on the Space too (e.g. it needs more credits than are left). */
+export async function stopJob(env: Env, job: JobRow, code: string, message: string): Promise<void> {
+  if (TERMINAL.includes(job.status)) return;
+  if (!(await store.updateActiveJob(env, job.id, { status: 'failed', error_code: code, error_message: message }))) return;
+  if ((await store.getJob(env, job.id))?.dispatched) await cancelOnBackend(env, job.id);
   await emitChanged(env, { ...job, status: 'failed', error_code: code, error_message: message });
 }
 

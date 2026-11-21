@@ -132,14 +132,55 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+/** Credits: 1 credit = 60 seconds of video. Balances come in whole seconds. */
+export type Bucket = 'daily' | 'monthly' | 'bonus' | 'topup';
+export interface Balance {
+  total_seconds: number;
+  buckets: { bucket: Bucket; seconds: number; expires_at: number | null }[];
+}
+export interface Account {
+  id: string;
+  name: string | null;
+  email: string | null;
+  email_verified: boolean;
+  linked: { telegram: boolean; google: boolean; email: boolean };
+  created_at: number;
+}
+export interface Me {
+  account: Account | null;
+  credits_enabled: boolean;
+  seconds_per_credit: number;
+  balance: Balance | null;
+  sign_in: { telegram: boolean; email: boolean; google: boolean };
+}
+export interface LedgerEntry {
+  id: number;
+  job_id: string | null;
+  kind: 'grant' | 'remove' | 'reserve' | 'refund' | string;
+  seconds: number;
+  detail: string | null;
+  created_at: number;
+}
+
+export const accountApi = {
+  me: () => call<Me>(`/api/me?client_id=${clientId()}`),
+  history: () => call<LedgerEntry[]>(`/api/me/history?client_id=${clientId()}`),
+  telegramStart: () => call<{ code: string; url: string }>('/api/auth/telegram/start', { method: 'POST', body: '{}' }),
+  telegramCheck: (code: string) =>
+    call<{ status: 'waiting' } | ({ status: 'signed_in' } & Me)>('/api/auth/telegram/check', { method: 'POST', body: JSON.stringify({ code }) }),
+  email: (email: string) => call<{ ok: true }>('/api/auth/email', { method: 'POST', body: JSON.stringify({ email }) }),
+  googleUrl: () => `${BASE}/api/auth/google`,
+  logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST', body: '{}' }),
+};
+
 export const api = {
   config: () => call<AppConfig>('/api/config'),
   job: (id: string) => call<Job>(`/api/jobs/${id}`),
   jobs: () => call<Job[]>(`/api/jobs?client_id=${clientId()}`),
   create: (body: Record<string, unknown>) =>
     call<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ ...body, client_id: clientId() }) }),
-  start: (id: string) =>
-    call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId() }) }),
+  start: (id: string, duration?: number | null) =>
+    call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId(), duration }) }),
   render: (id: string, cues: Cue[]) =>
     call<Job>(`/api/jobs/${id}/render`, {
       method: 'POST',
@@ -213,6 +254,11 @@ export const adminApi = {
   jobs: (password: string) => call<AdminJob[]>('/api/admin/jobs', { headers: auth(password) }),
   stats: (password: string) => call<SiteStats>('/api/admin/stats', { headers: auth(password) }),
   job: (password: string, id: string) => call<AdminJob>(`/api/admin/jobs/${id}`, { headers: auth(password) }),
+  accounts: (password: string, q = '') =>
+    call<AdminAccount[]>(`/api/admin/accounts?q=${encodeURIComponent(q)}`, { headers: auth(password) }),
+  account: (password: string, id: string) => call<AdminAccount>(`/api/admin/accounts/${id}`, { headers: auth(password) }),
+  grant: (password: string, id: string, body: { seconds: number; bucket: Bucket; days?: number; note?: string }) =>
+    call<AdminAccount>(`/api/admin/accounts/${id}/credits`, { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
   act: (password: string, action: AdminAction, ids: string[]) =>
     call<{ results: AdminActionResult[] }>('/api/admin/jobs', {
       method: 'POST',
@@ -220,3 +266,11 @@ export const adminApi = {
       body: JSON.stringify({ action, ids }),
     }),
 };
+
+/** An account as the /admin page sees it. */
+export interface AdminAccount extends Account {
+  telegram_id: number | null;
+  last_seen?: number;
+  balance: Balance;
+  history?: LedgerEntry[];
+}

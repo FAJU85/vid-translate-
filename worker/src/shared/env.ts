@@ -20,6 +20,14 @@ export interface Env {
   MAX_JOBS_PER_HOUR?: string;
   MAX_UPLOAD_MB?: string;
   DEFAULT_TARGET_LANG?: string;
+  /** "1": count and charge credits (1 credit = 60 seconds of video). Off by default. */
+  CREDITS_ENABLED?: string;
+  /** Email sign-in links through Resend (resend.com): its API key and the sender address. */
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
+  /** Google sign-in: an OAuth client (Google Cloud console → APIs & Services → Credentials). */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);
