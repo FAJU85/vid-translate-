@@ -179,7 +179,16 @@ measured it (a video longer than the credits cover is stopped before the heavy w
 back if it fails or is cancelled. Re-rendering edited subtitles is free. Credits are spent from
 what expires first: free daily credits, then a monthly plan, bonus credits, and bought credits
 last. In the bot, `/balance` shows them. On `/admin`, **Accounts** lists people and lets you add
-or remove credits. Free allowances, prices and payments come next.
+or remove credits.
+
+**Free credits** (when credits are on): a browser that has not signed in gets 0.5 credit once to
+try it; signing in the first time gives 3 credits; a signed-in account (Telegram, Google or an
+email link) gets 0.5 credit a day, refilled 24 hours after the last refill and never adding up.
+Without bought credits or a plan, a video may be at most 90 seconds long and dubbing is limited to
+one preview of up to 15 seconds (given back if it fails). The website shows the cost before a job
+starts, what is left after, and a **Pricing** tab with the plans (Starter $9 for 30 credits, Pro
+$29 for 150, Business $79 for 600 a month) and packs (15 credits for $7, 40 for $16), the free
+credits and the limits. Payments come next; until then the buttons say so.
 
 ## Admin dashboard (jobs, name, logo, colour, texts)
 

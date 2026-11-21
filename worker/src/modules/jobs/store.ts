@@ -133,7 +133,7 @@ export async function claimDelivery(env: Env, id: string): Promise<boolean> {
 
 /** The Space confirmed a cancelled job is stopped: it no longer counts as handed off. */
 /** Jobs this side stopped that the Space must stop too: cancelled ones, and ones stopped for lack of credits. */
-const STOPPED_HERE = "(status = 'cancelled' OR (status = 'failed' AND error_code = 'E_NO_CREDITS'))";
+const STOPPED_HERE = "(status = 'cancelled' OR (status = 'failed' AND error_code IN ('E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID')))";
 
 export async function confirmBackendCancel(env: Env, id: string): Promise<void> {
   await env.DB.prepare(`UPDATE jobs SET dispatched = 0 WHERE id = ? AND ${STOPPED_HERE}`).bind(id).run();

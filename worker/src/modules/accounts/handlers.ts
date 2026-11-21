@@ -13,6 +13,17 @@ import {
   startGoogleLogin,
   startTelegramLogin,
 } from './auth';
+import {
+  DAILY_PERIOD,
+  DAILY_SECONDS,
+  DUB_PREVIEW_MAX_SECONDS,
+  FREE_MAX_VIDEO_SECONDS,
+  GUEST_TRIAL_SECONDS,
+  SIGNUP_BONUS_SECONDS,
+  freshBalance,
+  paid,
+  verified,
+} from './allowances';
 import { BUCKETS, SECONDS_PER_CREDIT, balance, balances, creditsEnabled, grant, history, type Bucket } from './credits';
 import { accountFor, getAccount, listAccounts, type Account } from './store';
 
@@ -53,11 +64,27 @@ async function me(env: Env, request: Request, api: AccountsContext, clientId: st
   const enabled = creditsEnabled(env);
   // Guest accounts are only made when credits are on (otherwise nothing is kept for a browser).
   const holder = account ?? (enabled && clientId && UUID.test(clientId) ? await accountFor(env, { kind: 'guest', client: clientId }) : null);
+  const held = holder && enabled ? await freshBalance(env, holder) : null;
+  const daily = held?.buckets.find((b) => b.bucket === 'daily');
   return {
     account: account && publicAccount(account),
     credits_enabled: enabled,
     seconds_per_credit: SECONDS_PER_CREDIT,
-    balance: holder && enabled ? await balance(env, holder.id) : null,
+    balance: held,
+    // What the free credits and limits are for this person now (the website explains them).
+    free: holder && held
+      ? {
+          paid: paid(held),
+          verified: verified(holder),
+          daily_seconds: DAILY_SECONDS,
+          // The next free credits come 24 hours after the last ones (shown when they are used up).
+          next_daily_at: verified(holder) && daily?.expires_at ? daily.expires_at : null,
+          max_video_seconds: paid(held) ? null : FREE_MAX_VIDEO_SECONDS,
+          dub_preview_available: !paid(held) && !holder.dub_preview_used,
+          dub_preview_max_seconds: DUB_PREVIEW_MAX_SECONDS,
+        }
+      : null,
+    allowances: { guest_trial: GUEST_TRIAL_SECONDS, signup_bonus: SIGNUP_BONUS_SECONDS, daily: DAILY_SECONDS, daily_period: DAILY_PERIOD },
     sign_in: { telegram: Boolean(await api.botUsername()), email: emailConfigured(env), google: googleConfigured(env) },
   };
 }
