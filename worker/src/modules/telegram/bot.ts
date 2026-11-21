@@ -22,10 +22,12 @@ import {
   maxPerHour,
   parseSubtitleStyle,
   retryJob,
+  stopJob,
   type SubtitleMode,
   type SubtitleStyle,
 } from '../jobs';
 import { welcomeOverride } from '../settings';
+import { SECONDS_PER_CREDIT, accountForTelegram, balance, chargeJob, confirmTelegramLogin, creditsEnabled, estimateSeconds } from '../accounts';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, updateChat, type ChatRow } from './chats';
 import { esc, langName, t, uiLang, type UiLang } from './i18n';
@@ -39,6 +41,8 @@ interface Pending {
   title?: string;
   /** false for audio / voice messages: there is no picture to burn subtitles into. */
   video: boolean;
+  /** Length in seconds as Telegram reports it (files only), to estimate the cost. */
+  duration?: number;
   /** The message carrying this request's buttons; buttons on older messages are stale. */
   messageId?: number;
 }
@@ -46,6 +50,12 @@ interface Pending {
 function isAllowed(env: Env, chatId: number): boolean {
   const allowed = (env.ALLOWED_CHAT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   return !allowed.length || allowed.includes(String(chatId));
+}
+
+/** "14.50" credits and "14 min 30 s" of video, for messages. */
+function creditText(seconds: number): { credits: string; time: string } {
+  const m = Math.floor(seconds / 60);
+  return { credits: (seconds / SECONDS_PER_CREDIT).toFixed(2), time: m ? `${m} min ${seconds % 60} s` : `${seconds} s` };
 }
 
 const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ? env.DEFAULT_TARGET_LANG! : 'ar');
@@ -80,6 +90,7 @@ function extractMedia(msg: any): Pending | 'too_big' | null {
     source: media.file_id,
     title: name?.replace(/\.[a-z0-9]{2,4}$/i, '') || msg.caption?.slice(0, 80),
     video: !audioOnly,
+    duration: Number(media.duration) > 0 ? Number(media.duration) : undefined,
   };
 }
 
@@ -97,6 +108,20 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   const text: string = (msg.text ?? msg.caption ?? '').trim();
   const command = text.startsWith('/') ? text.split(/[\s@]/)[0].toLowerCase() : '';
 
+  // "Sign in with Telegram" on the website opens the bot with /start login_<code>.
+  const login = command === '/start' ? /^\/start\s+login_([A-Za-z0-9_-]{20,64})$/.exec(text) : null;
+  if (login) {
+    const name = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || msg.from?.username || null;
+    const ok = await confirmTelegramLogin(env, login[1], { id: msg.from?.id ?? chatId, name });
+    await sendMessage(env, chatId, t(ui, ok ? 'login_ok' : 'login_expired'));
+    return;
+  }
+  if (command === '/balance') {
+    const account = await accountForTelegram(env, msg.from?.id ?? chatId, msg.from?.first_name ?? null);
+    const seconds = (await balance(env, account.id)).total_seconds;
+    await sendMessage(env, chatId, creditsEnabled(env) ? t(ui, 'balance', creditText(seconds)) : t(ui, 'balance_free'));
+    return;
+  }
   if (command === '/start' || command === '/help') {
     // A welcome message saved on the /admin page replaces the default. It is plain text, so
     // it is escaped: anything typed there is shown as written.
@@ -248,6 +273,13 @@ async function startJob(
     await editMessage(env, chat.chat_id, messageId, t(ui, 'expired'));
     return null;
   }
+  const finalMode: SubtitleMode = pending.video && (mode !== 'dub' || canDub(chat.tgt_lang)) ? mode : 'soft';
+  const account = creditsEnabled(env) ? await accountForTelegram(env, chat.chat_id) : null;
+  if (account) {
+    const need = estimateSeconds(pending.duration, finalMode);
+    const have = (await balance(env, account.id)).total_seconds;
+    if (have < need) return t(ui, 'no_credits', { need: creditText(need).credits, have: creditText(have).credits });
+  }
   const { job, error } = await createJob(env, {
     channel: 'telegram',
     owner: `tg:${chat.chat_id}`,
@@ -258,7 +290,7 @@ async function startJob(
     source: pending.source,
     title: pending.title ?? null,
     tgtLang: chat.tgt_lang,
-    mode: pending.video && (mode !== 'dub' || canDub(chat.tgt_lang)) ? mode : 'soft',
+    mode: finalMode,
     style: chatStyle(chat),
     origin,
   });
@@ -266,6 +298,10 @@ async function startJob(
 
   await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: null });
   await showStatus(env, job);
+  if (account && !(await chargeJob(env, account.id, job, pending.duration)).ok) {
+    await stopJob(env, job, 'E_NO_CREDITS', ''); // spent meanwhile: the status message shows why
+    return null;
+  }
   ctx.waitUntil(dispatch(env, job));
   return null;
 }
@@ -321,8 +357,16 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
         if (limited) {
           alert = t(ui, limited === 'busy' ? 'busy' : 'rate_limited', { n: maxPerHour(env) });
         } else {
-          const copy = await retryJob(env, job); // also edits the progress message back to "queued"
-          if (copy) ctx.waitUntil(dispatch(env, copy));
+          const account = creditsEnabled(env) ? await accountForTelegram(env, chatId) : null;
+          const need = estimateSeconds(job.duration, job.mode);
+          const have = account ? (await balance(env, account.id)).total_seconds : 0;
+          if (account && have < need) {
+            alert = t(ui, 'no_credits', { need: creditText(need).credits, have: creditText(have).credits });
+          } else {
+            const copy = await retryJob(env, job); // also edits the progress message back to "queued"
+            if (copy && account && !(await chargeJob(env, account.id, copy, job.duration)).ok) await stopJob(env, copy, 'E_NO_CREDITS', '');
+            else if (copy) ctx.waitUntil(dispatch(env, copy));
+          }
         }
       }
     } else if (data.startsWith('cancel:')) {
@@ -382,6 +426,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'lang', description: 'تغيير لغة الترجمة' },
           { command: 'style', description: 'تصميم الترجمة: الخط والحجم والموضع واللون' },
           { command: 'status', description: 'آخر طلباتك' },
+          { command: 'balance', description: 'رصيدك' },
           { command: 'cancel', description: 'إيقاف الطلب الحالي' },
         ]
       : [
@@ -389,6 +434,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'lang', description: 'Change the target language' },
           { command: 'style', description: 'Subtitle design: font, size, position, colour' },
           { command: 'status', description: 'Your recent jobs' },
+          { command: 'balance', description: 'Your credits' },
           { command: 'cancel', description: 'Stop the running job' },
         ];
   await tg(env, 'setMyCommands', { commands: commands('en') });

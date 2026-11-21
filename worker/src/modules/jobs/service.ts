@@ -228,6 +228,14 @@ export async function failJob(env: Env, job: JobRow, code: string, message: stri
   await emitChanged(env, { ...job, status: 'failed', error_code: code, error_message: message });
 }
 
+/** End a job as failed with `code` and stop it on the Space too (e.g. it needs more credits than are left). */
+export async function stopJob(env: Env, job: JobRow, code: string, message: string): Promise<void> {
+  if (TERMINAL.includes(job.status)) return;
+  if (!(await store.updateActiveJob(env, job.id, { status: 'failed', error_code: code, error_message: message }))) return;
+  if ((await store.getJob(env, job.id))?.dispatched) await cancelOnBackend(env, job.id);
+  await emitChanged(env, { ...job, status: 'failed', error_code: code, error_message: message });
+}
+
 export async function cancelJob(env: Env, job: JobRow): Promise<void> {
   if (TERMINAL.includes(job.status)) return;
   if (!(await store.updateActiveJob(env, job.id, { status: 'cancelled', error_code: 'E_CANCELLED' }))) return;

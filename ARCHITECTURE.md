@@ -13,7 +13,8 @@ the Polylith / modular-monolith idea applied to each of the three deployable par
   ├── modules/     (bricks)  ├── modules/   (bricks)  ├── modules/         (bricks)
   │   ├── media              │   ├── jobs             │   ├── translate
   │   ├── speech             │   ├── telegram         │   ├── history
-  │   ├── translation        │   └── web-api          │   └── telegram
+  │   ├── translation        │   ├── accounts         │   ├── account
+  │   │                      │   └── web-api          │   └── telegram
   │   ├── subtitles          └── shared/   (baseplate)└── shared/          (baseplate)
   │   ├── voice
   │   └── jobs
@@ -68,6 +69,7 @@ Baseplate: `shared/config.py`, `shared/security.py`, `shared/errors.py` (`Pipeli
 | --- | --- | --- |
 | `jobs` | `createJob`, `dispatch`, `cancelJob`, `sweep`, `handleBackendCallback`, `JobListener`, … | Jobs table, Space client, job lifecycle |
 | `telegram` | `handleWebhook`, `setupBot`, `fetchTelegramFile`, `telegramJobListener`, … | The bot, the chats table, delivering results in a chat |
+| `accounts` | `handleAccounts`, `accountForWeb`, `accountForTelegram`, `chargeJob`, `billingListener`, … | Accounts (Telegram, email link, Google, guest browsers), sessions, credit balances and their ledger; follows jobs through the listener port to refund and settle |
 | `web-api` | `handleApi` | The website's JSON API |
 
 Baseplate: `shared/env.ts`, `crypto.ts`, `http.ts`, `db.ts`, `languages.ts`, `urls.ts`.
@@ -79,6 +81,7 @@ Baseplate: `shared/env.ts`, `crypto.ts`, `http.ts`, `db.ts`, `languages.ts`, `ur
 | `translate` | `TranslateView` | Submit, follow progress, preview and edit subtitles, download |
 | `history` | `HistoryView` | Translations submitted from this browser |
 | `telegram` | `TelegramView` | How to use the Telegram bot |
+| `account` | `AccountButton`, `AccountDialog` | Signing in, the credit balance and its history |
 | `admin` | `AdminView` | The `/admin` dashboard: jobs board, table and calendar; settings (loaded only on `/admin`) |
 
 Baseplate: `shared/api.ts` (typed client for the Worker and shared types).

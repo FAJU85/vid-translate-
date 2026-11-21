@@ -17,14 +17,17 @@ import {
 } from './modules/jobs';
 import { CHATS_COLUMNS, CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
+import { ACCOUNTS_SCHEMA, billingListener } from './modules/accounts';
 import { handleApi } from './modules/web-api';
 
 // Telegram follows job progress through the jobs brick's listener port, and supplies the files
 // users send to the bot through its source port.
 registerJobListener(telegramJobListener);
+// Credits follow jobs the same way: refunds when a job fails, the real cost once its length is known.
+registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

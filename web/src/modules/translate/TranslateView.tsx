@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type SubtitleMode } from '../../shared/api';
-import { uploadFile } from './upload';
+import { readDuration, uploadFile } from './upload';
 import { JobView } from './JobView';
 import { StylePicker, remember, rememberedStyle } from './StylePicker';
 import { SITE } from '../../shared/content';
@@ -29,9 +29,11 @@ interface Props {
   config: AppConfig | null;
   jobId: string | null;
   onJob: (id: string | null) => void;
+  /** A job was submitted (credits may have been set aside): refresh the balance shown. */
+  onCreditsChanged?: () => void;
 }
 
-export function TranslateView({ config, jobId, onJob }: Props) {
+export function TranslateView({ config, jobId, onJob, onCreditsChanged }: Props) {
   const [source, setSource] = useState<'url' | 'upload'>('url');
   const [videoUrl, setVideoUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -67,14 +69,15 @@ export function TranslateView({ config, jobId, onJob }: Props) {
         if (!file) throw new ApiError('E_NO_FILE', 'Choose a video or audio file first.');
         if (file.size > maxMb * 1024 * 1024) throw new ApiError('E_FILE_TOO_LARGE', `The file is larger than ${maxMb} MB.`);
         setBusy('Preparing upload…');
-        job = await api.create({ ...options, upload: { name: file.name, size: file.size } });
+        const duration = await readDuration(file); // lets the server estimate the cost before the upload
+        job = await api.create({ ...options, duration, upload: { name: file.name, size: file.size, duration } });
         await uploadFile(
           job.upload_url!,
           file,
           (fraction) => setBusy(`Uploading… ${Math.round(fraction * 100)}%`),
           () => setBusy('Waking up the translation server (can take a couple of minutes)…'),
         );
-        job = await api.start(job.id);
+        job = await api.start(job.id, duration);
         setLocalVideo({ jobId: job.id, url: URL.createObjectURL(file) });
       }
       onJob(job.id);
@@ -83,6 +86,7 @@ export function TranslateView({ config, jobId, onJob }: Props) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setBusy(null);
+      onCreditsChanged?.();
     }
   }
 

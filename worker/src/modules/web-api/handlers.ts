@@ -18,11 +18,13 @@ import {
   refreshJob,
   retryJob,
   startUploadedJob,
+  stopJob,
   uploadLink,
   type JobRow,
 } from '../jobs';
 import { handleAdminJobs } from './admin';
-import { handleAdminLogin, handleAdminSettings, publicSettings, serveLogo } from '../settings';
+import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
+import { SECONDS_PER_CREDIT, accountForWeb, balance, chargeJob, creditsEnabled, estimateSeconds, handleAccounts } from '../accounts';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
 // Counted from when the job was created, which is before the Space made the job's folder (deleted after 24 hours).
@@ -30,6 +32,45 @@ const RERENDER_WINDOW = 23 * 3600;
 const MAX_RENDER_CUES = 5000;
 
 const maxUploadMb = (env: Env) => Number(env.MAX_UPLOAD_MB) || 500;
+
+const credits = (seconds: number) => (seconds / SECONDS_PER_CREDIT).toFixed(2);
+
+/** 402 with what a video needs and what the account has, so the website can offer more credits. */
+const noCredits = (need: number, have: number) =>
+  json(
+    {
+      error_code: 'E_NO_CREDITS',
+      message: `This video needs ${credits(need)} credits and you have ${credits(have)}.`,
+      need_seconds: need,
+      have_seconds: have,
+    },
+    402,
+  );
+
+/** A video's length as the browser read it (seconds), when it sent one. */
+const durationHint = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 && n < 24 * 3600 ? n : null;
+};
+
+/** Before creating a job: refuse at once when even its estimated cost is more than the balance. */
+async function creditCheck(env: Env, request: Request, clientId: string, mode: string, hint: number | null): Promise<Response | null> {
+  if (!creditsEnabled(env)) return null;
+  const account = await accountForWeb(env, request, clientId);
+  const need = estimateSeconds(hint, mode);
+  const have = (await balance(env, account.id)).total_seconds;
+  return have < need ? noCredits(need, have) : null;
+}
+
+/** Set the job's credits aside; if that fails (spent meanwhile), stop the job and answer 402. */
+async function charge(env: Env, request: Request, clientId: string, job: JobRow, hint: number | null): Promise<Response | null> {
+  if (!creditsEnabled(env)) return null;
+  const account = await accountForWeb(env, request, clientId);
+  const result = await chargeJob(env, account.id, job, hint);
+  if (result.ok) return null;
+  await stopJob(env, job, 'E_NO_CREDITS', 'Not enough credits.');
+  return noCredits(result.need, result.have);
+}
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
   const allowed = (env.ALLOWED_ORIGINS ?? '*').split(',').map((s) => s.trim()).filter(Boolean);
@@ -123,6 +164,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   const path = url.pathname;
   const method = request.method;
 
+  const accounts = await handleAccounts(request, env, path, {
+    origin: api.origin,
+    botUsername: api.botUsername,
+    brand: async () => (await publicSettings(env)).name || 'Kavox',
+    isAdmin: path.startsWith('/api/admin/') && isAdmin(request, env),
+  });
+  if (accounts) return accounts;
+
   if (path === '/api/health' && method === 'GET') {
     return json({ status: 'ok', backend: await backendHealth(env) });
   }
@@ -163,6 +212,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       return apiError(400, 'E_NO_VOICE', 'Dubbing is not available for this language yet. Choose subtitles instead.');
     }
     const style = mode === 'soft' ? null : parseSubtitleStyle(body.style);
+    const hint = durationHint(body.duration ?? body.upload?.duration);
+    const refused = await creditCheck(env, request, body.client_id, mode, hint);
+    if (refused) return refused;
 
     let sourceKind: 'url' | 'upload';
     let source: string;
@@ -209,7 +261,12 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
           : `Limit of ${maxPerHour(env)} videos per hour reached. Try again later.`,
       );
     }
-    if (sourceKind === 'url') ctx.waitUntil(dispatch(env, job));
+    if (sourceKind === 'url') {
+      // Uploads are charged when they start (once the file is there); links right away.
+      const unpaid = await charge(env, request, body.client_id, job, hint);
+      if (unpaid) return unpaid;
+      ctx.waitUntil(dispatch(env, job));
+    }
     return json(
       { ...(await publicJob(env, job)), ...(sourceKind === 'upload' ? { upload_url: await uploadLink(env, job.id) } : {}) },
       201,
@@ -255,8 +312,12 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
         if (!canRetry(job)) return apiError(400, 'E_BAD_REQUEST', 'This translation cannot be retried. Start a new one.');
         const limited = await checkLimits(env, { owner: job.owner, ip: request.headers.get('CF-Connecting-IP'), channel: 'web' });
         if (limited) return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
+        const refused = await creditCheck(env, request, body!.client_id, job.mode, job.duration);
+        if (refused) return refused;
         const copy = await retryJob(env, job);
         if (!copy) return apiError(400, 'E_BAD_REQUEST', 'This translation cannot be retried. Start a new one.');
+        const unpaid = await charge(env, request, body!.client_id, copy, job.duration);
+        if (unpaid) return unpaid;
         ctx.waitUntil(dispatch(env, copy));
         return json(await publicJob(env, copy), 201);
       }
@@ -265,6 +326,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
         // Unstarted uploads are not counted against the quota, so it is checked now.
         const started = await startUploadedJob(env, job);
         if (!started.job) return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
+        const unpaid = await charge(env, request, body!.client_id, started.job, durationHint(body?.duration));
+        if (unpaid) return unpaid;
         ctx.waitUntil(dispatch(env, started.job));
         return json(await publicJob(env, started.job));
       }

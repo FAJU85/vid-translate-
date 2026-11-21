@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Bot, History, Languages } from 'lucide-react';
 import { SITE } from '../shared/content';
 
@@ -9,7 +10,7 @@ const TABS: { id: NavTab; label: string; icon: typeof Bot }[] = [
   { id: 'telegram', label: 'Telegram bot', icon: Bot },
 ];
 
-export function Header({ tab, onTab }: { tab: NavTab; onTab: (tab: NavTab) => void }) {
+export function Header({ tab, onTab, account }: { tab: NavTab; onTab: (tab: NavTab) => void; account?: ReactNode }) {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur border-b border-slate-800">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
@@ -35,6 +36,7 @@ export function Header({ tab, onTab }: { tab: NavTab; onTab: (tab: NavTab) => vo
               <span className={tab === id ? '' : 'hidden sm:inline'}>{label}</span>
             </button>
           ))}
+          {account}
         </nav>
       </div>
     </header>

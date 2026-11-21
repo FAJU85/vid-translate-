@@ -87,7 +87,13 @@
     "E_NO_VOICE": "dubbing is not available for this language yet. Choose subtitles instead.",
     "anim_none": "▫️ Static",
     "anim_highlight": "✨ Word highlight",
-    "anim_pop": "💥 Pop-up words"
+    "anim_pop": "💥 Pop-up words",
+    "login_ok": "✅ You're signed in on the website. You can go back to it now.",
+    "login_expired": "This sign-in link has expired or was already used. Start again from the website.",
+    "balance": "💳 Your balance: <b>{credits} credits</b> ({time} of video).\n1 credit = 1 minute of video; dubbing costs 2 per minute.",
+    "balance_free": "💳 Translations are free for now: there is no balance to keep track of.",
+    "no_credits": "💳 This video needs {need} credits and you have {have}. /balance shows your credits.",
+    "E_NO_CREDITS": "there were not enough credits for this video. /balance shows your credits."
   },
   "ar": {
     "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
@@ -177,6 +183,12 @@
     "E_NO_VOICE": "الدبلجة غير متاحة لهذه اللغة بعد. اختر الترجمة النصية بدلاً منها.",
     "anim_none": "▫️ ثابتة",
     "anim_highlight": "✨ إبراز الكلمة",
-    "anim_pop": "💥 كلمات منبثقة"
+    "anim_pop": "💥 كلمات منبثقة",
+    "login_ok": "✅ تم تسجيل دخولك في الموقع. يمكنك العودة إليه الآن.",
+    "login_expired": "انتهت صلاحية رابط تسجيل الدخول أو استُخدم من قبل. ابدأ من جديد من الموقع.",
+    "balance": "💳 رصيدك: <b>{credits} رصيد</b> ({time} من الفيديو).\nكل رصيد = دقيقة فيديو؛ الدبلجة برصيدين للدقيقة.",
+    "balance_free": "💳 الترجمة مجانية حالياً: لا يوجد رصيد لتتبعه.",
+    "no_credits": "💳 يحتاج هذا الفيديو إلى {need} رصيد ولديك {have}. اعرف رصيدك عبر /balance.",
+    "E_NO_CREDITS": "لا يكفي رصيدك لهذا الفيديو. اعرف رصيدك عبر /balance."
   }
 }
