@@ -28,6 +28,11 @@ export interface Env {
   /** Google sign-in: an OAuth client (Google Cloud console → APIs & Services → Credentials). */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** Card payments on the website (Stripe): the secret key and the webhook's signing secret. */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  /** Telegram Stars per US dollar for prices in the bot (default 50). */
+  STARS_PER_USD?: string;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);

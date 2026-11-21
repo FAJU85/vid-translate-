@@ -15,9 +15,18 @@ import {
   registerSourceFetcher,
   sweep,
 } from './modules/jobs';
-import { CHATS_COLUMNS, CHATS_SCHEMA, fetchTelegramFile, getBotUsername, handleWebhook, setupBot, telegramJobListener } from './modules/telegram';
+import {
+  CHATS_COLUMNS,
+  CHATS_SCHEMA,
+  ensureWebhookUpdates,
+  fetchTelegramFile,
+  getBotUsername,
+  handleWebhook,
+  setupBot,
+  telegramJobListener,
+} from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
-import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, billingListener } from './modules/accounts';
+import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, handleStripeWebhook } from './modules/accounts';
 import { handleApi } from './modules/web-api';
 
 // Telegram follows job progress through the jobs brick's listener port, and supplies the files
@@ -27,7 +36,7 @@ registerJobListener(telegramJobListener);
 registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -42,6 +51,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path === '/telegram/webhook' && method === 'POST') return handleWebhook(request, env, ctx, origin);
 
   if (path === '/api/callback' && method === 'POST') return handleBackendCallback(request, env);
+
+  // Stripe's payment notices (signed): no CORS, answered before the website's API.
+  if (path === '/api/stripe/webhook' && method === 'POST') return handleStripeWebhook(env, request);
 
   if (path === '/admin/setup' && method === 'POST') {
     const auth = request.headers.get('Authorization') ?? '';
@@ -70,5 +82,6 @@ export default {
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
     ctx.waitUntil(sweep(env));
+    ctx.waitUntil(ensureWebhookUpdates(env));
   },
 } satisfies ExportedHandler<Env>;

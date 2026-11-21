@@ -144,6 +144,8 @@ export interface Account {
   email: string | null;
   email_verified: boolean;
   linked: { telegram: boolean; google: boolean; email: boolean };
+  /** Has paid by card: Stripe's page can manage the subscription. */
+  card_customer?: boolean;
   created_at: number;
 }
 export interface Me {
@@ -163,6 +165,8 @@ export interface Me {
     dub_preview_max_seconds: number;
   } | null;
   allowances?: { guest_trial: number; signup_bonus: number; daily: number; daily_period: number };
+  /** How to pay (credits on only): card (Stripe) and Telegram Stars (the bot). */
+  payments?: { card: boolean; stars: boolean; bot_username: string | null; stars_prices: Record<string, number>; count: number } | null;
   sign_in: { telegram: boolean; email: boolean; google: boolean };
 }
 export interface LedgerEntry {
@@ -182,6 +186,8 @@ export const accountApi = {
     call<{ status: 'waiting' } | ({ status: 'signed_in' } & Me)>('/api/auth/telegram/check', { method: 'POST', body: JSON.stringify({ code }) }),
   email: (email: string) => call<{ ok: true }>('/api/auth/email', { method: 'POST', body: JSON.stringify({ email }) }),
   googleUrl: () => `${BASE}/api/auth/google`,
+  portal: () => call<{ url: string }>('/api/billing/portal', { method: 'POST', body: '{}' }),
+  checkout: (product: string) => call<{ url: string }>('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ product }) }),
   logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST', body: '{}' }),
 };
 

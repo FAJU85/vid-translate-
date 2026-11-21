@@ -40,13 +40,16 @@ import {
   creditsEnabled,
   describeTelegramLogin,
   freshBalance,
+  isProduct,
   type Account,
+  type ProductId,
   type Refusal,
 } from '../accounts';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, updateChat, type ChatRow } from './chats';
 import { esc, langName, t, uiLang, type UiLang } from './i18n';
 import { showStatus } from './presenter';
+import { answerPreCheckout, buyMenu, handleSuccessfulPayment, sendStarsInvoice } from './stars';
 
 const TELEGRAM_DOWNLOAD_LIMIT = 20 * 1024 * 1024; // Bot API getFile limit
 
@@ -150,6 +153,26 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   const command = text.startsWith('/') ? text.split(/[\s@]/)[0].toLowerCase() : '';
 
   // "Sign in with Telegram" on the website opens the bot with /start login_<code>.
+  // A Stars payment went through (a pack, or a plan's first month or renewal).
+  if (msg.successful_payment) {
+    await handleSuccessfulPayment(env, msg, ui);
+    return;
+  }
+  // "/buy", or the website's "Pay with Telegram Stars" (/start buy_<product>).
+  const buy = command === '/start' ? /^\/start\s+buy_([a-z0-9]+)$/.exec(text) : null;
+  if (buy && isProduct(buy[1])) {
+    await sendStarsInvoice(env, chatId, msg.from?.id ?? chatId, ui, buy[1]);
+    return;
+  }
+  if (command === '/buy' || buy) {
+    if (!creditsEnabled(env)) {
+      await sendMessage(env, chatId, t(ui, 'balance_free'));
+      return;
+    }
+    const menu = buyMenu(env, ui);
+    await sendMessage(env, chatId, menu.text, menu.keyboard);
+    return;
+  }
   const login = command === '/start' ? /^\/start\s+login_([A-Za-z0-9_-]{20,64})$/.exec(text) : null;
   if (login) {
     // Ask first, showing when and where the website asked: someone could send you their own link.
@@ -406,6 +429,8 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       await updateChat(env, chatId, chat.tgt_lang, { style: JSON.stringify(next) });
       const menu = styleMenu(ui, next);
       await editMessage(env, chatId, messageId, menu.text, menu.keyboard);
+    } else if (data.startsWith('buy:') && isProduct(data.slice(4))) {
+      await sendStarsInvoice(env, chatId, query.from?.id ?? chatId, ui, data.slice(4) as ProductId);
     } else if (data.startsWith('login:') || data.startsWith('nologin:')) {
       const [kind, code] = data.split(':');
       if (kind === 'nologin') {
@@ -449,7 +474,8 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
 }
 
 async function handleUpdate(env: Env, ctx: ExecutionContext, origin: string, update: any): Promise<void> {
-  if (update.message) await handleMessage(env, update.message);
+  if (update.pre_checkout_query) await answerPreCheckout(env, update.pre_checkout_query);
+  else if (update.message) await handleMessage(env, update.message);
   else if (update.callback_query) await handleCallbackQuery(env, ctx, origin, update.callback_query);
 }
 
@@ -459,13 +485,15 @@ export async function handleWebhook(request: Request, env: Env, ctx: ExecutionCo
   if (!env.TELEGRAM_WEBHOOK_SECRET || !safeEqual(secret, env.TELEGRAM_WEBHOOK_SECRET)) {
     return apiError(401, 'E_UNAUTHORIZED', 'Bad webhook secret.');
   }
-  const update = await request.json().catch(() => null);
+  const update = (await request.json().catch(() => null)) as any;
   if (update) {
     try {
       await handleUpdate(env, ctx, origin, update);
     } catch (err) {
-      // Always answer 200: Telegram would otherwise redeliver the same update for hours.
       console.error('update failed', (err as Error).stack ?? err);
+      // A payment that could not be recorded is asked for again (counting it twice is prevented by
+      // its id); anything else answers 200, or Telegram would redeliver it for hours.
+      if (update.message?.successful_payment) return apiError(500, 'E_PAYMENT', 'Payment not recorded yet.');
     }
   }
   return json({ ok: true });
@@ -479,12 +507,31 @@ export async function getBotUsername(env: Env): Promise<string | null> {
   return botUsername;
 }
 
+const UPDATES = ['message', 'callback_query', 'pre_checkout_query'];
+let updatesChecked = false;
+
+/**
+ * A bot registered before payments existed does not receive Telegram's "about to pay" questions,
+ * so every Stars payment would fail. Once per Worker instance, the cron checks the registration
+ * and adds what is missing (same address, same secret).
+ */
+export async function ensureWebhookUpdates(env: Env): Promise<void> {
+  if (updatesChecked || !env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET) return;
+  const info = await tg<{ url?: string; allowed_updates?: string[] }>(env, 'getWebhookInfo');
+  if (!info) return; // Telegram did not answer: try again on the next cron
+  if (info.url && !UPDATES.every((u) => info.allowed_updates?.includes(u))) {
+    const ok = await tg(env, 'setWebhook', { url: info.url, secret_token: env.TELEGRAM_WEBHOOK_SECRET, allowed_updates: UPDATES });
+    if (!ok) return;
+  }
+  updatesChecked = true;
+}
+
 /** Registers the webhook and the command menu with Telegram. */
 export async function setupBot(env: Env, origin: string): Promise<Record<string, unknown>> {
   const webhook = await tg(env, 'setWebhook', {
     url: `${origin}/telegram/webhook`,
     secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-    allowed_updates: ['message', 'callback_query'],
+    allowed_updates: UPDATES,
   });
   const commands = (ui: UiLang) =>
     ui === 'ar'
@@ -494,6 +541,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'style', description: 'تصميم الترجمة: الخط والحجم والموضع واللون' },
           { command: 'status', description: 'آخر طلباتك' },
           { command: 'balance', description: 'رصيدك' },
+          { command: 'buy', description: 'شراء رصيد بنجوم تيليجرام' },
           { command: 'cancel', description: 'إيقاف الطلب الحالي' },
         ]
       : [
@@ -502,6 +550,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'style', description: 'Subtitle design: font, size, position, colour' },
           { command: 'status', description: 'Your recent jobs' },
           { command: 'balance', description: 'Your credits' },
+          { command: 'buy', description: 'Buy credits with Telegram Stars' },
           { command: 'cancel', description: 'Stop the running job' },
         ];
   await tg(env, 'setMyCommands', { commands: commands('en') });

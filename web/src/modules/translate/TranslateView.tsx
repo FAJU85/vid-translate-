@@ -36,12 +36,14 @@ interface Props {
   me?: Me | null;
   onPricing?: () => void;
   onSignIn?: () => void;
+  /** Goes up when a payment arrived: start again the video that was refused for credits. */
+  resume?: number;
 }
 
 // Refusals the website answers with an offer: more credits, or signing in for free ones.
 const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
 
-export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn }: Props) {
+export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, resume = 0 }: Props) {
   const [source, setSource] = useState<'url' | 'upload'>('url');
   const [videoUrl, setVideoUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -75,6 +77,15 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
   useEffect(() => {
     if (!canDub && mode === 'dub') setMode('soft');
   }, [canDub, mode]);
+
+  // Paid after a refusal: the same video (link or file, still in this tab) starts again.
+  const formRef = useRef<HTMLFormElement | null>(null);
+  // Changing the video or its options after a refusal means it is not the same request any more.
+  useEffect(() => setErrorCode(null), [source, videoUrl, file, srcLang, tgtLang, mode]);
+  useEffect(() => {
+    if (resume && errorCode && CREDIT_ERRORS.has(errorCode)) formRef.current?.requestSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -119,7 +130,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
         <p className="mt-2 text-sm text-slate-400 max-w-2xl">{SITE.translate.intro}</p>
       </div>
 
-      <form onSubmit={submit} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
+      <form ref={formRef} onSubmit={submit} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
         <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-sm">
           {(
             [
