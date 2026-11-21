@@ -46,6 +46,26 @@ export async function balance(env: Env, accountId: string): Promise<Balance> {
   return { total_seconds: buckets.reduce((a, b) => a + b.seconds, 0), buckets };
 }
 
+/** Balances of many accounts with one database call (D1 counts a batch as a single query). */
+export async function balances(env: Env, accountIds: string[]): Promise<Map<string, Balance>> {
+  const ts = now();
+  const out = new Map<string, Balance>();
+  if (!accountIds.length) return out;
+  const results = await env.DB.batch(
+    accountIds.map((id) => env.DB.prepare('SELECT bucket, seconds, expires_at FROM credit_buckets WHERE account_id = ?').bind(id)),
+  );
+  accountIds.forEach((id, i) => {
+    const rows = (results[i].results ?? []) as BucketBalance[];
+    const buckets = BUCKETS.map((bucket) => {
+      const row = rows.find((r) => r.bucket === bucket);
+      const live = row && (!row.expires_at || row.expires_at > ts) ? Math.max(0, row.seconds) : 0;
+      return { bucket, seconds: live, expires_at: row?.expires_at ?? null };
+    });
+    out.set(id, { total_seconds: buckets.reduce((a, b) => a + b.seconds, 0), buckets });
+  });
+  return out;
+}
+
 function log(env: Env, accountId: string, kind: string, seconds: number, jobId: string | null, detail: string | null) {
   return env.DB.prepare('INSERT INTO credit_ledger (account_id, job_id, kind, seconds, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(accountId, jobId, kind, seconds, detail, now());
@@ -76,57 +96,69 @@ export async function grant(
   ]);
 }
 
-export type Breakdown = Partial<Record<Bucket, number>>;
+/** What a hold took from one bucket, and that bucket's expiry then (to give it back to the same credits). */
+export interface Part {
+  s: number;
+  exp: number | null;
+}
+export type Breakdown = Partial<Record<Bucket, Part>>;
 
-/**
- * Take `seconds` from the account, bucket by bucket in spending order. All or nothing: returns
- * what was taken from each bucket, or null (and takes nothing) when the balance is too low.
- */
-async function take(env: Env, accountId: string, seconds: number): Promise<Breakdown | null> {
+// A statement that fails on purpose (SQLite: integer overflow) when its condition holds. D1 runs a
+// batch as one transaction, so a failing guard undoes the whole batch: nothing half-done is kept.
+const ABORT = 'abs(-9223372036854775808)';
+const guardChanged = (env: Env) => env.DB.prepare(`SELECT CASE WHEN changes() = 0 THEN ${ABORT} END`);
+const guardNotNegative = (env: Env, accountId: string) =>
+  env.DB.prepare(`SELECT CASE WHEN EXISTS (SELECT 1 FROM credit_buckets WHERE account_id = ? AND seconds < 0) THEN ${ABORT} END`).bind(accountId);
+
+/** Which buckets `seconds` would come from, in spending order; null when the balance is too low. */
+async function plan(env: Env, accountId: string, seconds: number): Promise<Breakdown | null> {
   if (seconds <= 0) return {};
-  const ts = now();
   const { buckets, total_seconds } = await balance(env, accountId);
   if (total_seconds < seconds) return null;
-  const plan: Breakdown = {};
+  const parts: Breakdown = {};
   let left = seconds;
   for (const b of buckets) {
     const part = Math.min(left, b.seconds);
-    if (part > 0) plan[b.bucket] = part;
+    if (part > 0) parts[b.bucket] = { s: part, exp: b.expires_at };
     left -= part;
     if (!left) break;
   }
-  // Each step only succeeds if the bucket still holds enough (two jobs at once cannot overspend).
-  const taken: Breakdown = {};
-  for (const [bucket, part] of Object.entries(plan) as [Bucket, number][]) {
-    const res = await env.DB.prepare(
-      `UPDATE credit_buckets SET seconds = seconds - ?3
-       WHERE account_id = ?1 AND bucket = ?2 AND seconds >= ?3 AND (expires_at IS NULL OR expires_at > ?4)`,
-    )
-      .bind(accountId, bucket, part, ts)
-      .run();
-    if (!res.meta.changes) {
-      await giveBack(env, accountId, taken);
-      return null;
-    }
-    taken[bucket] = part;
-  }
-  return taken;
+  return parts;
 }
 
-async function giveBack(env: Env, accountId: string, parts: Breakdown): Promise<void> {
-  const stmts = (Object.entries(parts) as [Bucket, number][])
-    .filter(([, s]) => s > 0)
-    .map(([bucket, s]) =>
-      env.DB.prepare('UPDATE credit_buckets SET seconds = seconds + ? WHERE account_id = ? AND bucket = ?').bind(s, accountId, bucket),
-    );
-  if (stmts.length) await env.DB.batch(stmts);
+const entries = (b: Breakdown) => Object.entries(b).filter(([, p]) => p && p.s > 0) as [Bucket, Part][];
+const total = (b: Breakdown) => entries(b).reduce((n, [, p]) => n + p.s, 0);
+
+/** Take each part from its bucket, only if that bucket still is the one planned (same expiry). */
+function takeStatements(env: Env, accountId: string, parts: Breakdown) {
+  return entries(parts).flatMap(([bucket, p]) => [
+    env.DB.prepare('UPDATE credit_buckets SET seconds = seconds - ? WHERE account_id = ? AND bucket = ? AND expires_at IS ?').bind(p.s, accountId, bucket, p.exp),
+    guardChanged(env),
+  ]);
 }
 
-const merge = (a: Breakdown, b: Breakdown): Breakdown => {
+/**
+ * Give parts back to the credits they came from: not to a bucket that has since expired or been
+ * started again (a new day's free credits), where they would gain a new expiry.
+ */
+function giveStatements(env: Env, accountId: string, parts: Breakdown) {
+  const ts = now();
+  return entries(parts).map(([bucket, p]) =>
+    env.DB.prepare(
+      'UPDATE credit_buckets SET seconds = seconds + ? WHERE account_id = ? AND bucket = ? AND expires_at IS ? AND (expires_at IS NULL OR expires_at > ?)',
+    ).bind(p.s, accountId, bucket, p.exp, ts),
+  );
+}
+
+function merge(a: Breakdown, b: Breakdown): Breakdown {
   const out: Breakdown = { ...a };
-  for (const [k, v] of Object.entries(b) as [Bucket, number][]) out[k] = (out[k] ?? 0) + v;
+  for (const [bucket, p] of entries(b)) {
+    const had = out[bucket];
+    // Same bucket, same credits: add up. A bucket started again since: its newer credits win.
+    out[bucket] = had && had.exp === p.exp ? { s: had.s + p.s, exp: p.exp } : p;
+  }
   return out;
-};
+}
 
 interface Hold {
   job_id: string;
@@ -138,80 +170,122 @@ interface Hold {
 
 const getHold = (env: Env, jobId: string) => env.DB.prepare('SELECT * FROM credit_holds WHERE job_id = ?').bind(jobId).first<Hold>();
 
-/** Set credits aside for a job before it starts. False when the balance is too low. */
+/** Change a hold only if it is still exactly as read (another settle or refund cannot interleave). */
+const updateHold = (env: Env, hold: Hold, set: { seconds: number; breakdown: Breakdown; status: Hold['status'] }) =>
+  env.DB.prepare(
+    "UPDATE credit_holds SET seconds = ?, breakdown = ?, status = ? WHERE job_id = ? AND status = 'held' AND seconds = ? AND breakdown = ?",
+  ).bind(set.seconds, JSON.stringify(set.breakdown), set.status, hold.job_id, hold.seconds, hold.breakdown);
+
+/**
+ * Set credits aside for a job before it starts: taking them, recording the hold and the ledger line
+ * happen together or not at all. False when the balance is too low. A second call for the same job
+ * (a repeated request) takes nothing more.
+ */
 export async function reserve(env: Env, accountId: string, jobId: string, seconds: number, title: string | null): Promise<boolean> {
-  const taken = await take(env, accountId, seconds);
-  if (!taken) return false;
-  await env.DB.batch([
-    env.DB.prepare(
-      "INSERT INTO credit_holds (job_id, account_id, breakdown, seconds, status, created_at) VALUES (?, ?, ?, ?, 'held', ?)",
-    ).bind(jobId, accountId, JSON.stringify(taken), seconds, now()),
-    log(env, accountId, 'reserve', -seconds, jobId, title),
-  ]);
-  return true;
+  if ((await getHold(env, jobId))?.status === 'held') return true;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const parts = await plan(env, accountId, seconds);
+    if (!parts) return false;
+    try {
+      await env.DB.batch([
+        ...takeStatements(env, accountId, parts),
+        guardNotNegative(env, accountId),
+        env.DB.prepare(
+          "INSERT INTO credit_holds (job_id, account_id, breakdown, seconds, status, created_at) VALUES (?, ?, ?, ?, 'held', ?)",
+        ).bind(jobId, accountId, JSON.stringify(parts), seconds, now()),
+        log(env, accountId, 'reserve', -seconds, jobId, title),
+      ]);
+      return true;
+    } catch {
+      // Spent meanwhile, or the same job reserved at the same moment: look again.
+      if ((await getHold(env, jobId))?.status === 'held') return true;
+    }
+  }
+  return false;
 }
 
 /**
  * The job's real cost is known (its length was measured): take the difference, or give back what
- * was set aside beyond it. False when more was needed than the account has (nothing is taken).
+ * was set aside beyond it. False when more was needed than the account has. At the end (`final`)
+ * the job keeps what was set aside and the shortfall is written in the ledger as unpaid.
  */
 export async function settle(env: Env, jobId: string, seconds: number, final: boolean): Promise<boolean> {
-  const hold = await getHold(env, jobId);
-  if (!hold || hold.status !== 'held') return true;
-  const status = final ? 'charged' : 'held';
-  if (seconds === hold.seconds) {
-    if (final) await env.DB.prepare("UPDATE credit_holds SET status = 'charged' WHERE job_id = ? AND status = 'held'").bind(jobId).run();
-    return true;
-  }
-  // Claim the change first: progress reports can arrive together, and only one may settle.
-  const claim = await env.DB.prepare(
-    "UPDATE credit_holds SET seconds = ?, status = ? WHERE job_id = ? AND seconds = ? AND status = 'held'",
-  )
-    .bind(seconds, status, jobId, hold.seconds)
-    .run();
-  if (!claim.meta.changes) return true; // another report settled it
-  const held = JSON.parse(hold.breakdown) as Breakdown;
-  let breakdown = held;
-  if (seconds > hold.seconds) {
-    const extra = await take(env, hold.account_id, seconds - hold.seconds);
-    if (!extra) {
-      // Not enough left: put the hold back as it was (at the end, the job keeps what was set aside).
-      await env.DB.prepare('UPDATE credit_holds SET seconds = ?, status = ? WHERE job_id = ?')
-        .bind(hold.seconds, final ? 'charged' : 'held', jobId)
-        .run();
-      return false;
-    }
-    breakdown = merge(held, extra);
-    await log(env, hold.account_id, 'reserve', -(seconds - hold.seconds), jobId, 'actual length').run();
-  } else {
-    // Give back the excess, last-spent bucket first (top-ups before free credits).
-    let back = hold.seconds - seconds;
-    const parts: Breakdown = {};
-    for (const bucket of [...BUCKETS].reverse()) {
-      const part = Math.min(back, held[bucket] ?? 0);
-      if (part > 0) {
-        parts[bucket] = part;
-        breakdown = { ...breakdown, [bucket]: (breakdown[bucket] ?? 0) - part };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const hold = await getHold(env, jobId);
+    if (!hold || hold.status !== 'held') return true;
+    const status = final ? 'charged' : 'held';
+    const held = JSON.parse(hold.breakdown) as Breakdown;
+    try {
+      if (seconds === hold.seconds) {
+        if (final) await env.DB.batch([updateHold(env, hold, { seconds, breakdown: held, status }), guardChanged(env)]);
+        return true;
       }
-      back -= part;
+      if (seconds > hold.seconds) {
+        const extra = await plan(env, hold.account_id, seconds - hold.seconds);
+        if (!extra) {
+          if (final) {
+            await env.DB.batch([
+              updateHold(env, hold, { seconds: hold.seconds, breakdown: held, status: 'charged' }),
+              guardChanged(env),
+              log(env, hold.account_id, 'unpaid', -(seconds - hold.seconds), jobId, 'not enough credits for the full length'),
+            ]);
+          }
+          return false;
+        }
+        await env.DB.batch([
+          updateHold(env, hold, { seconds, breakdown: merge(held, extra), status }),
+          guardChanged(env),
+          ...takeStatements(env, hold.account_id, extra),
+          guardNotNegative(env, hold.account_id),
+          log(env, hold.account_id, 'reserve', -(seconds - hold.seconds), jobId, 'actual length'),
+        ]);
+        return true;
+      }
+      // Give back the excess, last-spent bucket first (bought credits before free ones).
+      let back = hold.seconds - seconds;
+      const parts: Breakdown = {};
+      const kept: Breakdown = { ...held };
+      for (const bucket of [...BUCKETS].reverse()) {
+        const p = held[bucket];
+        const part = Math.min(back, p?.s ?? 0);
+        if (p && part > 0) {
+          parts[bucket] = { s: part, exp: p.exp };
+          kept[bucket] = { s: p.s - part, exp: p.exp };
+        }
+        back -= part;
+      }
+      await env.DB.batch([
+        updateHold(env, hold, { seconds, breakdown: kept, status }),
+        guardChanged(env),
+        ...giveStatements(env, hold.account_id, parts),
+        log(env, hold.account_id, 'refund', hold.seconds - seconds, jobId, 'actual length'),
+      ]);
+      return true;
+    } catch {
+      // The hold changed under us (another report) or the credits did: read it again.
     }
-    await giveBack(env, hold.account_id, parts);
-    await log(env, hold.account_id, 'refund', hold.seconds - seconds, jobId, 'actual length').run();
   }
-  await env.DB.prepare('UPDATE credit_holds SET breakdown = ? WHERE job_id = ?').bind(JSON.stringify(breakdown), jobId).run();
   return true;
 }
 
-/** The job failed or was cancelled: everything set aside for it goes back. */
+/** The job failed or was cancelled: everything set aside for it goes back, in one step. */
 export async function refund(env: Env, jobId: string, reason: string): Promise<void> {
-  const hold = await getHold(env, jobId);
-  if (!hold || hold.status !== 'held') return;
-  // Claim the refund first, so two reports of the same failure cannot refund twice.
-  const claimed = await env.DB.prepare("UPDATE credit_holds SET status = 'refunded' WHERE job_id = ? AND status = 'held'").bind(jobId).run();
-  if (!claimed.meta.changes) return;
-  const fresh = (await getHold(env, jobId)) ?? hold; // a settle may have just changed it
-  await giveBack(env, fresh.account_id, JSON.parse(fresh.breakdown) as Breakdown);
-  await log(env, fresh.account_id, 'refund', fresh.seconds, jobId, reason).run();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const hold = await getHold(env, jobId);
+    if (!hold || hold.status !== 'held') return;
+    const parts = JSON.parse(hold.breakdown) as Breakdown;
+    try {
+      await env.DB.batch([
+        updateHold(env, hold, { seconds: hold.seconds, breakdown: parts, status: 'refunded' }),
+        guardChanged(env),
+        ...giveStatements(env, hold.account_id, parts),
+        log(env, hold.account_id, 'refund', total(parts), jobId, reason),
+      ]);
+      return;
+    } catch {
+      // A settle changed the hold at the same moment: read it again.
+    }
+  }
 }
 
 export interface LedgerEntry {

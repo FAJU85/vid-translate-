@@ -24,7 +24,7 @@ import {
 } from '../jobs';
 import { handleAdminJobs } from './admin';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
-import { SECONDS_PER_CREDIT, accountForWeb, balance, chargeJob, creditsEnabled, estimateSeconds, handleAccounts } from '../accounts';
+import { SECONDS_PER_CREDIT, accountForWeb, balance, chargeJob, creditsEnabled, estimateSeconds, handleAccounts, releaseJob } from '../accounts';
 
 const OUTPUT_LINK_TTL = 6 * 3600;
 // Counted from when the job was created, which is before the Space made the job's folder (deleted after 24 hours).
@@ -65,11 +65,18 @@ async function creditCheck(env: Env, request: Request, clientId: string, mode: s
 /** Set the job's credits aside; if that fails (spent meanwhile), stop the job and answer 402. */
 async function charge(env: Env, request: Request, clientId: string, job: JobRow, hint: number | null): Promise<Response | null> {
   if (!creditsEnabled(env)) return null;
-  const account = await accountForWeb(env, request, clientId);
-  const result = await chargeJob(env, account.id, job, hint);
-  if (result.ok) return null;
-  await stopJob(env, job, 'E_NO_CREDITS', 'Not enough credits.');
-  return noCredits(result.need, result.have);
+  try {
+    const account = await accountForWeb(env, request, clientId);
+    const result = await chargeJob(env, account.id, job, hint);
+    if (result.ok) return null;
+    await stopJob(env, job, 'E_NO_CREDITS', 'Not enough credits.');
+    return noCredits(result.need, result.have);
+  } catch (err) {
+    // Never leave a job ready to run without its credits set aside.
+    console.error('charging failed for', job.id, (err as Error).stack ?? err);
+    await stopJob(env, job, 'E_INTERNAL', 'Credits could not be set aside.');
+    return apiError(500, 'E_INTERNAL', 'Something went wrong. Please try again.');
+  }
 }
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
@@ -323,11 +330,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       }
       if (match[2] === '/start') {
         if (job.status !== 'awaiting_upload') return json(await publicJob(env, job));
+        // Credits first: the job only becomes ready to run once they are set aside.
+        const unpaid = await charge(env, request, body!.client_id, job, durationHint(body?.duration));
+        if (unpaid) return unpaid;
         // Unstarted uploads are not counted against the quota, so it is checked now.
         const started = await startUploadedJob(env, job);
-        if (!started.job) return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
-        const unpaid = await charge(env, request, body!.client_id, started.job, durationHint(body?.duration));
-        if (unpaid) return unpaid;
+        if (!started.job) {
+          await releaseJob(env, job.id, 'limit reached');
+          return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
+        }
         ctx.waitUntil(dispatch(env, started.job));
         return json(await publicJob(env, started.job));
       }

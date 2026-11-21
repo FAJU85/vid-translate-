@@ -13,7 +13,7 @@ import {
   startGoogleLogin,
   startTelegramLogin,
 } from './auth';
-import { BUCKETS, SECONDS_PER_CREDIT, balance, creditsEnabled, grant, history, type Bucket } from './credits';
+import { BUCKETS, SECONDS_PER_CREDIT, balance, balances, creditsEnabled, grant, history, type Bucket } from './credits';
 import { accountFor, getAccount, listAccounts, type Account } from './store';
 
 export interface AccountsContext {
@@ -97,7 +97,8 @@ export async function handleAccounts(request: Request, env: Env, path: string, a
   if (path === '/api/auth/telegram/start' && method === 'POST') {
     const bot = await api.botUsername();
     if (!bot) return apiError(501, 'E_NOT_CONFIGURED', 'Telegram sign-in is not available.');
-    const code = await startTelegramLogin(env, ip);
+    const country = ((request as unknown as { cf?: { country?: string } }).cf?.country ?? null) as string | null;
+    const code = await startTelegramLogin(env, ip, country);
     return json({ code, url: `https://t.me/${bot}?start=login_${code}` });
   }
   if (path === '/api/auth/telegram/check' && method === 'POST') {
@@ -140,11 +141,8 @@ export async function handleAccounts(request: Request, env: Env, path: string, a
     if (!api.isAdmin) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
     if (path === '/api/admin/accounts' && method === 'GET') {
       const accounts = await listAccounts(env, url.searchParams.get('q') ?? '');
-      return json(
-        await Promise.all(
-          accounts.map(async (a) => ({ ...publicAccount(a), telegram_id: a.telegram_id, last_seen: a.last_seen, balance: await balance(env, a.id) })),
-        ),
-      );
+      const all = await balances(env, accounts.map((a) => a.id));
+      return json(accounts.map((a) => ({ ...publicAccount(a), telegram_id: a.telegram_id, last_seen: a.last_seen, balance: all.get(a.id) })));
     }
     const credit = path.match(/^\/api\/admin\/accounts\/([0-9a-f-]{36})\/credits$/);
     if (credit && method === 'POST') {

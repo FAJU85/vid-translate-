@@ -93,7 +93,11 @@
     "balance": "💳 Your balance: <b>{credits} credits</b> ({time} of video).\n1 credit = 1 minute of video; dubbing costs 2 per minute.",
     "balance_free": "💳 Translations are free for now: there is no balance to keep track of.",
     "no_credits": "💳 This video needs {need} credits and you have {have}. /balance shows your credits.",
-    "E_NO_CREDITS": "there were not enough credits for this video. /balance shows your credits."
+    "E_NO_CREDITS": "there were not enough credits for this video. /balance shows your credits.",
+    "login_confirm": "🔐 <b>Sign in to the website?</b>\nRequested at {when} UTC from {where}.\n\nOnly confirm if <b>you</b> just pressed \"Continue with Telegram\" on the website. Never confirm a link someone sent you: it would let them use your account.",
+    "btn_login_yes": "✅ Yes, sign me in",
+    "btn_login_no": "✖️ Cancel",
+    "login_cancelled": "Sign-in cancelled. Nothing was changed."
   },
   "ar": {
     "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
@@ -189,6 +193,10 @@
     "balance": "💳 رصيدك: <b>{credits} رصيد</b> ({time} من الفيديو).\nكل رصيد = دقيقة فيديو؛ الدبلجة برصيدين للدقيقة.",
     "balance_free": "💳 الترجمة مجانية حالياً: لا يوجد رصيد لتتبعه.",
     "no_credits": "💳 يحتاج هذا الفيديو إلى {need} رصيد ولديك {have}. اعرف رصيدك عبر /balance.",
-    "E_NO_CREDITS": "لا يكفي رصيدك لهذا الفيديو. اعرف رصيدك عبر /balance."
+    "E_NO_CREDITS": "لا يكفي رصيدك لهذا الفيديو. اعرف رصيدك عبر /balance.",
+    "login_confirm": "🔐 <b>تسجيل الدخول إلى الموقع؟</b>\nطُلب الساعة {when} (UTC) من {where}.\n\nأكّد فقط إذا ضغطت <b>أنت</b> للتو \"المتابعة عبر تيليجرام\" في الموقع. لا تؤكد أبداً رابطاً أرسله لك شخص آخر: سيتمكن من استخدام حسابك.",
+    "btn_login_yes": "✅ نعم، سجّل دخولي",
+    "btn_login_no": "✖️ إلغاء",
+    "login_cancelled": "أُلغي تسجيل الدخول. لم يتغير شيء."
   }
 }

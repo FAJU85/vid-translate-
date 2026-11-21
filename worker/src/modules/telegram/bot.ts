@@ -23,11 +23,22 @@ import {
   parseSubtitleStyle,
   retryJob,
   stopJob,
+  type JobRow,
   type SubtitleMode,
   type SubtitleStyle,
 } from '../jobs';
 import { welcomeOverride } from '../settings';
-import { SECONDS_PER_CREDIT, accountForTelegram, balance, chargeJob, confirmTelegramLogin, creditsEnabled, estimateSeconds } from '../accounts';
+import {
+  SECONDS_PER_CREDIT,
+  accountForTelegram,
+  balance,
+  cancelTelegramLogin,
+  chargeJob,
+  confirmTelegramLogin,
+  creditsEnabled,
+  describeTelegramLogin,
+  estimateSeconds,
+} from '../accounts';
 import { editMessage, sendMessage, tg, type Keyboard } from './api';
 import { getChat, updateChat, type ChatRow } from './chats';
 import { esc, langName, t, uiLang, type UiLang } from './i18n';
@@ -56,6 +67,21 @@ function isAllowed(env: Env, chatId: number): boolean {
 function creditText(seconds: number): { credits: string; time: string } {
   const m = Math.floor(seconds / 60);
   return { credits: (seconds / SECONDS_PER_CREDIT).toFixed(2), time: m ? `${m} min ${seconds % 60} s` : `${seconds} s` };
+}
+
+/**
+ * Set a job's credits aside. When that is not possible (spent meanwhile, or an error), the job is
+ * stopped, so it can never run unpaid; its status message shows why. True when it may run.
+ */
+async function safeCharge(env: Env, accountId: string, job: JobRow, hint?: number | null): Promise<boolean> {
+  try {
+    if ((await chargeJob(env, accountId, job, hint)).ok) return true;
+    await stopJob(env, job, 'E_NO_CREDITS', '');
+  } catch (err) {
+    console.error('charging failed for', job.id, (err as Error).stack ?? err);
+    await stopJob(env, job, 'E_INTERNAL', '');
+  }
+  return false;
 }
 
 const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ? env.DEFAULT_TARGET_LANG! : 'ar');
@@ -111,9 +137,19 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
   // "Sign in with Telegram" on the website opens the bot with /start login_<code>.
   const login = command === '/start' ? /^\/start\s+login_([A-Za-z0-9_-]{20,64})$/.exec(text) : null;
   if (login) {
-    const name = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || msg.from?.username || null;
-    const ok = await confirmTelegramLogin(env, login[1], { id: msg.from?.id ?? chatId, name });
-    await sendMessage(env, chatId, t(ui, ok ? 'login_ok' : 'login_expired'));
+    // Ask first, showing when and where the website asked: someone could send you their own link.
+    const request = await describeTelegramLogin(env, login[1]);
+    if (!request) {
+      await sendMessage(env, chatId, t(ui, 'login_expired'));
+      return;
+    }
+    const when = new Date(request.created_at * 1000).toISOString().slice(11, 16);
+    await sendMessage(env, chatId, t(ui, 'login_confirm', { when, where: esc(request.country ?? '?') }), [
+      [
+        { text: t(ui, 'btn_login_yes'), callback_data: `login:${login[1]}` },
+        { text: t(ui, 'btn_login_no'), callback_data: `nologin:${login[1]}` },
+      ],
+    ]);
     return;
   }
   if (command === '/balance') {
@@ -298,10 +334,7 @@ async function startJob(
 
   await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: null });
   await showStatus(env, job);
-  if (account && !(await chargeJob(env, account.id, job, pending.duration)).ok) {
-    await stopJob(env, job, 'E_NO_CREDITS', ''); // spent meanwhile: the status message shows why
-    return null;
-  }
+  if (account && !(await safeCharge(env, account.id, job, pending.duration))) return null;
   ctx.waitUntil(dispatch(env, job));
   return null;
 }
@@ -348,6 +381,17 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       await updateChat(env, chatId, chat.tgt_lang, { style: JSON.stringify(next) });
       const menu = styleMenu(ui, next);
       await editMessage(env, chatId, messageId, menu.text, menu.keyboard);
+    } else if (data.startsWith('login:') || data.startsWith('nologin:')) {
+      const [kind, code] = data.split(':');
+      if (kind === 'nologin') {
+        await cancelTelegramLogin(env, code);
+        await editMessage(env, chatId, messageId, t(ui, 'login_cancelled'));
+      } else {
+        const from = query.from ?? {};
+        const name = [from.first_name, from.last_name].filter(Boolean).join(' ') || from.username || null;
+        const ok = await confirmTelegramLogin(env, code, { id: from.id ?? chatId, name });
+        await editMessage(env, chatId, messageId, t(ui, ok ? 'login_ok' : 'login_expired'));
+      }
     } else if (data.startsWith('retry:')) {
       const job = await getJob(env, data.slice(6));
       if (!job || job.chat_id !== chatId || !canRetry(job)) {
@@ -364,8 +408,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
             alert = t(ui, 'no_credits', { need: creditText(need).credits, have: creditText(have).credits });
           } else {
             const copy = await retryJob(env, job); // also edits the progress message back to "queued"
-            if (copy && account && !(await chargeJob(env, account.id, copy, job.duration)).ok) await stopJob(env, copy, 'E_NO_CREDITS', '');
-            else if (copy) ctx.waitUntil(dispatch(env, copy));
+            if (copy && (!account || (await safeCharge(env, account.id, copy, job.duration)))) ctx.waitUntil(dispatch(env, copy));
           }
         }
       }

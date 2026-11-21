@@ -65,7 +65,16 @@ export function AccountsPanel({ password }: { password: string }) {
               {accounts.map((a) => (
                 <tr key={a.id} onClick={() => setOpen(a)} className="cursor-pointer hover:bg-slate-900/70">
                   <td className="px-3 py-2">
-                    <div className="text-slate-100">{a.name || a.email || 'Unnamed'}</div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(a);
+                      }}
+                      className="text-left text-slate-100 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded"
+                    >
+                      {a.name || a.email || 'Unnamed'}
+                    </button>
                     {a.email && <div className="text-xs text-slate-500">{a.email}</div>}
                   </td>
                   <td className="px-3 py-2 hidden md:table-cell text-slate-400">
@@ -85,7 +94,8 @@ export function AccountsPanel({ password }: { password: string }) {
           account={open}
           onClose={() => setOpen(null)}
           onChanged={(a) => {
-            setOpen(a);
+            // A save that finishes after another account was opened must not switch back to it.
+            setOpen((current) => (current?.id === a.id ? a : current));
             setAccounts((list) => list?.map((x) => (x.id === a.id ? { ...x, ...a } : x)) ?? list);
           }}
         />
@@ -119,7 +129,8 @@ function AccountDrawer({ password, account, onClose, onChanged }: {
     setBusy(true);
     setError(null);
     try {
-      const expires = bucket === 'monthly' || bucket === 'daily' ? Number(days) || undefined : undefined;
+      // Only adding sets an expiry; removing keeps the credits' own.
+      const expires = sign > 0 && (bucket === 'monthly' || bucket === 'daily') ? Number(days) || undefined : undefined;
       const res = await adminApi.grant(password, account.id, { seconds: sign * Math.round(credits * 60), bucket, days: expires, note });
       setDetail(res);
       onChanged({ ...account, ...res });

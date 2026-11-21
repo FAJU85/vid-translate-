@@ -161,13 +161,16 @@ This is a browser-only restriction: direct HTTP calls are still limited only by 
 People can sign in on the website (the **Sign in** button in the header) to keep one account for
 the website and the bot:
 
-- **Telegram**: always available. The website opens the bot with a one-time code; pressing
-  **Start** there signs the website in. Nothing to set up.
+- **Telegram**: always available. The website opens the bot with a one-time code; the bot shows
+  when and from which country the sign-in was asked and signs the website in only after **Yes,
+  sign me in** (so a link someone else sends cannot sign them in as you). Nothing to set up.
 - **Email link**: with `RESEND_API_KEY` and `EMAIL_FROM` set. A link valid for 15 minutes.
 - **Google**: with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set.
 
 Signed in, another method can be added to the same account. Without signing in, the browser has a
-guest account of its own.
+guest account of its own. Signing in uses a cookie of the Worker's own domain, so it needs the
+website served by the Worker (the default setup); a site on another domain can still translate,
+but not sign in.
 
 **Credits** (1 credit = 60 seconds of video, counted by the second, 10 seconds at least; dubbing
 costs twice) are **off** until `CREDITS_ENABLED = "1"` in `wrangler.toml`. When on, a job's

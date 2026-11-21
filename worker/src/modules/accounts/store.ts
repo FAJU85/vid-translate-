@@ -31,6 +31,7 @@ export const ACCOUNTS_SCHEMA = [
     telegram_id INTEGER,
     telegram_name TEXT,
     ip TEXT,
+    country TEXT,
     created_at INTEGER NOT NULL,
     expires_at INTEGER NOT NULL,
     used INTEGER NOT NULL DEFAULT 0
@@ -142,10 +143,12 @@ export async function accountFor(env: Env, identity: Identity, current?: Account
     ...(COLUMNS[identity.kind](identity) as Partial<Account>),
   };
   const cols = Object.keys(account);
-  await env.DB.prepare(`INSERT INTO accounts (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+  // Two requests for the same new person at once: the second insert is ignored and both read the one row.
+  const res = await env.DB.prepare(`INSERT OR IGNORE INTO accounts (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
     .bind(...cols.map((c) => (account as unknown as Record<string, unknown>)[c]))
     .run();
-  return account;
+  if (res.meta.changes) return account;
+  return (await findBy(env, identity)) ?? account;
 }
 
 async function update(env: Env, id: string, patch: Record<string, unknown>): Promise<void> {

@@ -1,5 +1,5 @@
 import type { Env } from '../../shared/env';
-import { TERMINAL, stopJob, type JobListener, type JobRow } from '../jobs';
+import { TERMINAL, getJob, stopJob, type JobListener, type JobRow } from '../jobs';
 import { balance, costSeconds, creditsEnabled, refund, reserve, settle } from './credits';
 
 export type ChargeResult = { ok: true } | { ok: false; need: number; have: number };
@@ -13,7 +13,12 @@ export async function chargeJob(env: Env, accountId: string, job: JobRow, durati
   if (!creditsEnabled(env)) return { ok: true };
   const need = costSeconds(job.duration ?? durationHint, job.mode, job.source_kind);
   if (need <= 0) return { ok: true };
-  if (await reserve(env, accountId, job.id, need, job.title)) return { ok: true };
+  if (await reserve(env, accountId, job.id, need, job.title)) {
+    // Cancelled while the credits were being set aside (the bot's Cancel button)? Give them back.
+    const fresh = await getJob(env, job.id);
+    if (fresh && TERMINAL.includes(fresh.status) && fresh.status !== 'done') await refund(env, job.id, 'cancelled');
+    return { ok: true };
+  }
   return { ok: false, need, have: (await balance(env, accountId)).total_seconds };
 }
 
@@ -39,6 +44,11 @@ export const billingListener: JobListener = {
     }
   },
   async finished(env, job) {
+    // The result exists either way: if the account could not cover the full length, the job keeps
+    // what was set aside and the rest is written in the ledger as unpaid (settle does that).
     await settle(env, job.id, costSeconds(job.duration, job.mode, job.source_kind), true);
   },
 };
+
+/** Give back what was set aside for a job that will not run after all (e.g. refused by a limit). */
+export const releaseJob = (env: Env, jobId: string, reason: string) => refund(env, jobId, reason);

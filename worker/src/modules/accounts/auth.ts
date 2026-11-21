@@ -24,7 +24,13 @@ function cookie(request: Request, name: string): string | null {
   const header = request.headers.get('Cookie') ?? '';
   for (const part of header.split(';')) {
     const [k, ...v] = part.trim().split('=');
-    if (k === name) return decodeURIComponent(v.join('='));
+    if (k === name) {
+      try {
+        return decodeURIComponent(v.join('='));
+      } catch {
+        return null; // a malformed cookie counts as none
+      }
+    }
   }
   return null;
 }
@@ -72,16 +78,21 @@ export async function signIn(env: Env, request: Request, identity: Identity): Pr
 
 // ------------------------------------------------------------------ one-time codes
 
-async function newCode(env: Env, kind: 'email' | 'telegram', fields: { email?: string; ip?: string | null }): Promise<string> {
+async function newCode(
+  env: Env,
+  kind: 'email' | 'telegram',
+  fields: { email?: string; ip?: string | null; country?: string | null },
+): Promise<string> {
   const code = randomToken();
   const ts = now();
   await env.DB.batch([
     env.DB.prepare('DELETE FROM login_codes WHERE created_at < ?').bind(ts - 86400),
-    env.DB.prepare('INSERT INTO login_codes (code_hash, kind, email, ip, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)').bind(
+    env.DB.prepare('INSERT INTO login_codes (code_hash, kind, email, ip, country, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
       await sha256(code),
       kind,
       fields.email ?? null,
       fields.ip ?? null,
+      fields.country ?? null,
       ts,
       ts + CODE_TTL,
     ),
@@ -92,6 +103,8 @@ async function newCode(env: Env, kind: 'email' | 'telegram', fields: { email?: s
 interface CodeRow {
   code_hash: string;
   kind: string;
+  country: string | null;
+  created_at: number;
   email: string | null;
   telegram_id: number | null;
   telegram_name: string | null;
@@ -113,10 +126,26 @@ async function useCode(env: Env, row: CodeRow): Promise<boolean> {
 
 // ------------------------------------------------------------------ Telegram: confirm in the bot
 
-/** The website asks for a code; the person opens the bot with it, and the bot confirms who they are. */
-export const startTelegramLogin = (env: Env, ip: string | null) => newCode(env, 'telegram', { ip });
+/** The website asks for a code; the person opens the bot with it, and confirms there who they are. */
+export const startTelegramLogin = (env: Env, ip: string | null, country: string | null) => newCode(env, 'telegram', { ip, country });
 
-/** Called by the bot on "/start login_<code>": ties the code to the Telegram user. */
+/**
+ * "/start login_<code>" in the bot: what to show before asking "is this you?" (when and where the
+ * website asked), or null when the code is no longer valid. Nothing is linked yet: a link someone
+ * else sent must not sign them in as you just by opening it.
+ */
+export async function describeTelegramLogin(env: Env, code: string): Promise<{ created_at: number; country: string | null } | null> {
+  const row = await readCode(env, code, 'telegram');
+  return row && !row.telegram_id ? { created_at: row.created_at, country: row.country } : null;
+}
+
+/** The person pressed "Cancel": the code can no longer be used. */
+export async function cancelTelegramLogin(env: Env, code: string): Promise<void> {
+  const row = await readCode(env, code, 'telegram');
+  if (row) await useCode(env, row);
+}
+
+/** The person pressed "Confirm" in the bot: ties the code to their Telegram account. */
 export async function confirmTelegramLogin(env: Env, code: string, user: { id: number; name: string | null }): Promise<boolean> {
   const row = await readCode(env, code, 'telegram');
   if (!row || row.telegram_id) return false;

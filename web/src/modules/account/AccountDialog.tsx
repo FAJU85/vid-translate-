@@ -96,12 +96,13 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#2AABEE] hover:bg-[#229ED9] text-white font-semibold disabled:opacity-70"
         >
           {waitingTelegram ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-          {waitingTelegram ? 'Press Start in Telegram…' : account ? 'Link Telegram' : 'Continue with Telegram'}
+          {waitingTelegram ? 'Confirm in Telegram…' : account ? 'Link Telegram' : 'Continue with Telegram'}
         </button>
       )}
       {waitingTelegram && (
         <p className="text-xs text-slate-400 text-center">
-          Telegram opened in a new tab. Press <b>Start</b> there, then come back: this page signs you in by itself.
+          Telegram opened in a new tab. Press <b>Start</b>, then <b>Yes, sign me in</b>, and come back: this page signs you in by
+          itself.
         </p>
       )}
       {me.sign_in.google && !account?.linked.google && (
