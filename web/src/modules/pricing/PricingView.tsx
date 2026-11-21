@@ -1,5 +1,6 @@
-import { Check, Gift, Sparkles } from 'lucide-react';
-import type { AppConfig, Me } from '../../shared/api';
+import { useState } from 'react';
+import { Check, CreditCard, Gift, Loader2, Sparkles } from 'lucide-react';
+import { ApiError, accountApi, type AppConfig, type Me } from '../../shared/api';
 import { PACKS, PLANS, perCredit } from './plans';
 
 const credits = (seconds: number) => +(seconds / 60).toFixed(2);
@@ -16,8 +17,91 @@ function Faq({ q, children }: { q: string; children: React.ReactNode }) {
   );
 }
 
+/**
+ * How to pay for one product: by card (Stripe Checkout, in a new tab) and with Telegram Stars (the
+ * bot, which sends the invoice). Both need an account, so the credits are kept.
+ */
+function BuyButtons({ product, me, onSignIn, onPaymentStarted, wide }: {
+  product: string;
+  me: Me | null;
+  onSignIn: () => void;
+  onPaymentStarted: () => void;
+  wide?: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // A blocked new tab: the page is offered as a link (leaving this tab would lose a chosen file).
+  const [manual, setManual] = useState<string | null>(null);
+  const pay = me?.payments;
+  if (!pay || (!pay.card && !pay.stars)) {
+    return (
+      <button disabled className={`${wide ? 'w-full' : ''} px-4 py-2 rounded-lg border border-slate-700 text-sm text-slate-400 cursor-not-allowed`}>
+        Payments open soon
+      </button>
+    );
+  }
+  async function card() {
+    if (!me?.account) return onSignIn();
+    setBusy(true);
+    setError(null);
+    // Opened at the click, so the browser does not block it; this tab keeps your video and waits.
+    const tab = window.open('about:blank', '_blank');
+    try {
+      const { url } = await accountApi.checkout(product);
+      if (tab) {
+        tab.location.href = url;
+        onPaymentStarted();
+      } else setManual(url);
+    } catch (err) {
+      tab?.close();
+      setError(err instanceof ApiError ? err.message : 'The payment page could not be opened.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  const starsLink = pay.stars && pay.bot_username ? `https://t.me/${pay.bot_username}?start=buy_${product}` : null;
+  return (
+    <div className={`space-y-2 ${wide ? 'w-full' : ''}`}>
+      <div className={`flex gap-2 ${wide ? 'flex-col' : 'flex-wrap justify-end'}`}>
+        {pay.card && (
+          <button
+            onClick={card}
+            disabled={busy}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-sm font-semibold text-slate-950 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />} Pay by card
+          </button>
+        )}
+        {starsLink && (
+          <a
+            href={starsLink}
+            target="_blank"
+            rel="noreferrer"
+            onClick={onPaymentStarted}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-sm text-slate-100 hover:bg-slate-800"
+          >
+            ⭐ {pay.stars_prices[product]} Stars
+          </a>
+        )}
+      </div>
+      {manual && (
+        <a href={manual} target="_blank" rel="noreferrer" onClick={() => { setManual(null); onPaymentStarted(); }} className="block text-xs text-amber-300 underline">
+          Open the payment page
+        </a>
+      )}
+      {error && <p className="text-xs text-rose-300">{error}</p>}
+    </div>
+  );
+}
+
 /** Prices, the free credits, how credits are counted, and the limits. */
-export function PricingView({ me, config, onSignIn }: { me: Me | null; config: AppConfig | null; onSignIn: () => void }) {
+export function PricingView({ me, config, onSignIn, onPaymentStarted = () => {} }: {
+  me: Me | null;
+  config: AppConfig | null;
+  onSignIn: () => void;
+  /** A payment page or the bot was opened: the website waits for the credits. */
+  onPaymentStarted?: () => void;
+}) {
   const a = me?.allowances ?? { guest_trial: 30, signup_bonus: 180, daily: 30, daily_period: 86400 };
   const signedIn = Boolean(me?.account);
   const maxMb = config?.max_upload_mb ?? 500;
@@ -58,6 +142,13 @@ export function PricingView({ me, config, onSignIn }: { me: Me | null; config: A
         )}
       </section>
 
+      {me?.payments?.stars && me.account && !me.account.linked.telegram && (
+        <p className="p-3 rounded-xl border border-slate-800 bg-slate-950 text-sm text-slate-300">
+          Paying with Telegram Stars adds the credits to your Telegram account. To use them here too, link Telegram from your
+          account (the button at the top right).
+        </p>
+      )}
+
       <section>
         <h2 className="text-lg font-semibold text-white">Monthly plans</h2>
         <p className="text-sm text-slate-400">For people who translate every week. Credits renew each month.</p>
@@ -88,9 +179,9 @@ export function PricingView({ me, config, onSignIn }: { me: Me | null; config: A
                   <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" /> Videos of any length, dubbing included
                 </li>
               </ul>
-              <button disabled className="mt-5 w-full py-2 rounded-lg border border-slate-700 text-sm text-slate-400 cursor-not-allowed">
-                Payments open soon
-              </button>
+              <div className="mt-5">
+                <BuyButtons product={p.id} me={me} onSignIn={onSignIn} onPaymentStarted={onPaymentStarted} wide />
+              </div>
             </div>
           ))}
         </div>
@@ -108,9 +199,7 @@ export function PricingView({ me, config, onSignIn }: { me: Me | null; config: A
                   ${p.price} · {perCredit(p.price, p.credits)} per minute
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-lg border border-slate-700 text-sm text-slate-400 cursor-not-allowed">
-                Soon
-              </button>
+              <BuyButtons product={p.id} me={me} onSignIn={onSignIn} onPaymentStarted={onPaymentStarted} />
             </div>
           ))}
         </div>
@@ -121,6 +210,11 @@ export function PricingView({ me, config, onSignIn }: { me: Me | null; config: A
         <Faq q="How is a video counted?">
           By its length, to the second: a 75-second video costs 1.25 credits. Every video counts as at least 10 seconds. You see
           the cost before you start; for a link, the length is known once the video is downloaded.
+        </Faq>
+        <Faq q="How do I pay, and how do I cancel a plan?">
+          By card (through Stripe’s secure page) or with Telegram Stars in our bot. Plans renew every month until you cancel:
+          card plans from “Manage subscription” in your account (top right), Stars plans in Telegram (Settings → My Stars). Your plan’s
+          credits last until the end of the month you paid for.
         </Faq>
         <Faq q="What if a translation fails?">
           You get the credits back automatically, including when you cancel. If a video turns out longer than your credits

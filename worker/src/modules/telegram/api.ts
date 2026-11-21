@@ -1,9 +1,6 @@
 import type { Env } from '../../shared/env';
 
-export interface InlineButton {
-  text: string;
-  callback_data: string;
-}
+export type InlineButton = { text: string; callback_data: string } | { text: string; url: string };
 export type Keyboard = InlineButton[][];
 
 const apiBase = (env: Env) => (env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/$/, '');

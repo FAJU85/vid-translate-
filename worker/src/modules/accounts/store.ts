@@ -77,6 +77,8 @@ export const ACCOUNTS_COLUMNS: AddedColumn[] = [
   { table: 'accounts', column: 'welcomed', definition: 'INTEGER NOT NULL DEFAULT 0' },
   { table: 'accounts', column: 'dub_preview_used', definition: 'INTEGER NOT NULL DEFAULT 0' },
   { table: 'credit_holds', column: 'free', definition: 'INTEGER NOT NULL DEFAULT 0' },
+  // The Stripe customer behind a card plan, to open Stripe's page for managing it.
+  { table: 'accounts', column: 'stripe_customer', definition: 'TEXT' },
 ];
 
 export interface Account {
@@ -91,6 +93,8 @@ export interface Account {
   welcomed: number;
   /** The one free dubbing preview was used. */
   dub_preview_used: number;
+  /** Stripe customer id, once the account has paid by card. */
+  stripe_customer?: string | null;
   created_at: number;
   last_seen: number;
 }
