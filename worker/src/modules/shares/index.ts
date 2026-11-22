@@ -3,7 +3,7 @@
  * for free accounts, until deleted for monthly plans). Follows jobs through the listener port.
  * This file is the brick's only public interface.
  */
-export { SHARES_SCHEMA, listShares, shareForJob, type ShareRow } from './store';
+export { SHARES_SCHEMA, listShares, shareForJob, shareTotals, type ShareRow } from './store';
 export { FREE_SHARE_SECONDS, deleteShare, shareUrl, sharesJobListener, sweepShares } from './service';
 export { handleSharePage } from './page';
 export { handleShares, publicShare, type ShareViewer } from './handlers';

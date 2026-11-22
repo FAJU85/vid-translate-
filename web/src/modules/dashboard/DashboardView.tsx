@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Play, RefreshCw, Trash2, Video } from 'lucide-react';
 import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, type DashboardVideo, type Me } from '../../shared/api';
 import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
@@ -134,15 +134,32 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Only the latest request may show its answer (an older one can arrive after signing in or out).
+  const request = useRef(0);
   const load = useCallback(() => {
+    const id = ++request.current;
     setLoading(true);
     dashboardApi
       .get()
-      .then((d) => (setData(d), setError(null)))
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'The dashboard could not be loaded.'))
-      .finally(() => setLoading(false));
+      .then((d) => {
+        if (id === request.current) (setData(d), setError(null));
+      })
+      .catch((err) => {
+        if (id === request.current) setError(err instanceof ApiError ? err.message : 'The dashboard could not be loaded.');
+      })
+      .finally(() => {
+        if (id === request.current) setLoading(false);
+      });
   }, []);
-  useEffect(load, [load, me?.account?.id]);
+  useEffect(() => {
+    setData(null); // another person's videos never stay on screen
+    load();
+  }, [load, me?.account?.id]);
+  /** Refresh: the videos and numbers, and the balance (credits may have been used in the bot). */
+  const refresh = () => {
+    load();
+    accountApi.me().then(onMe, () => {});
+  };
 
   const lang = (code: string | null) => (code && config?.languages.find((l) => l.code === code)?.en) || code || '';
   const s = data?.stats;
@@ -158,7 +175,7 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
             {me?.account ? `Signed in as ${me.account.name || me.account.email || 'you'}: videos from the website and the Telegram bot.` : 'Videos translated in this browser.'}
           </p>
         </div>
-        <button onClick={load} disabled={loading} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">
+        <button onClick={refresh} disabled={loading} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </section>

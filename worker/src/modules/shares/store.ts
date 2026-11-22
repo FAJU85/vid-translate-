@@ -87,6 +87,16 @@ export async function listShares(env: Env, who: { accountId?: string | null; own
   return results;
 }
 
+/** How many live links a person has and how often they were watched (all of them, not a page). */
+export async function shareTotals(env: Env, who: { accountId?: string | null; owner?: string | null }): Promise<{ shared: number; views: number }> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS shared, COALESCE(SUM(views), 0) AS views FROM shares WHERE (account_id = ?1 OR owner = ?2) AND ${LIVE.replace('?', '?3')}`,
+  )
+    .bind(who.accountId ?? '', who.owner ?? '', now())
+    .first<{ shared: number; views: number }>();
+  return { shared: row?.shared ?? 0, views: row?.views ?? 0 };
+}
+
 export async function deleteShareRow(env: Env, id: string): Promise<void> {
   await env.DB.prepare('DELETE FROM shares WHERE id = ?').bind(id).run();
 }
