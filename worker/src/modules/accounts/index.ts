@@ -9,5 +9,5 @@ export { billingListener, chargeJob, checkJob, estimateSeconds, releaseJob, type
 export { DAILY_SECONDS, FREE_MAX_VIDEO_SECONDS, freshBalance } from './allowances';
 export { accountForTelegram, accountForWeb, existingTelegramAccount, handleAccounts, signedInAccount, type AccountsContext } from './handlers';
 export { PRODUCTS, PLAN_PERIOD, isProduct, starsPrice, type Product, type ProductId } from './products';
-export { chooseOutro } from './outro';
+export { chooseOutro, hasPlan, jobAccount } from './outro';
 export { PAYMENTS_SCHEMA, createCheckout, fulfil, handleStripeWebhook, stripeConfigured } from './payments';

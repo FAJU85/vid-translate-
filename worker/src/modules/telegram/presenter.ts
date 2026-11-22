@@ -1,5 +1,6 @@
 import type { Env } from '../../shared/env';
 import { TERMINAL, canRetry, claimDelivery, fileLink, setStatusMessage, type JobListener, type JobRow } from '../jobs';
+import { shareUrl } from '../shares';
 import { editMessage, sendFile, sendMessage, type Keyboard } from './api';
 import { errorText, esc, langName, t, type UiLang } from './i18n';
 
@@ -111,6 +112,9 @@ async function deliver(env: Env, job: JobRow): Promise<void> {
     } else {
       await sendMessage(env, job.chat_id, t(ui, 'audio_only_note'));
     }
+    // The video's public page (shares brick), when it has one.
+    const page = await shareUrl(env, job).catch(() => null);
+    if (page) await sendMessage(env, job.chat_id, t(ui, 'share_link', { url: esc(page) }), [[{ text: t(ui, 'btn_share'), url: page }]]);
   }
   await showStatus(env, job);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
+import { ShareLink } from './ShareLink';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
 
 interface Props {
@@ -297,6 +298,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
               <CheckCircle2 className="w-4 h-4" />
               Ready. Files stay available for 24 hours.
             </div>
+            {job.share_url && <ShareLink url={job.share_url} />}
             <div className="flex flex-wrap gap-2">
               {downloads.map(
                 ([label, url], i) =>

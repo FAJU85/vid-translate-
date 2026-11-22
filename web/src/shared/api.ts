@@ -47,6 +47,8 @@ export interface Job {
     Record<'srt_url' | 'vtt_url' | 'original_srt_url' | 'bilingual_srt_url' | 'transcript_url' | 'cues_url' | 'mp4_url' | 'dubbed_url', string>
   >;
   upload_url?: string;
+  /** The video's public page (/v/<id>), once a rendered video is done. */
+  share_url?: string | null;
 }
 
 export interface Cue {

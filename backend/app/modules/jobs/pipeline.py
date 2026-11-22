@@ -124,12 +124,15 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         )
         _add_outro(job, workdir, workdir / OUTPUT_FILES["mp4"], cancelled, lambda f: reporter("rendering")(0.95 + f * 0.05), True)
         outputs["mp4"] = OUTPUT_FILES["mp4"]
+        _add_thumbnail(workdir, workdir / OUTPUT_FILES["mp4"], info["duration"], outputs)
         source.replace(workdir / KEPT_SOURCE)  # kept for "render again with my edits"
 
     # 5. Dubbing: the translation spoken over the original sound ---------------------
     if job.mode == "dub":
         enter("dubbing")
         outputs["dubbed"] = _dub(job, workdir, source, cues, info, reporter("dubbing"), cancelled)
+        if info["has_video"]:
+            _add_thumbnail(workdir, workdir / OUTPUT_FILES["dubbed"], info["duration"], outputs)
 
     job.outputs = outputs
 
@@ -174,7 +177,14 @@ def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
                          lambda f: reporter("rendering")(f * 0.95))
     _add_outro(job, workdir, workdir / OUTPUT_FILES["mp4"], cancelled, lambda f: reporter("rendering")(0.95 + f * 0.05), True)
     outputs["mp4"] = OUTPUT_FILES["mp4"]
+    _add_thumbnail(workdir, workdir / OUTPUT_FILES["mp4"], info["duration"], outputs)
     job.outputs = outputs
+
+
+def _add_thumbnail(workdir: Path, video: Path, duration: float, outputs: dict) -> None:
+    """A still for the share page; a video without one is still delivered."""
+    if media.thumbnail(video, workdir / OUTPUT_FILES["thumb"], duration):
+        outputs["thumb"] = OUTPUT_FILES["thumb"]
 
 
 def _add_outro(job: Job, workdir: Path, video: Path, cancelled, report, encoded_here: bool) -> None:

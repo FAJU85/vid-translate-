@@ -23,6 +23,7 @@ import {
   type JobRow,
 } from '../jobs';
 import { handleAdminJobs } from './admin';
+import { handleShares, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
 import {
   FREE_MAX_VIDEO_SECONDS,
@@ -177,6 +178,8 @@ async function publicJob(env: Env, job: JobRow) {
     created_at: job.created_at,
     updated_at: job.updated_at,
     outputs,
+    // The video's public page (shares brick), once it is done.
+    share_url: job.status === 'done' ? await shareUrl(env, job) : null,
   };
 }
 
@@ -198,6 +201,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     isAdmin: path.startsWith('/api/admin/') && isAdmin(request, env),
   });
   if (accounts) return accounts;
+
+  // Your shared videos (list, delete): by account, or by this browser's jobs.
+  if (path === '/api/shares' || path.startsWith('/api/shares/')) {
+    const clientId = url.searchParams.get('client_id') ?? '';
+    const owner = UUID.test(clientId) ? `web:${clientId}` : null;
+    const account = creditsEnabled(env) && owner ? await accountForWeb(env, request, clientId) : null;
+    const shares = await handleShares(request, env, path, api.origin, { accountId: account?.id ?? null, owner });
+    if (shares) return shares;
+  }
 
   if (path === '/api/health' && method === 'GET') {
     return json({ status: 'ok', backend: await backendHealth(env) });

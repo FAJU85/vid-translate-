@@ -1,0 +1,130 @@
+import { LANGUAGES } from '../../shared/languages';
+import type { Env } from '../../shared/env';
+import { fileLink } from '../jobs';
+import { publicSettings } from '../settings';
+import { thumbKey, videoFile, videoKey } from './service';
+import { countView, getShare, type ShareRow } from './store';
+
+const langName = (code: string, _ui: 'en') => LANGUAGES.find((l) => l.code === code)?.en ?? code;
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/** The public page of a shared video: the player, what it is, and a download. */
+async function page(env: Env, share: ShareRow, origin: string): Promise<Response> {
+  const site = await publicSettings(env).catch(() => null);
+  const brand = site?.name || 'KAVOX';
+  const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#fbbf24';
+  const url = `${origin}/v/${share.id}`;
+  const title = share.title || 'Translated video';
+  const what = share.mode === 'dub' ? 'Dubbed' : 'Subtitled';
+  const from = share.src_lang && share.src_lang !== 'auto' && share.src_lang !== share.tgt_lang ? `${langName(share.src_lang, 'en')} → ` : '';
+  const langs = `${from}${langName(share.tgt_lang, 'en')}`;
+  const description = `${what} in ${langName(share.tgt_lang, 'en')} with ${brand}.`;
+  const thumb = share.has_thumb ? `${url}/thumb.jpg` : '';
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} · ${esc(brand)}</title>
+<meta name="description" content="${esc(description)}">
+<meta property="og:type" content="video.other">
+<meta property="og:site_name" content="${esc(brand)}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:url" content="${esc(url)}">
+${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
+<meta property="og:video" content="${esc(url)}/video.mp4">
+<meta property="og:video:type" content="video/mp4">
+<meta name="twitter:card" content="${thumb ? 'summary_large_image' : 'summary'}">
+<meta name="robots" content="noindex">
+<style>
+  :root { color-scheme: dark; --accent: ${accent}; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #020617; color: #e2e8f0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
+  header, main, footer { max-width: 960px; margin: 0 auto; padding: 16px; }
+  header a { color: #fff; font-weight: 800; letter-spacing: .04em; text-decoration: none; font-size: 18px; }
+  .player { background: #000; border-radius: 14px; overflow: hidden; display: flex; justify-content: center; }
+  video { width: 100%; max-height: 75vh; display: block; background: #000; }
+  h1 { font-size: 20px; margin: 16px 0 4px; color: #fff; overflow-wrap: anywhere; }
+  .meta { color: #94a3b8; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px; border: 1px solid #334155; color: #f1f5f9; background: transparent; text-decoration: none; font: inherit; cursor: pointer; }
+  .btn:hover { background: #1e293b; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: 700; }
+  .primary:hover { filter: brightness(1.1); background: var(--accent); }
+  footer { color: #64748b; font-size: 13px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header><a href="/">${esc(brand)}</a></header>
+<main>
+  <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
+  <h1>${esc(title)}</h1>
+  <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${share.views + 1} view${share.views ? 's' : ''}</span></div>
+  <div class="actions">
+    <button class="btn primary" id="copy" type="button">Copy link</button>
+    <a class="btn" href="/v/${share.id}/video.mp4?download=1">Download</a>
+  </div>
+</main>
+<footer>Translated with <a href="/">${esc(brand)}</a>: subtitles and dubbing for any video, in minutes.</footer>
+<script>
+  document.getElementById('copy').addEventListener('click', async (e) => {
+    try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = 'Copied'; }
+    catch { prompt('Copy this link', ${JSON.stringify(url)}); }
+  });
+</script>
+</body>
+</html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
+/** A file of a share from R2, with byte ranges (seeking in the player). */
+async function fromR2(env: Env, request: Request, key: string, download: string | null): Promise<Response | null> {
+  const object = await env.MEDIA!.get(key, { range: request.headers, onlyIf: request.headers });
+  if (!object) return null;
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('ETag', object.httpEtag);
+  headers.set('Accept-Ranges', 'bytes');
+  if (download) headers.set('Content-Disposition', `attachment; filename="${download}"`);
+  if (!('body' in object)) return new Response(null, { status: 304, headers }); // not modified
+  const range = object.range as { offset?: number; length?: number } | undefined;
+  if (range && request.headers.has('Range')) {
+    const offset = range.offset ?? 0;
+    const length = range.length ?? object.size - offset;
+    headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${object.size}`);
+    headers.set('Content-Length', String(length));
+    return new Response(object.body, { status: 206, headers });
+  }
+  headers.set('Content-Length', String(object.size));
+  return new Response(object.body, { headers });
+}
+
+/** GET /v/<id>, /v/<id>/video.mp4 (?download=1) and /v/<id>/thumb.jpg. */
+export async function handleSharePage(request: Request, env: Env, path: string, origin: string): Promise<Response | null> {
+  const m = path.match(/^\/v\/([A-Za-z0-9]{10})(\/video\.mp4|\/thumb\.jpg)?$/);
+  if (!m || (request.method !== 'GET' && request.method !== 'HEAD')) return null;
+  const share = env.MEDIA ? await getShare(env, m[1]) : null;
+  if (!share) {
+    return new Response('This video is not available any more.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+  if (!m[2]) {
+    await countView(env, share.id);
+    return page(env, share, origin);
+  }
+  const isVideo = m[2] === '/video.mp4';
+  const download = isVideo && new URL(request.url).searchParams.has('download')
+    ? `${(share.title || 'video').replace(/[^\p{L}\p{N} ._-]+/gu, '').slice(0, 80) || 'video'}.${share.tgt_lang}.mp4`
+    : null;
+  if (share.status === 'ready') {
+    const res = await fromR2(env, request, isVideo ? videoKey(share.id) : thumbKey(share.id), download);
+    if (res) return res;
+  }
+  // Not copied yet: the Space still has it (for a day).
+  const job = await env.DB.prepare('SELECT mode, outputs FROM jobs WHERE id = ?').bind(share.job_id).first<{ mode: string; outputs: string | null }>();
+  const name = isVideo ? (job ? videoFile(job as never) : null) : 'thumb.jpg';
+  if (!name) return new Response('Not found.', { status: 404 });
+  return Response.redirect(await fileLink(env, share.job_id, name, 3600, download ?? undefined), 302);
+}

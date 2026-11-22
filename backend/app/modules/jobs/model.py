@@ -13,6 +13,8 @@ OUTPUT_FILES = {
     "transcript": "transcript.txt",
     "mp4": "video.mp4",
     "dubbed": "dubbed.mp4",
+    # A still from a rendered video: the poster of its share page.
+    "thumb": "thumb.jpg",
 }
 # The source video of a burned-in job, kept with the outputs so edited subtitles can be rendered
 # again without downloading and transcribing anything ("rerender" jobs). Never published.
