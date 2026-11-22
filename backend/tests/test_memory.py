@@ -113,3 +113,40 @@ def test_a_dub_says_what_the_corrected_subtitles_say():
     segments = [(0.0, 4.0, "a b"), (5.0, 8.0, "c")]
     cues = [Cue(1, 0.0, 2.0, "a", "ONE"), Cue(2, 2.0, 4.0, "b", "TWO fixed"), Cue(3, 5.0, 8.0, "c", "THREE")]
     assert pipeline._sentences_from_cues(segments, cues, ["old", "old"]) == ["ONE TWO fixed", "THREE"]
+
+
+# --- speech fixes ------------------------------------------------------------------------------
+
+FIXES = {"fixes": [
+    {"src": "ar", "source": "واشنطر", "translation": "واشنطن"},
+    {"src": "ar", "source": "كا فوكس", "translation": "كافوكس"},
+    {"src": "en", "source": "cavox", "translation": "KAVOX"},
+]}
+
+
+def test_fixes_keep_to_their_language():
+    ar = Memory.from_payload(FIXES, "ar")
+    assert len(ar.fixes) == 2 and bool(ar)
+    assert ar.fix_text("وصل إلى واشنطر اليوم") == ("وصل إلى واشنطن اليوم", 1)
+    en = Memory.from_payload(FIXES, "en")
+    assert en.fix_text("Welcome to Cavox.") == ("Welcome to KAVOX.", 1)
+    assert en.fix_text("cavoxes") == ("cavoxes", 0)  # whole words only
+
+
+def test_fix_segments_keep_word_timing():
+    memory = Memory.from_payload(FIXES, "ar")
+    words = [(0.0, 0.5, " مرحبا"), (0.5, 0.8, " كا"), (0.8, 1.2, " فوكس"), (1.2, 1.6, " اليوم")]
+    seg = (0.0, 1.6, "مرحبا كا فوكس اليوم", words)
+    (out,), n = memory.fix_segments([seg])
+    assert n == 1
+    assert out[2] == "مرحبا كافوكس اليوم"
+    assert out[3] == [(0.0, 0.5, " مرحبا"), (0.5, 1.2, " كافوكس"), (1.2, 1.6, " اليوم")]
+    plain, n = memory.fix_segments([(0.0, 1.0, "في واشنطر")])
+    assert n == 1 and plain[0][2] == "في واشنطن"
+    untouched = [(0.0, 1.0, "لا شيء هنا", [])]
+    assert memory.fix_segments(untouched) == (untouched, 0)
+
+
+def test_hotwords_are_the_right_words():
+    assert Memory.from_payload(FIXES, "ar").hotwords() == "كافوكس واشنطن"
+    assert Memory.from_payload(None, "ar").hotwords() is None

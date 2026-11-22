@@ -222,6 +222,10 @@ stretches of speech, starting when they start, pausing where they pause and endi
 the voice itself speaks a line faster (up to +35%) or a little slower (down to −15%) to fit. The
 picture is not changed.
 
+Voices: **female** and **male** are Microsoft Edge voices; **classic** is eSpeak NG, a rule-based
+(formant) voice that runs on the Space itself with no model and no AI. It sounds synthetic, but
+it is entirely mechanical and predictable.
+
 ### Translation memory (learning without AI)
 
 KAVOX learns from the people who use it, with plain rules anyone can read:
@@ -236,11 +240,18 @@ KAVOX learns from the people who use it, with plain rules anyone can read:
   the term is swapped for a placeholder the model copies, and the term's translation is put back
   afterwards. In the rare case the model drops the placeholder, that line is translated again
   without the glossary, so it may not use the admin's wording.
+- **Speech fixes**: when someone signed in corrects a word the speech recognition misheard (the
+  original line in the subtitle editor), the words they changed count as their vote for "these
+  words were really those" in that spoken language. After 3 people (or an admin's approval), every
+  later video in that language gets the fix right after recognition, before translation; the
+  words keep their timing. The fixed words are also given to Whisper as hints (hotwords) when the
+  video's language is chosen. A fix is at most 6 words; a rewritten line teaches nothing.
 - On the website's **/admin → Learning** page an admin sees every rule with its votes, approves one
-  at once, corrects, rejects or deletes it, and adds sentences or terms.
+  at once, corrects, rejects or deletes it, and adds sentences, terms or speech fixes.
 
-Each job is sent the active rules for its target language; the Space applies them before its model
-(a whole sentence, then each subtitle).
+Each job is sent the active rules for its target language (and the speech fixes for its spoken
+language); the Space applies them before its models (speech fixes, then a whole sentence, then
+each subtitle).
 
 ### Video ending (outro)
 

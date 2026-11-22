@@ -25,7 +25,7 @@ def fake_models(monkeypatch):
     monkeypatch.setattr(translation, "warm_up", lambda: None)
     monkeypatch.setattr(
         speech, "transcribe",
-        lambda audio, language, duration, cancelled, progress: ([(0.0, 1.5, " Hello there. ")], "en"),
+        lambda audio, language, duration, cancelled, progress, hotwords=None: ([(0.0, 1.5, " Hello there. ")], "en"),
     )
     monkeypatch.setattr(
         translation, "translate_texts",
@@ -173,7 +173,7 @@ def test_cancel_frees_queue_slot_and_is_not_overwritten(client, tmp_path, monkey
 
     release = threading.Event()
 
-    def slow_transcribe(audio, language, duration, cancelled, progress):
+    def slow_transcribe(audio, language, duration, cancelled, progress, hotwords=None):
         release.wait(10)
         return [(0.0, 1.0, "hi")], "en"
 
@@ -260,3 +260,23 @@ def test_a_job_uses_the_translation_memory_it_is_sent(client, tmp_path):
     assert data["status"] == "done" and data["memory_hits"] >= 1
     srt = client.get(f"/files/{job}/subtitles.srt", params=signed(f"file:{job}:subtitles.srt")).text
     assert "أهلاً بك" in srt and "[ar]" not in srt
+
+
+def test_a_job_applies_speech_fixes_before_translating(client, tmp_path, monkeypatch):
+    heard = {}
+
+    def fake(audio, language, duration, cancelled, progress, hotwords=None):
+        heard["hotwords"] = hotwords
+        return [(0.0, 1.5, " Hello Cavox. ")], "en"
+
+    monkeypatch.setattr(speech, "transcribe", fake)
+    job = "0c0c0c0c-0000-4000-8000-000000000002"
+    assert client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path)).status_code == 200
+    memory = {"sentences": [], "terms": [], "fixes": [{"src": "en", "source": "cavox", "translation": "KAVOX"}]}
+    body = {"job_id": job, "source_kind": "upload", "src_lang": "en", "tgt_lang": "ar", "subtitle_mode": "soft", "memory": memory}
+    assert client.post("/invoke", json=body, headers=AUTH).status_code == 202
+    data = wait_done(client, job)
+    assert data["status"] == "done" and data["speech_fixes"] == 1
+    assert heard["hotwords"] == "KAVOX"
+    srt = client.get(f"/files/{job}/original.srt", params=signed(f"file:{job}:original.srt")).text
+    assert "KAVOX" in srt and "Cavox" not in srt

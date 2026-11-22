@@ -1,8 +1,6 @@
 import { apiError, json } from '../../shared/http';
 import type { Env } from '../../shared/env';
-import { LEARN_VOTES, counts, deleteEntry, getEntry, listEntries, saveByAdmin, setStatus, type EntryKind } from './store';
-
-const KINDS: EntryKind[] = ['sentence', 'term'];
+import { ENTRY_KINDS, LEARN_VOTES, counts, deleteEntry, getEntry, listEntries, saveByAdmin, setStatus, type EntryKind } from './store';
 const LANG = /^[a-z]{2,3}$/;
 
 /**
@@ -22,8 +20,11 @@ export async function handleMemoryAdmin(request: Request, env: Env, path: string
   if (path === '/api/admin/memory' && request.method === 'POST') {
     const b = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const kind = String(b?.kind ?? '') as EntryKind;
-    const [src, tgt, source, translation] = ['src', 'tgt', 'source', 'translation'].map((k) => String(b?.[k] ?? '').trim());
-    if (!KINDS.includes(kind) || !LANG.test(src) || !LANG.test(tgt) || src === tgt || !source || !translation) {
+    const [src, rawTgt, source, translation] = ['src', 'tgt', 'source', 'translation'].map((k) => String(b?.[k] ?? '').trim());
+    // A speech fix stays in the spoken language: "these words were really those".
+    const tgt = kind === 'fix' ? src : rawTgt;
+    const sameLang = kind !== 'fix' && src === tgt;
+    if (!ENTRY_KINDS.includes(kind) || !LANG.test(src) || !LANG.test(tgt) || sameLang || !source || !translation) {
       return apiError(400, 'E_BAD_REQUEST', 'Give the kind, both languages, the text and its translation.');
     }
     if (source.length > 500 || translation.length > 500) return apiError(400, 'E_BAD_REQUEST', 'Keep entries under 500 characters.');

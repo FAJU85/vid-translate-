@@ -353,7 +353,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                 {taught.signed_in
                   ? taught.learned
                     ? `Thank you: ${taught.learned} correction${taught.learned === 1 ? '' : 's'} counted. When enough people make the same correction, KAVOX learns it for everyone.`
-                    : 'Thank you. Corrections to the translation (not the timing) teach KAVOX.'
+                    : 'Thank you. Corrections to the words heard or the translation (not the timing) teach KAVOX.'
                   : 'Sign in so your corrections teach KAVOX to translate better for everyone.'}
               </p>
             )}
@@ -503,13 +503,28 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                     </button>
                   </div>
                   <div className={`grid gap-2 ${view === 'both' ? 'md:grid-cols-2' : ''}`}>
-                    {view !== 'translation' && (
-                      <p dir="auto" className="text-slate-400 leading-relaxed">{renderWords(cue, cue.text, false, view === 'original')}</p>
-                    )}
+                    {view !== 'translation' &&
+                      (editing === cue.index ? (
+                        // Correcting a misheard word teaches KAVOX's speech fixes.
+                        <textarea
+                          dir="auto"
+                          aria-label="What was said"
+                          rows={2}
+                          value={cue.text}
+                          onChange={(e) => {
+                            setCues(cues.map((c, j) => (j === i ? { ...c, text: e.target.value } : c)));
+                            setEdited(true);
+                          }}
+                          className="w-full p-2 rounded-lg bg-slate-900 border border-slate-600 text-slate-300 focus:outline-none focus:border-amber-400/60"
+                        />
+                      ) : (
+                        <p dir="auto" className="text-slate-400 leading-relaxed">{renderWords(cue, cue.text, false, view === 'original')}</p>
+                      ))}
                     {view !== 'original' &&
                       (editing === cue.index ? (
                         <textarea
                           dir={dir}
+                          aria-label="Translation"
                           autoFocus
                           rows={2}
                           value={cue.translation}

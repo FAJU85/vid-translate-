@@ -11,8 +11,8 @@ export interface SubtitleStyle {
   font: 'modern' | 'classic' | 'bold';
   /** Also show the original text, smaller, next to the translation. */
   bilingual: boolean;
-  /** Dubbing: the voice that speaks the translation. */
-  voice: 'female' | 'male';
+  /** Dubbing: the voice that speaks the translation (classic: eSpeak NG, rule-based, no AI). */
+  voice: 'female' | 'male' | 'classic';
   /** Dynamic captions: none, highlight (the spoken word lights up), pop (a few words at a time). */
   animation: 'none' | 'highlight' | 'pop';
 }
@@ -46,7 +46,7 @@ export function parseSubtitleStyle(input: unknown): SubtitleStyle {
     background: pick(SUBTITLE_BACKGROUNDS, raw.background, DEFAULT_STYLE.background),
     font: pick(SUBTITLE_FONTS, raw.font, DEFAULT_STYLE.font),
     bilingual: raw.bilingual === true,
-    voice: raw.voice === 'male' ? 'male' : 'female',
+    voice: raw.voice === 'male' || raw.voice === 'classic' ? raw.voice : 'female',
     animation: pick(SUBTITLE_ANIMATIONS, raw.animation, DEFAULT_STYLE.animation),
   };
 }

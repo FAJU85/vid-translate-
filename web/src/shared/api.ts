@@ -13,7 +13,7 @@ export interface SubtitleStyle {
   /** Also show the original text, smaller, next to the translation. */
   bilingual?: boolean;
   /** Dubbing: the voice that speaks the translation. */
-  voice?: 'female' | 'male';
+  voice?: 'female' | 'male' | 'classic';
   /** Dynamic captions: none, highlight (the spoken word lights up), pop (a few words at a time). */
   animation?: 'none' | 'highlight' | 'pop';
 }
@@ -373,7 +373,8 @@ export const adminApi = {
 };
 
 /** A rule in the translation memory (a learned or written sentence, or a glossary term). */
-export type MemoryKind = 'sentence' | 'term';
+/** fix: a speech fix, words the speech recognition mishears and what was said (src = tgt). */
+export type MemoryKind = 'sentence' | 'term' | 'fix';
 export interface MemoryEntry {
   id: number;
   kind: MemoryKind;

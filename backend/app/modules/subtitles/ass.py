@@ -54,7 +54,7 @@ class SubtitleStyle:
     background: str = "outline"
     font: str = "modern"
     bilingual: bool = False  # also show the original text, smaller, next to the translation
-    voice: str = "female"  # dubbing: the voice that speaks the translation (female / male)
+    voice: str = "female"  # dubbing: the voice (female / male, or classic: eSpeak NG, rule-based)
     animation: str = "none"  # dynamic captions (ANIMATIONS)
 
     @classmethod
@@ -76,7 +76,7 @@ class SubtitleStyle:
             background=pick("background", BACKGROUNDS),
             font=pick("font", FONTS),
             bilingual=data.get("bilingual") is True,
-            voice=pick("voice", ("female", "male")),
+            voice=pick("voice", ("female", "male", "classic")),
             animation=pick("animation", ANIMATIONS),
         )
 

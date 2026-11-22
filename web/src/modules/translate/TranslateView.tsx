@@ -219,7 +219,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-2">
             <div className="text-sm font-medium text-slate-200">Voice</div>
             <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-sm">
-              {(['female', 'male'] as const).map((v) => (
+              {(['female', 'male', 'classic'] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -231,12 +231,15 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
                   aria-pressed={(style.voice ?? 'female') === v}
                   className={`px-3 py-1.5 rounded-lg ${(style.voice ?? 'female') === v ? 'bg-amber-400 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white'}`}
                 >
-                  {v === 'female' ? 'Female' : 'Male'}
+                  {v === 'female' ? 'Female' : v === 'male' ? 'Male' : 'Classic'}
                 </button>
               ))}
             </div>
             <p className="text-xs text-slate-400">
-              Each subtitle is spoken in the target language by a Microsoft Edge voice, over the original sound turned down low. You also get the subtitle files.
+              {style.voice === 'classic'
+                ? 'Spoken by eSpeak NG, a rule-based voice (no AI): clear and predictable, but it sounds synthetic.'
+                : 'Each sentence is spoken in the target language by a Microsoft Edge voice, timed to the speaker, over the original sound turned down low.'}{' '}
+              You also get the subtitle files.
             </p>
           </div>
         )}

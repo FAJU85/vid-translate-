@@ -116,3 +116,20 @@ def test_a_bad_background_volume_keeps_the_default(monkeypatch):
     assert config._volume("X_VOL", 0.18) == 0.18
     monkeypatch.setenv("X_VOL", "7")
     assert config._volume("X_VOL", 0.18) == 1.0
+
+
+def test_the_classic_voice_is_espeak_ng():
+    assert voice.voice_for("ar", "classic") == "espeak:ar"
+    assert voice.voice_for("so", "classic") is None  # no eSpeak NG voice: no dubbing
+
+
+@pytest.mark.skipif(not shutil.which("espeak-ng"), reason="espeak-ng is not installed")
+def test_the_classic_voice_speaks_without_any_model(tmp_path):
+    import asyncio
+
+    from app.modules.voice import core
+
+    dest = tmp_path / "line.wav"
+    asyncio.run(core._espeak("Welcome to KAVOX", "en", dest, 0))
+    with wave.open(str(dest)) as w:
+        assert w.getnframes() / w.getframerate() > 0.5
