@@ -1,12 +1,9 @@
-"""Accuracy: invented speech is dropped, the translator gets context, dubbed lines fit their time."""
-import json
-
+"""Accuracy: invented speech is dropped, dubbed lines follow the speaker's timing, text is cleaned by rules."""
 import pytest
 
 from app.modules import voice
 from app.modules.jobs import pipeline
 from app.modules.speech.whisper import is_invented
-from app.modules.translation.core import _gemini_prompt
 from test_api import AUTH, JOB, client, fake_models, make_clip, signed, wait_done  # noqa: F401
 from test_dub import tone
 
@@ -35,18 +32,6 @@ def test_real_speech_is_kept_even_when_it_mentions_watching():
 def test_loops_and_silence_are_dropped():
     assert is_invented("the the the the the", no_speech_prob=0.1, avg_logprob=-0.3, compression_ratio=3.1)
     assert is_invented("Hmm.", no_speech_prob=0.8, avg_logprob=-1.4, compression_ratio=1.0)
-
-
-def test_the_translator_gets_the_title_the_lines_before_and_for_a_dub_their_time():
-    prompt = _gemini_prompt(
-        ["Hello.", "We went to the market."], "English", "Arabic", title="Market day",
-        before=[("Good morning.", "صباح الخير.")], seconds=[1.0, 4.0],
-    )
-    assert '"Market day"' in prompt and "Modern Standard Arabic" in prompt
-    assert json.dumps([{"source": "Good morning.", "translation": "صباح الخير."}], ensure_ascii=False) in prompt
-    assert "[3, 10]" in prompt  # word limits from 2.6 words a second
-    plain = _gemini_prompt(["Hello."], "English", "French")
-    assert "dub" not in plain and "context only" not in plain and "Arabic" not in plain
 
 
 def test_speaking_time_runs_until_the_next_sentence():

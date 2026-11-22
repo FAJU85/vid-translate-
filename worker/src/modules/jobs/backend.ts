@@ -19,6 +19,8 @@ export interface InvokeBody {
   cues?: unknown[];
   /** The ending added to rendered videos; 'custom' after uploadOutro. */
   outro?: 'kavox' | 'custom' | 'none';
+  /** Translation memory for the target language (learning brick). */
+  memory?: Record<string, unknown>;
   callback_url: string;
   title: string | null;
 }

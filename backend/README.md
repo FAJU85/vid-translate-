@@ -24,8 +24,6 @@ Set these under **Settings → Variables and secrets** of the Space.
 | Name | Kind | Default | Purpose |
 | --- | --- | --- | --- |
 | `SHARED_SECRET` | secret, **required** | – | Same value as the Worker's `SHARED_SECRET`. |
-| `GEMINI_API_KEY` | secret | – | Use Gemini for translation (better quality); falls back to NLLB on errors. |
-| `GEMINI_MODEL` | variable | `gemini-2.5-flash` | Gemini model name. |
 | `WHISPER_MODEL` | variable | `large-v3-turbo` | `tiny`, `base`, `small`, `medium`, `large-v3-turbo`, `large-v3`… Larger is slower and more accurate; `large-v3-turbo` is the best balance on a free CPU Space (`small` is about 1.4× faster, with many more mistakes). |
 | `WORD_TIMESTAMPS` | variable | `1` | Word timings for sentence-aware subtitles timed to the speech (about 6% more speech-recognition time). `0` turns them off. |
 | `MAX_DURATION_MIN` | variable | `60` | Longest video accepted. |
@@ -64,4 +62,6 @@ python -m pytest tests
 ```
 
 Needs `ffmpeg` on the PATH. The default translation model (NLLB-200) is licensed CC-BY-NC 4.0
-(non-commercial); set `GEMINI_API_KEY` or swap `NLLB_MODEL` if that does not fit your use.
+(non-commercial): before charging for the service, swap `NLLB_MODEL` for a model whose licence allows
+commercial use. The translation memory (rules learned from people's corrections, sent by the Worker with
+each job) is applied before the model.

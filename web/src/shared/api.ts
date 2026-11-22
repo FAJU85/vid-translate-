@@ -266,6 +266,15 @@ export const api = {
     call<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ ...body, client_id: clientId() }) }),
   start: (id: string, duration?: number | null) =>
     call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId(), duration }) }),
+  /** Your corrections to a translation: they teach the translation memory (signed in). */
+  corrections: (id: string, cues: Cue[]) =>
+    call<{ learned: number; signed_in: boolean }>(`/api/jobs/${id}/corrections`, {
+      method: 'POST',
+      body: JSON.stringify({
+        client_id: clientId(),
+        cues: cues.map(({ start, end, text, translation }) => ({ start, end, text, translation })),
+      }),
+    }),
   render: (id: string, cues: Cue[]) =>
     call<Job>(`/api/jobs/${id}/render`, {
       method: 'POST',
@@ -344,6 +353,17 @@ export const adminApi = {
   account: (password: string, id: string) => call<AdminAccount>(`/api/admin/accounts/${id}`, { headers: auth(password) }),
   grant: (password: string, id: string, body: { seconds: number; bucket: Bucket; days?: number; note?: string }) =>
     call<AdminAccount>(`/api/admin/accounts/${id}/credits`, { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
+  memory: (password: string, f: { status?: string; tgt?: string; q?: string } = {}) =>
+    call<{ entries: MemoryEntry[]; counts: Record<string, number>; learn_votes: number }>(
+      `/api/admin/memory?${new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][])}`,
+      { headers: auth(password) },
+    ),
+  addMemory: (password: string, e: { kind: MemoryKind; src: string; tgt: string; source: string; translation: string; replaces?: number }) =>
+    call<{ id: number }>('/api/admin/memory', { method: 'POST', headers: auth(password), body: JSON.stringify(e) }),
+  judgeMemory: (password: string, id: number, status: 'approved' | 'rejected') =>
+    call<{ ok: true }>(`/api/admin/memory/${id}`, { method: 'POST', headers: auth(password), body: JSON.stringify({ status }) }),
+  deleteMemory: (password: string, id: number) =>
+    call<{ ok: true }>(`/api/admin/memory/${id}`, { method: 'DELETE', headers: auth(password) }),
   act: (password: string, action: AdminAction, ids: string[]) =>
     call<{ results: AdminActionResult[] }>('/api/admin/jobs', {
       method: 'POST',
@@ -351,6 +371,20 @@ export const adminApi = {
       body: JSON.stringify({ action, ids }),
     }),
 };
+
+/** A rule in the translation memory (a learned or written sentence, or a glossary term). */
+export type MemoryKind = 'sentence' | 'term';
+export interface MemoryEntry {
+  id: number;
+  kind: MemoryKind;
+  src: string;
+  tgt: string;
+  source: string;
+  translation: string;
+  status: 'candidate' | 'learned' | 'approved' | 'rejected';
+  votes: number;
+  updated_at: number;
+}
 
 /** An account as the /admin page sees it. */
 export interface AdminAccount extends Account {

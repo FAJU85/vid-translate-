@@ -65,6 +65,29 @@ export function registerOutroChooser(chooser: OutroChooser): void {
   outroChooser = chooser;
 }
 
+/**
+ * Port through which another brick (learning) supplies a job's translation memory: the rules,
+ * learned from people's corrections or written by an admin, the Space applies before its model.
+ */
+export type MemoryProvider = (env: Env, job: JobRow) => Promise<Record<string, unknown> | null>;
+
+let memoryProvider: MemoryProvider | null = null;
+
+export function registerMemoryProvider(provider: MemoryProvider): void {
+  memoryProvider = provider;
+}
+
+/** A job's translation memory; none when nothing is learned yet or it cannot be read. */
+export async function memoryFor(env: Env, job: JobRow): Promise<Record<string, unknown> | null> {
+  if (!memoryProvider) return null;
+  try {
+    return await memoryProvider(env, job);
+  } catch (err) {
+    console.error('reading the translation memory failed for', job.id, (err as Error).stack ?? err);
+    return null;
+  }
+}
+
 /** The ending for a job; the KAVOX one when nothing else is chosen or the choice fails. */
 export async function chooseOutro(env: Env, job: JobRow): Promise<OutroChoice> {
   if (!outroChooser) return { kind: 'kavox' };

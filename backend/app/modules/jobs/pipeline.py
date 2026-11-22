@@ -103,15 +103,22 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     # 3. Translation -------------------------------------------------------------
     enter("translating")
-    # A dub is spoken over the original timing: the translator is told how long each line may last.
-    seconds = _speaking_time(segments, info["duration"]) if job.mode == "dub" else None
+    # The translation memory (rules learned from people's corrections) decides first.
+    memory = translation.Memory.from_payload(job.memory, detected)
     try:
         translations, job.engine = translation.translate_texts(
-            [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating"), job.title, seconds
+            [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating"), memory
         )
     except translation.TranslationError as exc:
         raise PipelineError("E_NMT_FAILED", str(exc)) from exc
+    job.memory_hits = sum(1 for seg in segments if memory.sentence(seg[2]) is not None)
     cues = subtitles.build_cues(segments, translations)
+    # ...and again for each subtitle: corrections are often made to one subtitle, not a sentence.
+    for cue in cues:
+        remembered = memory.sentence(cue.text)
+        if remembered is not None and remembered != cue.translation:
+            cue.translation = remembered
+            job.memory_hits += 1
 
     outputs = write_subtitle_files(workdir, cues, detected, job.tgt_lang)
 

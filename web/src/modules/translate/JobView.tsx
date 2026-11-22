@@ -36,6 +36,16 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
+  // Corrections sent to the translation memory (once per version of the edits).
+  const [taught, setTaught] = useState<{ learned: number; signed_in: boolean } | null>(null);
+  const taughtFor = useRef<string>('');
+  const teach = () => {
+    if (!job || !cues || !edited) return;
+    const key = JSON.stringify(cues.map((c) => c.translation));
+    if (taughtFor.current === key) return;
+    taughtFor.current = key;
+    api.corrections(job.id, cues).then(setTaught, () => {});
+  };
   const [renderError, setRenderError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   // Interactive transcript: which text to show, whether it follows the video, and a search.
@@ -318,6 +328,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
               {editedSrtUrl && (
                 <a
                   href={editedSrtUrl}
+                  onClick={teach}
                   download={`${title}.${job.tgt_lang}.edited.srt`}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-semibold border border-amber-400/60 text-amber-300 hover:bg-amber-400/10"
                 >
@@ -326,6 +337,15 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                 </a>
               )}
             </div>
+            {taught && (
+              <p className="text-xs text-slate-400">
+                {taught.signed_in
+                  ? taught.learned
+                    ? `Thank you: ${taught.learned} correction${taught.learned === 1 ? '' : 's'} counted. When enough people make the same correction, KAVOX learns it for everyone.`
+                    : 'Thank you. Corrections to the translation (not the timing) teach KAVOX.'
+                  : 'Sign in so your corrections teach KAVOX to translate better for everyone.'}
+              </p>
+            )}
             {edited && cues && job.can_rerender && (
               <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-amber-400/40 bg-amber-400/5">
                 <span className="flex-1 min-w-[12rem] text-sm text-amber-100">
@@ -334,6 +354,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                 <button
                   disabled={rendering}
                   onClick={() => {
+                    teach();
                     setRendering(true);
                     setRenderError(null);
                     api

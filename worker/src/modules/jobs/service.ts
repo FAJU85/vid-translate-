@@ -1,6 +1,6 @@
 import { now, type Env } from '../../shared/env';
 import * as backend from './backend';
-import { chooseOutro, emitChanged, emitFinished, sourceFetcher } from './events';
+import { chooseOutro, emitChanged, emitFinished, memoryFor, sourceFetcher } from './events';
 import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind, type SubtitleMode } from './model';
 import * as store from './store';
 import type { SubtitleStyle } from './style';
@@ -147,6 +147,7 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       subtitle_mode: job.mode,
       subtitle_style: job.style ? (JSON.parse(job.style) as SubtitleStyle) : undefined,
       outro,
+      memory: (await memoryFor(env, job)) ?? undefined,
       ...(job.source_kind === 'rerender' ? { parent_job_id: job.source, cues: JSON.parse(job.cues || '[]') as unknown[] } : {}),
       callback_url: `${job.origin}/api/callback`,
       title: job.title,

@@ -45,11 +45,8 @@ DUB_BACKGROUND_VOLUME = _volume("DUB_BACKGROUND_VOLUME", 0.18)  # original sound
 # Word timestamps let subtitles follow whole sentences and the speech itself (a little extra CPU).
 WORD_TIMESTAMPS = _bool("WORD_TIMESTAMPS", True)
 
-# Translation. "auto" = Gemini when GEMINI_API_KEY is set, otherwise the local NLLB model.
-TRANSLATOR = os.environ.get("TRANSLATOR", "auto").lower()
+# Translation: the translation memory (sent with each job) first, then this local model.
 NLLB_MODEL = os.environ.get("NLLB_MODEL", "JustFrederik/nllb-200-distilled-600M-ct2-int8")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 def _available_cpus() -> int:
     """CPUs this container may really use.

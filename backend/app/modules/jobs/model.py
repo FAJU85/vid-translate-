@@ -45,6 +45,8 @@ class Job:
     style: dict | None = None   # burned-in subtitle style (subtitles.SubtitleStyle fields)
     cues: list | None = None    # rerender: the edited subtitles [{start, end, text, translation}]
     outro: str = "kavox"        # ending added to rendered videos: "kavox" | "custom" | "none"
+    memory: dict | None = None  # translation memory for this job (translation.Memory payload)
+    memory_hits: int = 0        # lines the memory translated (the rest went to the model)
     status: str = "queued"
     stage: str = "queued"
     progress: int = 0
@@ -71,6 +73,7 @@ class Job:
             "duration": self.duration,
             "detected_lang": self.detected_lang,
             "engine": self.engine,
+            "memory_hits": self.memory_hits,
             "outputs": self.outputs,
             "error": {"code": self.error_code, "message": self.error_message} if self.error_code else None,
         }

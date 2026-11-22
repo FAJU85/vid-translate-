@@ -25,6 +25,7 @@ import {
   type JobRow,
 } from '../jobs';
 import { handleAdminJobs } from './admin';
+import { handleMemoryAdmin, learnFromEdit } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
 import {
@@ -271,6 +272,12 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/admin/jobs' || path === '/api/admin/stats' || path.startsWith('/api/admin/jobs/')) {
     return handleAdminJobs(request, env, ctx, path);
   }
+  // The translation memory: what KAVOX learned from corrections, to review, approve or add.
+  if (path === '/api/admin/memory' || path.startsWith('/api/admin/memory/')) {
+    if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    const memory = await handleMemoryAdmin(request, env, path);
+    if (memory) return memory;
+  }
 
   if (path === '/api/jobs' && method === 'GET') {
     const client = url.searchParams.get('client_id') ?? '';
@@ -352,7 +359,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     );
   }
 
-  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry|\/render)?$/);
+  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry|\/render|\/corrections)?$/);
   if (match) {
     const job = await getJob(env, match[1]);
     if (!job) return apiError(404, 'E_JOB_NOT_FOUND', 'Job not found.');
@@ -365,6 +372,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       const mine =
         job.owner === `web:${body?.client_id}` || (job.account_id !== null && job.account_id === (await signedInAccount(env, request))?.id);
       if (!mine) return apiError(403, 'E_FORBIDDEN', 'This job belongs to someone else.');
+      // Corrections to the translation teach the translation memory (signed-in accounts only:
+      // one vote per person, so nobody can teach a rule alone).
+      if (match[2] === '/corrections') {
+        const parsed = parseCues(body?.cues);
+        if ('error' in parsed) return apiError(400, 'E_BAD_REQUEST', parsed.error);
+        const account = await signedInAccount(env, request);
+        const learned = await learnFromEdit(env, job, parsed.cues, account?.id ?? null);
+        return json({ learned, signed_in: Boolean(account) });
+      }
       if (match[2] === '/render') {
         const pub = await publicJob(env, job);
         if (!pub.can_rerender) return apiError(400, 'E_BAD_REQUEST', 'This video can no longer be rendered again. Translate it again.');

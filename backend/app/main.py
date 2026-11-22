@@ -87,6 +87,8 @@ class InvokeRequest(BaseModel):
     cues: list[dict] | None = Field(default=None, max_length=5000)
     # The ending added to rendered videos; "custom" uses the clip PUT to /outro/{job_id} first.
     outro: str = Field(default="kavox", pattern="^(kavox|custom|none)$")
+    # Translation memory for the target language, learned by the Worker from people's corrections.
+    memory: dict | None = None
 
 
 def _require_auth(authorization: str | None) -> None:
@@ -173,6 +175,7 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         style=subtitles.SubtitleStyle.from_dict(req.subtitle_style).to_dict(),
         cues=req.cues if req.source_kind == "rerender" else None,
         outro=req.outro,
+        memory=req.memory,
     )
     try:
         job = manager.submit(job)
