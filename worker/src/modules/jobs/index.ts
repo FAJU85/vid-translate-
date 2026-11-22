@@ -5,7 +5,20 @@
  */
 export type { BackendState, Channel, JobRow, JobStatus, SourceKind, SubtitleMode } from './model';
 export { TERMINAL } from './model';
-export { JOBS_COLUMNS, JOBS_SCHEMA, activeJobs, allJobs, claimDelivery, deleteFinishedJobs, getJob, listJobs } from './store';
+export {
+  JOBS_COLUMNS,
+  JOBS_SCHEMA,
+  activeJobs,
+  allJobs,
+  claimDelivery,
+  deleteFinishedJobs,
+  getJob,
+  jobStats,
+  jobsFor,
+  listJobs,
+  type JobOwner,
+  type JobStats,
+} from './store';
 export {
   DEFAULT_STYLE,
   STYLE_PRESETS,

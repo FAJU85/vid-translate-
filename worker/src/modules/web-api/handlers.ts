@@ -12,6 +12,8 @@ import {
   dispatch,
   fileLink,
   getJob,
+  jobStats,
+  jobsFor,
   listJobs,
   maxPerHour,
   parseSubtitleStyle,
@@ -23,7 +25,7 @@ import {
   type JobRow,
 } from '../jobs';
 import { handleAdminJobs } from './admin';
-import { handleShares, shareUrl } from '../shares';
+import { handleShares, listShares, publicShare, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
 import {
   FREE_MAX_VIDEO_SECONDS,
@@ -201,6 +203,36 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     isAdmin: path.startsWith('/api/admin/') && isAdmin(request, env),
   });
   if (accounts) return accounts;
+
+  // Your dashboard: what you translated (website and bot), its links and your numbers.
+  if (path === '/api/dashboard' && method === 'GET') {
+    const clientId = url.searchParams.get('client_id') ?? '';
+    const owner = UUID.test(clientId) ? `web:${clientId}` : null;
+    const account = await signedInAccount(env, request);
+    const who = { accountId: account?.id ?? null, owner };
+    const [jobs, stats, shares] = await Promise.all([jobsFor(env, who, 100), jobStats(env, who), listShares(env, who, 200)]);
+    const byJob = new Map(shares.map((s) => [s.job_id, publicShare(s, api.origin)]));
+    const fresh = (j: JobRow) => j.status === 'done' && Date.now() / 1000 - j.created_at < 24 * 3600;
+    return json({
+      signed_in: Boolean(account),
+      stats: { ...stats, share_views: shares.reduce((n, s) => n + s.views, 0), shared_videos: shares.length },
+      videos: jobs.map((j) => ({
+        job_id: j.id,
+        title: j.title,
+        channel: j.channel,
+        status: j.status,
+        mode: j.mode,
+        src_lang: j.detected_lang ?? j.src_lang,
+        tgt_lang: j.tgt_lang,
+        duration: j.duration,
+        created_at: j.created_at,
+        rerender: j.source_kind === 'rerender',
+        // Its files are on the Space for a day: the website can open the result.
+        can_open: fresh(j) && j.channel === 'web',
+        share: byJob.get(j.id) ?? null,
+      })),
+    });
+  }
 
   // Your shared videos (list, delete): by account, or by this browser's jobs.
   if (path === '/api/shares' || path.startsWith('/api/shares/')) {

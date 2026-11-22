@@ -194,6 +194,52 @@ export interface LedgerEntry {
   created_at: number;
 }
 
+/** A video's public page (shares). */
+export interface Share {
+  id: string;
+  url: string;
+  job_id: string;
+  title: string | null;
+  views: number;
+  ready: boolean;
+  thumb_url: string | null;
+  created_at: number;
+  /** null: kept until deleted (monthly plans). */
+  expires_at: number | null;
+}
+export interface DashboardVideo {
+  job_id: string;
+  title: string | null;
+  channel: 'web' | 'telegram' | string;
+  status: string;
+  mode: SubtitleMode;
+  src_lang: string | null;
+  tgt_lang: string;
+  duration: number | null;
+  created_at: number;
+  rerender: boolean;
+  can_open: boolean;
+  share: Share | null;
+}
+export interface Dashboard {
+  signed_in: boolean;
+  stats: {
+    videos: number;
+    seconds: number;
+    by_mode: Partial<Record<SubtitleMode, number>>;
+    languages: { lang: string; videos: number }[];
+    last_30_days: { videos: number; seconds: number };
+    per_day: { day: string; videos: number }[];
+    share_views: number;
+    shared_videos: number;
+  };
+  videos: DashboardVideo[];
+}
+export const dashboardApi = {
+  get: () => call<Dashboard>(`/api/dashboard?client_id=${clientId()}`),
+  deleteShare: (id: string) => call<{ ok: true }>(`/api/shares/${id}?client_id=${clientId()}`, { method: 'DELETE' }),
+};
+
 export const accountApi = {
   me: () => call<Me>(`/api/me?client_id=${clientId()}`),
   history: () => call<LedgerEntry[]>(`/api/me/history?client_id=${clientId()}`),

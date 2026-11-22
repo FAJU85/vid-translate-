@@ -249,7 +249,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
             </div>
             {waitLine(job) && <p className="text-sm text-slate-300">{waitLine(job)}</p>}
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>You can leave this page open or come back later from “My translations”.</span>
+              <span>You can leave this page open or come back later from your Dashboard.</span>
               <button
                 onClick={() => api.cancel(job.id).then(setJob).catch(() => {})}
                 className="text-slate-300 hover:text-white underline"

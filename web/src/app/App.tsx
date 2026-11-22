@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { HistoryView } from '../modules/history';
+import { DashboardView } from '../modules/dashboard';
 import { PricingView } from '../modules/pricing';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
@@ -38,7 +38,10 @@ export default function App() {
 
 function Site() {
   // ?tab=pricing opens the prices (links from the bot).
-  const [tab, setTab] = useState<NavTab>(() => (new URLSearchParams(window.location.search).get('tab') === 'pricing' ? 'pricing' : 'translate'));
+  const [tab, setTab] = useState<NavTab>(() => {
+    const asked = new URLSearchParams(window.location.search).get('tab');
+    return asked === 'pricing' || asked === 'dashboard' ? asked : 'translate';
+  });
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [configError, setConfigError] = useState(false);
@@ -166,13 +169,17 @@ function Site() {
             resume={resume}
           />
         </div>
-        {tab === 'history' && (
-          <HistoryView
+        {tab === 'dashboard' && (
+          <DashboardView
+            me={me}
             config={config}
-            onOpen={(id) => {
+            onMe={setMe}
+            onOpenJob={(id) => {
               setJobId(id);
               setTab('translate');
             }}
+            onSignIn={() => setAccountOpen(true)}
+            onPricing={() => setTab('pricing')}
           />
         )}
         {tab === 'telegram' && <TelegramView config={config} />}
