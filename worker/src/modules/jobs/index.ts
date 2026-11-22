@@ -34,6 +34,7 @@ export {
 } from './style';
 export {
   registerJobListener,
+  registerMemoryProvider,
   registerOutroChooser,
   registerSourceFetcher,
   type JobListener,

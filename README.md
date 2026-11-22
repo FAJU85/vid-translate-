@@ -45,7 +45,6 @@ Hugging Face** workflow (Actions tab → Run workflow). Run it again after chang
 | `GOOGLE_CLIENT_SECRET` | Worker | With `GOOGLE_CLIENT_ID`: that client's secret. |
 | `STRIPE_SECRET_KEY` | Worker | Optional: card payments on the website. Stripe dashboard → Developers → API keys (`sk_live_…`, or `sk_test_…` to try). |
 | `STRIPE_WEBHOOK_SECRET` | Worker | With `STRIPE_SECRET_KEY`: Developers → Webhooks → add the endpoint `https://YOUR-WORKER/api/stripe/webhook` with the events `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `invoice.paid`, then copy its signing secret (`whsec_…`). |
-| `GEMINI_API_KEY` | Space | Optional: better translation. |
 | `YTDLP_COOKIES` | Space | Optional: for sites that need a login to download. |
 | `YTDLP_PROXY` | Space | Optional: proxy for video downloads. |
 | `CLOUDFLARE_API_TOKEN` | – | Cloudflare token from the "Edit Cloudflare Workers" template; lets the workflow set Worker secrets. |
@@ -216,13 +215,32 @@ Buying needs an account (signing in), so the credits are kept.
 ### Dubbing and accuracy
 
 Speech is recognised with Whisper `large-v3-turbo` (set `WHISPER_MODEL` on the Space to change it),
-with Whisper's invented lines over silence filtered out. Translation uses Gemini when
-`GEMINI_API_KEY` is set (with the video title and the previous lines as context, and for a dub a
-word limit per line), otherwise the local NLLB model, with small rule-based clean-ups before and
-after it. Dubbing uses timing lip-sync (isochrony): each sentence is spoken over the speaker's own
+with Whisper's invented lines over silence filtered out. Translation is mechanical first: the
+**translation memory** (rules, below) decides, and the local NLLB model translates only what it
+does not know, with small rule-based clean-ups before and after it. No cloud AI is used. Dubbing uses timing lip-sync (isochrony): each sentence is spoken over the speaker's own
 stretches of speech, starting when they start, pausing where they pause and ending when they stop;
 the voice itself speaks a line faster (up to +35%) or a little slower (down to −15%) to fit. The
 picture is not changed.
+
+### Translation memory (learning without AI)
+
+KAVOX learns from the people who use it, with plain rules anyone can read:
+
+- When someone signed in corrects a translation in the subtitle editor (and renders again or
+  downloads the edited subtitles), each corrected line counts as their vote for "this spoken text
+  is translated like this". Once **3 different people** made the same correction, the rule is
+  learned and later videos in that language pair use it. (Up to 3,000 sentence rules and 500
+  terms per target language go with each job, the most taught first; for the same spoken text an
+  admin's rule comes before a learned one.) Each edit counts at most 100 corrected lines.
+- Glossary terms (names, brands, fixed words) are written by an admin and translated as written:
+  the term is swapped for a placeholder the model copies, and the term's translation is put back
+  afterwards. In the rare case the model drops the placeholder, that line is translated again
+  without the glossary, so it may not use the admin's wording.
+- On the website's **/admin → Learning** page an admin sees every rule with its votes, approves one
+  at once, corrects, rejects or deletes it, and adds sentences or terms.
+
+Each job is sent the active rules for its target language; the Space applies them before its model
+(a whole sentence, then each subtitle).
 
 ### Video ending (outro)
 
@@ -328,8 +346,10 @@ To keep the bot private, set `ALLOWED_CHAT_IDS` in `wrangler.toml`.
   Files delivered in Telegram stay in the chat.
 - Videos larger than 50 MB cannot be sent by a bot; the bot sends a 24-hour download link instead.
 - Defaults: 5 jobs per hour per user, 60-minute videos, 500 MB uploads (all configurable).
-- The default translation model, NLLB-200, is CC-BY-NC 4.0 (non-commercial). For commercial use
-  set `GEMINI_API_KEY` on the Space or choose another model.
+- The default translation model, NLLB-200, is CC-BY-NC 4.0 (non-commercial). Before charging for
+  the service, set `NLLB_MODEL` on the Space to a model whose licence allows commercial use. It
+  must be a CTranslate2 conversion with the NLLB-200 layout: a `sentencepiece.bpe.model` file and
+  FLORES-200 language codes (such as `arb_Arab`); a model of another family will not load.
 
 ## Local development
 

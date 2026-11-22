@@ -1,19 +1,21 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BarChart3, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings, Users } from 'lucide-react';
+import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings, Users } from 'lucide-react';
 import { ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
 import { AccountsPanel } from './AccountsPanel';
 import { InsightsPanel } from './InsightsPanel';
+import { LearningPanel } from './LearningPanel';
 import { SettingsPanel } from './SettingsPanel';
 
 const PASSWORD_KEY = 'tarjim_admin_password';
 
-type Workspace = 'jobs' | 'accounts' | 'insights' | 'settings';
+type Workspace = 'jobs' | 'accounts' | 'insights' | 'learning' | 'settings';
 const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
   { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
   { id: 'accounts', label: 'Accounts', icon: Users },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
+  { id: 'learning', label: 'Learning', icon: BookOpenCheck },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -27,7 +29,7 @@ function readPassword(): string {
 
 const workspaceFromHash = (): Workspace => {
   const hash = window.location.hash.slice(1);
-  return hash === 'settings' || hash === 'insights' || hash === 'accounts' ? hash : 'jobs';
+  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' ? hash : 'jobs';
 };
 
 /** The /admin dashboard: sign in with ADMIN_PASSWORD, then the jobs board and the settings. */
@@ -144,6 +146,10 @@ export function AdminView() {
         ) : workspace === 'accounts' ? (
           <div className="h-full overflow-y-auto">
             <AccountsPanel password={password} />
+          </div>
+        ) : workspace === 'learning' ? (
+          <div className="h-full overflow-y-auto">
+            <LearningPanel password={password} />
           </div>
         ) : workspace === 'insights' ? (
           <div className="h-full overflow-y-auto">

@@ -29,7 +29,7 @@ def fake_models(monkeypatch):
     )
     monkeypatch.setattr(
         translation, "translate_texts",
-        lambda texts, src, tgt, progress, title=None, seconds=None: ([f"[{tgt}] {t}" for t in texts], "fake"),
+        lambda texts, src, tgt, progress, memory=None: ([f"[{tgt}] {t}" for t in texts], "fake"),
     )
 
 
@@ -247,3 +247,16 @@ def test_rendered_videos_end_with_the_chosen_outro(client, tmp_path, outro, extr
     from app.modules import media
 
     assert media.probe(out)["duration"] == pytest.approx(2.0 + extra, abs=0.4)
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+def test_a_job_uses_the_translation_memory_it_is_sent(client, tmp_path):
+    job = "0c0c0c0c-0000-4000-8000-000000000001"
+    assert client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path)).status_code == 200
+    memory = {"sentences": [{"src": "en", "source": "hello there", "translation": "أهلاً بك"}], "terms": []}
+    body = {"job_id": job, "source_kind": "upload", "tgt_lang": "ar", "subtitle_mode": "soft", "memory": memory}
+    assert client.post("/invoke", json=body, headers=AUTH).status_code == 202
+    data = wait_done(client, job)
+    assert data["status"] == "done" and data["memory_hits"] >= 1
+    srt = client.get(f"/files/{job}/subtitles.srt", params=signed(f"file:{job}:subtitles.srt")).text
+    assert "أهلاً بك" in srt and "[ar]" not in srt
