@@ -213,6 +213,17 @@ ones do not carry over). Every payment is counted once, however often its notice
 website waits for the credits after opening a payment, then restarts the video that was refused.
 Buying needs an account (signing in), so the credits are kept.
 
+### Dubbing and accuracy
+
+Speech is recognised with Whisper `large-v3-turbo` (set `WHISPER_MODEL` on the Space to change it),
+with Whisper's invented lines over silence filtered out. Translation uses Gemini when
+`GEMINI_API_KEY` is set (with the video title and the previous lines as context, and for a dub a
+word limit per line), otherwise the local NLLB model, with small rule-based clean-ups before and
+after it. Dubbing uses timing lip-sync (isochrony): each sentence is spoken over the speaker's own
+stretches of speech, starting when they start, pausing where they pause and ending when they stop;
+the voice itself speaks a line faster (up to +35%) or a little slower (down to −15%) to fit. The
+picture is not changed.
+
 ### Video ending (outro)
 
 Every video with burned-in subtitles or dubbing ends with the 5-second KAVOX logo

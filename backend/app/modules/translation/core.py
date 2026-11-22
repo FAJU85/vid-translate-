@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from typing import Callable
 
@@ -88,6 +89,32 @@ def _get_nllb():
         return _nllb
 
 
+# Arabic unit names that speech recognition often writes as two words ("كيلو متر"): the local
+# model reads the pair as something else (miles, kilos), so they are joined first.
+_AR_UNIT = re.compile(r"(?<!\S)(كيلو|سنتي|ميلي|ملي|ميكرو|ميغا|ميجا|جيجا|غيغا)\s+(متر|مترا|مترات|غرام|غراما|جرام|جراما|لتر|لترا|واط|بايت|هرتز)(?!\S)")
+
+
+def normalize_source(text: str, src: str) -> str:
+    """Small, rule-based clean-up of recognised speech before translation."""
+    if src == "ar":
+        text = _AR_UNIT.sub(r"\1\2", text)
+    return text
+
+
+# The local model's output has tokenizer spacing: "word ." / "didn 't" / "( word )".
+_SPACE_BEFORE = re.compile(r"\s+([.,!?;:%)\]}»”،؛؟…])")
+_SPACE_AFTER = re.compile(r"([(\[{«“])\s+")
+_CONTRACTION = re.compile(r"(\w) (n't|'(?:t|s|re|ve|ll|d|m))\b", re.IGNORECASE)
+
+
+def tidy(text: str) -> str:
+    """Remove the tokenizer's stray spaces around punctuation and in English contractions."""
+    text = _SPACE_BEFORE.sub(r"\1", text)
+    text = _SPACE_AFTER.sub(r"\1", text)
+    text = _CONTRACTION.sub(r"\1\2", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) -> list[str]:
     if src not in LANGUAGES:
         raise TranslationError(f"Source language '{src}' is not supported by the translation model.")
@@ -107,7 +134,7 @@ def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) 
         )
         for res in results:
             pieces = [p for p in res.hypotheses[0] if p != tgt_code]
-            out.append(sp.decode(pieces).strip())
+            out.append(tidy(sp.decode(pieces)))
         progress(min(1.0, (i + len(chunk)) / len(texts)))
     return out
 
@@ -117,16 +144,50 @@ def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) 
 _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 
-def _gemini_chunk(lines: list[str], src_name: str, tgt_name: str) -> list[str]:
-    prompt = (
-        f"You translate video subtitles from {src_name} into {tgt_name}.\n"
-        "The input is a JSON array of consecutive subtitle lines from one video. "
-        "Translate each line naturally and concisely, using the neighbouring lines for context, "
-        "but keep exactly one output line per input line, in the same order. Do not merge, split, "
-        "drop or explain lines.\n"
-        f"Return only a JSON array of {len(lines)} strings.\n\n"
-        + json.dumps(lines, ensure_ascii=False)
-    )
+# Words a voice says per second, roughly (used to tell the translator how long a dubbed line may be).
+_WORDS_PER_SECOND = 2.6
+
+
+def _gemini_prompt(
+    lines: list[str],
+    src_name: str,
+    tgt_name: str,
+    title: str | None = None,
+    before: list[tuple[str, str]] | None = None,
+    seconds: list[float] | None = None,
+) -> str:
+    """The instructions for one chunk: the lines, what came just before, and (dubbing) their time."""
+    rules = [
+        f"You translate the speech of a video from {src_name} into {tgt_name}.",
+        "The input is a JSON array of consecutive sentences from the video's transcript, made by speech "
+        "recognition: it can contain small recognition mistakes; translate what the speaker most likely said.",
+        "Translate each line faithfully and naturally, as a native speaker would say it, using the neighbouring "
+        "lines for context. Keep names, brands, numbers and units exactly; keep the same word for the same thing "
+        "across the whole video.",
+        "Keep exactly one output line per input line, in the same order. Do not merge, split, drop or explain lines.",
+    ]
+    if tgt_name == "Arabic":
+        rules.append("Write clear Modern Standard Arabic, without diacritics except where needed to avoid ambiguity.")
+    if title:
+        rules.append(f"The video is titled: {json.dumps(title, ensure_ascii=False)}.")
+    if seconds:
+        limits = [max(1, round(s * _WORDS_PER_SECOND)) for s in seconds]
+        rules.append(
+            "The translation will be spoken aloud as a dub, over the original timing. Each line must be sayable in "
+            "its time: keep it at most about the given number of words, shortening wording (never meaning) when "
+            "needed. Word limits, one per line: " + json.dumps(limits)
+        )
+    if before:
+        rules.append(
+            "For context only (already translated, do not output them), the lines just before were: "
+            + json.dumps([{"source": s, "translation": t} for s, t in before], ensure_ascii=False)
+        )
+    rules.append(f"Return only a JSON array of {len(lines)} strings.")
+    return "\n".join(rules) + "\n\n" + json.dumps(lines, ensure_ascii=False)
+
+
+def _gemini_chunk(lines: list[str], src_name: str, tgt_name: str, **context) -> list[str]:
+    prompt = _gemini_prompt(lines, src_name, tgt_name, **context)
     resp = httpx.post(
         _GEMINI_URL.format(model=config.GEMINI_MODEL),
         headers={"x-goog-api-key": config.GEMINI_API_KEY},
@@ -148,17 +209,25 @@ def _gemini_chunk(lines: list[str], src_name: str, tgt_name: str) -> list[str]:
     return [x.strip() for x in result]
 
 
-def _gemini_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) -> list[str]:
+def _gemini_translate(
+    texts: list[str], src: str, tgt: str, progress: ProgressFn, title: str | None = None, seconds: list[float] | None = None
+) -> list[str]:
     src_name = LANGUAGES.get(src, (None, src))[1]
     tgt_name = LANGUAGES[tgt][1]
     out: list[str] = []
     size = 40
     for i in range(0, len(texts), size):
         chunk = texts[i:i + size]
+        context = {
+            "title": title,
+            # The last lines of the previous chunk, so a chunk does not start without context.
+            "before": list(zip(texts[max(0, i - 4):i], out[max(0, i - 4):i])) or None,
+            "seconds": seconds[i:i + size] if seconds else None,
+        }
         last: Exception | None = None
         for _ in range(2):
             try:
-                out.extend(_gemini_chunk(chunk, src_name, tgt_name))
+                out.extend(_gemini_chunk(chunk, src_name, tgt_name, **context))
                 last = None
                 break
             except (TranslationError, httpx.HTTPError) as exc:
@@ -171,19 +240,31 @@ def _gemini_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn
 
 # -------------------------------------------------------------------------- entry
 
-def translate_texts(texts: list[str], src: str, tgt: str, progress: ProgressFn) -> tuple[list[str], str]:
-    """Translate lines; returns (translations, engine_used)."""
+def translate_texts(
+    texts: list[str],
+    src: str,
+    tgt: str,
+    progress: ProgressFn,
+    title: str | None = None,
+    seconds: list[float] | None = None,
+) -> tuple[list[str], str]:
+    """Translate lines; returns (translations, engine_used).
+
+    title: the video's title (context). seconds: for a dub, how long each line may last when spoken
+    (the translator keeps lines sayable in that time; the local model cannot, the voice speeds up).
+    """
     if tgt not in LANGUAGES:
         raise TranslationError(f"Target language '{tgt}' is not supported.")
     if not texts:
         return [], "none"
     if src == tgt:
         return list(texts), "none"
+    texts = [normalize_source(t, src) for t in texts]
 
     use_gemini = config.TRANSLATOR == "gemini" or (config.TRANSLATOR == "auto" and config.GEMINI_API_KEY)
     if use_gemini and config.GEMINI_API_KEY:
         try:
-            return _gemini_translate(texts, src, tgt, progress), "gemini"
+            return _gemini_translate(texts, src, tgt, progress, title, seconds), "gemini"
         except TranslationError as exc:
             log.warning("Gemini translation failed (%s); falling back to NLLB", exc)
     return _nllb_translate(texts, src, tgt, progress), "nllb"

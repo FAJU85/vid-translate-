@@ -50,7 +50,7 @@ def test_the_mix_keeps_the_picture_and_the_length(tmp_path):
 
 
 def test_a_dubbed_job_gives_a_video_and_the_subtitles(client, tmp_path, monkeypatch):
-    def fake_synthesize(texts, lang, gender, out_dir, cancelled, progress):
+    def fake_synthesize(texts, lang, gender, out_dir, cancelled, progress, rates=None):
         out_dir.mkdir(parents=True, exist_ok=True)
         assert lang == "ar" and gender == "male"
         return [tone(out_dir / f"{i}.wav", 0.8) for i, _ in enumerate(texts)]
@@ -99,7 +99,7 @@ def test_a_cancel_is_noticed_while_the_voice_service_is_slow(tmp_path, monkeypat
     from app.modules.voice import core
     from app.shared.errors import Cancelled
 
-    async def slow(text, voice_name, dest, semaphore):
+    async def slow(text, voice_name, dest, semaphore, rate=0):
         await asyncio.sleep(30)
 
     monkeypatch.setattr(core, "_one", slow)
