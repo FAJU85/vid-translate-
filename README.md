@@ -233,6 +233,15 @@ until then the page plays it from the Space. Links from free accounts last 30 da
 keep theirs until they delete them (`DELETE /api/shares/<id>`). Expired links are removed by the
 scheduled task.
 
+### Dashboard
+
+The website's **Dashboard** tab (`/?tab=dashboard`) shows, for a signed-in account, everything it
+translated on the website and in the Telegram bot (without signing in: what this browser
+translated): the credit balance and plan, numbers (videos, minutes, views of shared links, top
+languages, videos per day for two weeks, by kind), the video ending setting, and every video with
+its thumbnail, share link (copy, open, delete) and, for a day, its files and subtitle editor. It
+replaces the old "My translations" list. API: `GET /api/dashboard?client_id=…`.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

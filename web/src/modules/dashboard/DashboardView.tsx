@@ -1,0 +1,272 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Play, RefreshCw, Trash2, Video } from 'lucide-react';
+import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, type DashboardVideo, type Me } from '../../shared/api';
+import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
+import { DayBars } from './DayBars';
+
+const MODE_LABEL: Record<string, string> = { soft: 'Subtitle files', hard: 'Burned-in subtitles', dub: 'Dubbed' };
+
+function minutes(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  const m = seconds / 60;
+  return m < 100 ? `${m.toFixed(1)} min` : `${Math.round(m)} min`;
+}
+
+function Stat({ icon: Icon, label, value, note }: { icon: typeof Video; label: string; value: string; note?: string }) {
+  return (
+    <div className="p-4 rounded-xl border border-slate-800 bg-slate-900">
+      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <Icon className="w-3.5 h-3.5" /> {label}
+      </div>
+      <div className="mt-1 text-2xl font-bold text-white tabular-nums">{value}</div>
+      {note && <div className="text-xs text-slate-500">{note}</div>}
+    </div>
+  );
+}
+
+/** One translated video: its picture, what it is, its link and what can be done with it. */
+function VideoCard({ v, lang, onOpen, onDeleted }: {
+  v: DashboardVideo;
+  lang: (code: string | null) => string;
+  onOpen: (jobId: string) => void;
+  onDeleted: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const share = v.share;
+  async function copy() {
+    if (!share) return;
+    try {
+      await navigator.clipboard.writeText(share.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.prompt('Copy this link', share.url);
+    }
+  }
+  async function remove() {
+    if (!share || !window.confirm('Delete this link? The video page stops working for everyone.')) return;
+    setBusy(true);
+    try {
+      await dashboardApi.deleteShare(share.id);
+      onDeleted();
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : 'The link could not be deleted.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  const from = v.src_lang && v.src_lang !== 'auto' && v.src_lang !== v.tgt_lang ? `${lang(v.src_lang)} → ` : '';
+  const failed = v.status === 'failed' || v.status === 'cancelled';
+  return (
+    <li className="flex gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900">
+      <div className="relative w-28 sm:w-36 aspect-video shrink-0 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center">
+        {share?.thumb_url ? (
+          <img src={share.thumb_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+        ) : (
+          <Film className="w-6 h-6 text-slate-700" />
+        )}
+        {share && (
+          <a href={share.url} target="_blank" rel="noreferrer" aria-label="Watch" className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/40 group">
+            <Play className="w-7 h-7 text-white opacity-0 group-hover:opacity-100" />
+          </a>
+        )}
+      </div>
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="font-semibold text-white truncate">{v.title || 'Untitled video'}</div>
+        <div className="text-xs text-slate-400 flex flex-wrap gap-x-2">
+          <span>{new Date(v.created_at * 1000).toLocaleDateString()}</span>
+          <span>{MODE_LABEL[v.mode] ?? v.mode}{v.rerender ? ' (edited)' : ''}</span>
+          <span>{from}{lang(v.tgt_lang)}</span>
+          {v.duration ? <span>{minutes(v.duration)}</span> : null}
+          {v.channel === 'telegram' && (
+            <span className="inline-flex items-center gap-0.5">
+              <Bot className="w-3 h-3" /> bot
+            </span>
+          )}
+          {failed && <span className="text-rose-300">{v.status === 'failed' ? 'Failed' : 'Cancelled'}</span>}
+          {!failed && v.status !== 'done' && <span className="text-amber-300">In progress</span>}
+        </div>
+        {share && (
+          <div className="text-xs text-slate-400 flex flex-wrap items-center gap-x-2">
+            <span className="inline-flex items-center gap-1">
+              <Eye className="w-3 h-3" /> {share.views} view{share.views === 1 ? '' : 's'}
+            </span>
+            <span>{share.expires_at ? `link until ${new Date(share.expires_at * 1000).toLocaleDateString()}` : 'link kept'}</span>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {share && (
+            <>
+              <button onClick={copy} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-400 hover:bg-amber-300 text-xs font-semibold text-slate-950">
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? 'Copied' : 'Copy link'}
+              </button>
+              <a href={share.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 text-xs text-slate-200 hover:bg-slate-800">
+                <ExternalLink className="w-3.5 h-3.5" /> Page
+              </a>
+            </>
+          )}
+          {v.can_open && (
+            <button onClick={() => onOpen(v.job_id)} className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 text-xs text-slate-200 hover:bg-slate-800">
+              Files and editor
+            </button>
+          )}
+          {share && (
+            <button onClick={remove} disabled={busy} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-slate-400 hover:text-rose-300 disabled:opacity-50">
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete link
+            </button>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** Your account at a glance: balance, numbers, the ending of your videos, and every video you translated. */
+export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing }: {
+  me: Me | null;
+  config: AppConfig | null;
+  onMe: (me: Me) => void;
+  onOpenJob: (jobId: string) => void;
+  onSignIn: () => void;
+  onPricing: () => void;
+}) {
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  // Only the latest request may show its answer (an older one can arrive after signing in or out).
+  const request = useRef(0);
+  const load = useCallback(() => {
+    const id = ++request.current;
+    setLoading(true);
+    dashboardApi
+      .get()
+      .then((d) => {
+        if (id === request.current) (setData(d), setError(null));
+      })
+      .catch((err) => {
+        if (id === request.current) setError(err instanceof ApiError ? err.message : 'The dashboard could not be loaded.');
+      })
+      .finally(() => {
+        if (id === request.current) setLoading(false);
+      });
+  }, []);
+  useEffect(() => {
+    setData(null); // another person's videos never stay on screen
+    load();
+  }, [load, me?.account?.id]);
+  /** Refresh: the videos and numbers, and the balance (credits may have been used in the bot). */
+  const refresh = () => {
+    load();
+    accountApi.me().then(onMe, () => {});
+  };
+
+  const lang = (code: string | null) => (code && config?.languages.find((l) => l.code === code)?.en) || code || '';
+  const s = data?.stats;
+  const balance = me?.credits_enabled ? me.balance : null;
+  const plan = balance?.buckets.find((b) => b.bucket === 'monthly' && b.expires_at);
+
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-sm text-slate-400">
+            {me?.account ? `Signed in as ${me.account.name || me.account.email || 'you'}: videos from the website and the Telegram bot.` : 'Videos translated in this browser.'}
+          </p>
+        </div>
+        <button onClick={refresh} disabled={loading} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </button>
+      </section>
+
+      {!me?.account && me?.sign_in && (me.sign_in.telegram || me.sign_in.google || me.sign_in.email) && (
+        <div className="p-4 rounded-xl border border-amber-400/40 bg-amber-400/5 flex flex-wrap items-center justify-between gap-3 text-sm text-amber-100">
+          Sign in to see your videos from every device and the Telegram bot in one place, and keep your credits.
+          <button onClick={onSignIn} className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 font-semibold text-slate-950">
+            Sign in
+          </button>
+        </div>
+      )}
+
+      {error && <p className="p-3 rounded-lg border border-rose-800 bg-rose-950/60 text-sm text-rose-200">{error}</p>}
+
+      {balance && (
+        <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Coins className="w-3.5 h-3.5 text-amber-400" /> Balance
+            </div>
+            <div className="text-3xl font-bold text-white tabular-nums">{creditsText(balance.total_seconds)} credits</div>
+            <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-400">
+              {balance.buckets
+                .filter((b) => b.seconds > 0)
+                .map((b) => (
+                  <span key={b.bucket}>
+                    {BUCKET_LABEL[b.bucket]}: {creditsText(b.seconds)}
+                  </span>
+                ))}
+              {plan?.expires_at && <span>Plan renews or ends {new Date(plan.expires_at * 1000).toLocaleDateString()}</span>}
+            </div>
+          </div>
+          <button onClick={onPricing} className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-sm font-semibold text-slate-950">
+            Get more credits
+          </button>
+        </section>
+      )}
+
+      {s && (
+        <section className="space-y-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat icon={Video} label="Videos translated" value={String(s.videos)} note={`${s.last_30_days.videos} in the last 30 days`} />
+            <Stat icon={Film} label="Minutes translated" value={minutes(s.seconds)} note={`${minutes(s.last_30_days.seconds)} in the last 30 days`} />
+            <Stat icon={Eye} label="Views of your links" value={String(s.share_views)} note={`${s.shared_videos} shared video${s.shared_videos === 1 ? '' : 's'}`} />
+            <Stat
+              icon={Globe2}
+              label="Top language"
+              value={s.languages[0] ? lang(s.languages[0].lang) : '—'}
+              note={s.languages.length > 1 ? s.languages.slice(1, 4).map((l) => lang(l.lang)).join(', ') : undefined}
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="md:col-span-2 p-4 rounded-xl border border-slate-800 bg-slate-900">
+              <DayBars days={s.per_day} />
+            </div>
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm space-y-1.5">
+              <div className="text-xs text-slate-400">By kind</div>
+              {(['soft', 'hard', 'dub'] as const).map((m) => (
+                <div key={m} className="flex justify-between">
+                  <span className="text-slate-300">{MODE_LABEL[m]}</span>
+                  <span className="tabular-nums text-white">{s.by_mode[m] ?? 0}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {me?.outro && (
+        <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900">
+          <OutroSettings outro={me.outro} onChange={() => accountApi.me().then(onMe, () => {})} />
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-white">Your videos</h2>
+        {!data && !error && <Loader2 className="w-5 h-5 animate-spin text-slate-500" />}
+        {data && data.videos.length === 0 && <p className="text-sm text-slate-400">Nothing yet. Translate a video and it shows up here, with its link.</p>}
+        <ul className="space-y-2">
+          {data?.videos.map((v) => (
+            <VideoCard key={v.job_id} v={v} lang={lang} onOpen={onOpenJob} onDeleted={load} />
+          ))}
+        </ul>
+        {data && data.videos.length > 0 && (
+          <p className="text-xs text-slate-500">
+            Files and the subtitle editor stay available for 24 hours; video pages last 30 days on the free plan, and as long as you
+            keep them with a monthly plan.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}

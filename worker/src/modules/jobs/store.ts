@@ -91,6 +91,64 @@ export async function listJobs(env: Env, owner: string, limit = 30): Promise<Job
   return res.results;
 }
 
+/** Whose jobs: those of a signed-in account (website and bot) and those made from one browser. */
+export interface JobOwner {
+  accountId: string | null;
+  owner: string | null;
+}
+
+const MINE = "(owner = ?1 OR (account_id IS NOT NULL AND account_id = ?2)) AND status != 'awaiting_upload'";
+
+/** A person's jobs, newest first (their dashboard). */
+export async function jobsFor(env: Env, who: JobOwner, limit = 100): Promise<JobRow[]> {
+  const res = await env.DB.prepare(`SELECT * FROM jobs WHERE ${MINE} ORDER BY created_at DESC LIMIT ?3`)
+    .bind(who.owner ?? '', who.accountId ?? '', limit)
+    .all<JobRow>();
+  return res.results;
+}
+
+export interface JobStats {
+  /** Videos translated (re-renders of the same video not counted again). */
+  videos: number;
+  /** Seconds of video translated. */
+  seconds: number;
+  by_mode: Record<string, number>;
+  /** Most used target languages, most first. */
+  languages: { lang: string; videos: number }[];
+  last_30_days: { videos: number; seconds: number };
+  /** Videos per day for the last 14 days, oldest first (UTC days). */
+  per_day: { day: string; videos: number }[];
+}
+
+/** What a person has translated: totals, kinds, languages and the last weeks. */
+export async function jobStats(env: Env, who: JobOwner): Promise<JobStats> {
+  const done = `${MINE} AND status = 'done' AND source_kind != 'rerender'`;
+  const bind = (sql: string, ...extra: unknown[]) => env.DB.prepare(sql).bind(who.owner ?? '', who.accountId ?? '', ...extra);
+  const since30 = Math.floor(Date.now() / 1000) - 30 * 86400;
+  const since14 = Math.floor(Date.now() / 1000 / 86400) * 86400 - 13 * 86400;
+  const [totals, modes, langs, recent, days] = await env.DB.batch([
+    bind(`SELECT COUNT(*) AS videos, COALESCE(SUM(duration), 0) AS seconds FROM jobs WHERE ${done}`),
+    bind(`SELECT mode, COUNT(*) AS n FROM jobs WHERE ${done} GROUP BY mode`),
+    bind(`SELECT tgt_lang AS lang, COUNT(*) AS videos FROM jobs WHERE ${done} GROUP BY tgt_lang ORDER BY videos DESC LIMIT 5`),
+    bind(`SELECT COUNT(*) AS videos, COALESCE(SUM(duration), 0) AS seconds FROM jobs WHERE ${done} AND created_at >= ?3`, since30),
+    bind(`SELECT (created_at / 86400) * 86400 AS day, COUNT(*) AS n FROM jobs WHERE ${done} AND created_at >= ?3 GROUP BY day`, since14),
+  ]);
+  const t = (totals.results[0] ?? {}) as { videos?: number; seconds?: number };
+  const r = (recent.results[0] ?? {}) as { videos?: number; seconds?: number };
+  const counts = new Map((days.results as { day: number; n: number }[]).map((d) => [d.day, d.n]));
+  return {
+    videos: t.videos ?? 0,
+    seconds: Math.round(t.seconds ?? 0),
+    by_mode: Object.fromEntries((modes.results as { mode: string; n: number }[]).map((m) => [m.mode, m.n])),
+    languages: langs.results as { lang: string; videos: number }[],
+    last_30_days: { videos: r.videos ?? 0, seconds: Math.round(r.seconds ?? 0) },
+    per_day: Array.from({ length: 14 }, (_, i) => {
+      const day = since14 + i * 86400;
+      return { day: new Date(day * 1000).toISOString().slice(0, 10), videos: counts.get(day) ?? 0 };
+    }),
+  };
+}
+
 /** Every job except unfinished uploads, newest first (the /admin dashboard). */
 export async function allJobs(env: Env, limit = 1000): Promise<JobRow[]> {
   const res = await env.DB.prepare(`SELECT * FROM jobs WHERE status != 'awaiting_upload' ORDER BY created_at DESC LIMIT ?`)

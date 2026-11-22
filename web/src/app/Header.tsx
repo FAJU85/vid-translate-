@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
-import { Bot, History, Languages, Tag } from 'lucide-react';
+import { Bot, Languages, LayoutDashboard, Tag } from 'lucide-react';
 import { SITE } from '../shared/content';
 
-export type NavTab = 'translate' | 'history' | 'telegram' | 'pricing';
+export type NavTab = 'translate' | 'dashboard' | 'telegram' | 'pricing';
 
 const TABS: { id: NavTab; label: string; icon: typeof Bot }[] = [
   { id: 'translate', label: 'Translate', icon: Languages },
-  { id: 'history', label: 'My translations', icon: History },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'telegram', label: 'Telegram bot', icon: Bot },
   { id: 'pricing', label: 'Pricing', icon: Tag },
 ];
@@ -20,7 +20,7 @@ export function Header({ tab, onTab, account, showPricing = false }: {
 }) {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur border-b border-slate-800">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
         <button onClick={() => onTab('translate')} className="flex items-center gap-2 text-lg font-bold text-white shrink-0">
           {SITE.brand.logo ? (
             <img src={SITE.brand.logo} alt={SITE.brand.name} className="h-8 w-auto max-w-[9rem] object-contain" />
@@ -29,18 +29,20 @@ export function Header({ tab, onTab, account, showPricing = false }: {
           )}
           <span className="hidden sm:inline">{SITE.brand.name}</span>
         </button>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="flex items-center gap-0.5 sm:gap-1 text-sm min-w-0">
           {TABS.filter((t) => t.id !== 'pricing' || showPricing).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
+              aria-label={label}
               onClick={() => onTab(id)}
               aria-current={tab === id ? 'page' : undefined}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg transition-colors ${
                 tab === id ? 'bg-amber-400 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Icon className="w-4 h-4" />
-              <span className={tab === id ? '' : 'hidden sm:inline'}>{label}</span>
+              <Icon className="w-4 h-4" aria-hidden />
+              {/* Phones show icons only (the current tab is highlighted), so the header always fits. */}
+              <span className={tab === id ? 'hidden min-[400px]:inline' : 'hidden sm:inline'}>{label}</span>
             </button>
           ))}
           {account}
