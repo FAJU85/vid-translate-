@@ -34,6 +34,7 @@ MEDIA_TYPES = {
     "cues.json": "application/json",
     "video.mp4": "video/mp4",
     "dubbed.mp4": "video/mp4",
+    "thumb.jpg": "image/jpeg",
 }
 _models_ready = threading.Event()
 

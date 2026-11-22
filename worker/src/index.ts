@@ -28,8 +28,11 @@ import {
 } from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
+import { SHARES_SCHEMA, handleSharePage, sharesJobListener, sweepShares } from './modules/shares';
 import { handleApi } from './modules/web-api';
 
+// A finished video gets its public page first, so Telegram's message can carry the link.
+registerJobListener(sharesJobListener);
 // Telegram follows job progress through the jobs brick's listener port, and supplies the files
 // users send to the bot through its source port.
 registerJobListener(telegramJobListener);
@@ -38,7 +41,7 @@ registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -65,6 +68,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return json({ ...(await setupBot(env, origin)), backend: await backendHealth(env) });
   }
 
+  // A shared video's public page and its files.
+  if (path.startsWith('/v/')) return (await handleSharePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
+
   if (path.startsWith('/api/')) return handleApi(request, env, ctx, { origin, botUsername: () => getBotUsername(env) });
 
   return apiError(404, 'E_NOT_FOUND', 'Not found.');
@@ -85,5 +91,6 @@ export default {
     await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
     ctx.waitUntil(sweep(env));
     ctx.waitUntil(ensureWebhookUpdates(env));
+    ctx.waitUntil(sweepShares(env));
   },
 } satisfies ExportedHandler<Env>;

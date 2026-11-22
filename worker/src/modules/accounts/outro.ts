@@ -40,7 +40,7 @@ export async function outroInfo(env: Env, account: Account) {
  * The account behind a job: the one recorded when it was made (signed in, or the bot user's), else
  * the one its credits were set aside from (a guest's), else the original job's for a re-render.
  */
-async function jobAccount(env: Env, job: JobRow): Promise<Account | null> {
+export async function jobAccount(env: Env, job: JobRow): Promise<Account | null> {
   if (job.account_id) return getAccount(env, job.account_id);
   const ids = job.source_kind === 'rerender' ? [job.id, job.source] : [job.id];
   for (const id of ids) {

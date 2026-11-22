@@ -222,6 +222,17 @@ seconds are used) or none. Their own endings are kept in the R2 bucket `kavox-me
 `MEDIA` in `wrangler.toml`); the Worker sends the clip to the Space with each job. An ending that
 cannot be used is replaced by the KAVOX one, and never fails a translation.
 
+### Share links
+
+Every finished video with burned-in subtitles or dubbing gets its own public page,
+`https://YOUR-WORKER/v/<id>`: a player, the title and languages, **Copy link** and **Download**,
+with a preview picture for Telegram, WhatsApp and other apps. The website shows the link under the
+result and the bot sends it after the video. The Worker copies the video and a still from the
+Space to the R2 bucket `kavox-media` within a minute or two (the Space only keeps files a day);
+until then the page plays it from the Space. Links from free accounts last 30 days; monthly plans
+keep theirs until they delete them (`DELETE /api/shares/<id>`). Expired links are removed by the
+scheduled task.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

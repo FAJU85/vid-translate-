@@ -97,12 +97,14 @@ def test_upload_job_end_to_end_hard_mode(client, tmp_path):
     data = wait_done(client, job)
     assert data["status"] == "done", data
     assert data["detected_lang"] == "en"
-    assert set(data["outputs"]) == {"srt", "vtt", "original_srt", "bilingual_srt", "transcript", "cues", "mp4"}
+    assert set(data["outputs"]) == {"srt", "vtt", "original_srt", "bilingual_srt", "transcript", "cues", "mp4", "thumb"}
 
     srt = client.get(f"/files/{job}/subtitles.srt", params=signed(f"file:{job}:subtitles.srt"))
     assert srt.status_code == 200 and "[ar] Hello there." in srt.text
     mp4 = client.get(f"/files/{job}/video.mp4", params=signed(f"file:{job}:video.mp4"))
     assert mp4.status_code == 200 and mp4.content[4:8] == b"ftyp"
+    thumb = client.get(f"/files/{job}/thumb.jpg", params=signed(f"file:{job}:thumb.jpg"))
+    assert thumb.status_code == 200 and thumb.content[:2] == b"\xff\xd8"  # a JPEG still for the share page
 
     assert client.get(f"/files/{job}/subtitles.srt").status_code == 403
     assert client.get(f"/files/{job}/upload.bin", params=signed(f"file:{job}:upload.bin")).status_code == 404

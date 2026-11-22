@@ -353,6 +353,17 @@ def append_outro(video: Path, outro: Path, cancelled: CancelFn, progress: Progre
         joined.unlink(missing_ok=True)
 
 
+def thumbnail(video: Path, dest: Path, duration: float) -> bool:
+    """A JPEG still from early in the video (a fifth in, at most 3 s), 640 px wide at most."""
+    at = min(3.0, max(0.0, duration * 0.2))
+    proc = subprocess.run(
+        ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-ss", f"{at:.2f}", "-i", str(video), "-frames:v", "1",
+         "-vf", "scale='min(640,iw)':-2", "-q:v", "4", str(dest)],
+        capture_output=True, timeout=60,
+    )
+    return proc.returncode == 0 and dest.is_file()
+
+
 # ---------------------------------------------------------------------------------- dubbing
 
 DUB_RATE = 24000  # Hz; what the voices are made at
