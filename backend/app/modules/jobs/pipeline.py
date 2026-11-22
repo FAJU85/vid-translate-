@@ -132,8 +132,7 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     # 5. Dubbing: the translation spoken over the original sound ---------------------
     if job.mode == "dub":
         enter("dubbing")
-        # Whole sentences are spoken (not subtitle pieces): the voice keeps a natural intonation.
-        spoken = [(seg[0], seg[1], subtitles.clean_text(tr) or seg[2]) for seg, tr in zip(segments, translations)]
+        spoken = _lip_sync(segments, translations)
         outputs["dubbed"] = _dub(job, workdir, source, spoken, info, reporter("dubbing"), cancelled)
         if info["has_video"]:
             _add_thumbnail(workdir, workdir / OUTPUT_FILES["dubbed"], info["duration"], outputs)
@@ -210,6 +209,38 @@ def _add_outro(job: Job, workdir: Path, video: Path, cancelled, report, encoded_
 DUB_GAP = 0.08
 # The voice speaks at most this much faster than normal (percent); past that, the track speeds it up.
 DUB_MAX_RATE = 35
+# ...and at most this much slower, so a short line still lasts as long as the speaker's mouth moves.
+DUB_MIN_RATE = -15
+# How close to the speaker's own timing a dubbed phrase must be to be left as it is.
+FIT_LONG, FIT_SHORT = 1.03, 0.85
+
+
+def _lip_sync(segments: list, translations: list[str]) -> list[tuple[float, float, str]]:
+    """What the dub says and when: timing lip-sync (isochrony), without changing the picture.
+
+    Each sentence is spoken over the speaker's own stretches of speech: it starts when they start,
+    pauses where they pause (word timestamps) and ends when they stop. Without word timestamps the
+    whole sentence is one stretch. Returns [(start, end of the speech, text)].
+    """
+    out: list[tuple[float, float, str]] = []
+    for seg, translated in zip(segments, translations):
+        text = subtitles.clean_text(translated) or seg[2]
+        phrases = subtitles.spoken_phrases(seg[3], text) if len(seg) > 3 and seg[3] else []
+        out.extend(phrases or [(seg[0], seg[1], text)])
+    return out
+
+
+def _fit_rate(length: float, speech: float, room: float) -> int:
+    """How much faster (or slower) the voice should speak a line of `length` seconds so that it
+    lasts as long as the speaker's own `speech`, without running past `room` (the next line)."""
+    if length <= 0 or speech <= 0:
+        return 0
+    if length > room * FIT_LONG or length > speech * 1.25:
+        target = min(room, max(speech, room * 0.9)) if length > room * FIT_LONG else speech * 1.1
+        return min(DUB_MAX_RATE, int((length / target - 1) * 100) + 3)
+    if length < speech * FIT_SHORT:
+        return max(DUB_MIN_RATE, int((length / speech - 1) * 100))
+    return 0
 
 
 def _speaking_time(segments: list, duration: float) -> list[float]:
@@ -224,8 +255,10 @@ def _speaking_time(segments: list, duration: float) -> list[float]:
 def _dub(job: Job, workdir: Path, source: Path, spoken: list, info: dict, report, cancelled) -> str:
     """Speak every sentence in the target language and mix it over the quietened original sound.
 
-    spoken: (start, end, text) per sentence. A line longer than its time is spoken again, faster,
-    by the voice itself; only what still does not fit is sped up (and at worst cut) in the track.
+    spoken: (start, end of the speech, text) per phrase (_lip_sync). A phrase much longer or
+    shorter than the speaker's own is spoken again by the voice itself, faster or a little slower,
+    so it follows the speaker's mouth; only what still does not fit is sped up (and at worst cut)
+    in the track.
     """
     if not config.DUBBING_ENABLED:
         raise PipelineError("E_NO_VOICE", "Dubbing is switched off on this server.")
@@ -240,11 +273,10 @@ def _dub(job: Job, workdir: Path, source: Path, spoken: list, info: dict, report
             clips = voice.synthesize(texts, job.tgt_lang, style.voice, lines_dir, cancelled, lambda f: report(f * 0.6))
             # Each sentence may last until the next one starts.
             slots = _speaking_time(spoken, info["duration"])
-            rates = []
-            for clip, slot in zip(clips, slots, strict=True):
-                length = media.probe(clip)["duration"] if clip else 0
-                over = length / slot if slot else 1
-                rates.append(min(DUB_MAX_RATE, int((over - 1) * 100) + 5) if over > 1.03 else 0)
+            rates = [
+                _fit_rate(media.probe(clip)["duration"] if clip else 0, max(0.2, end - start), slot)
+                for clip, slot, (start, end, _t) in zip(clips, slots, spoken, strict=True)
+            ]
             if any(rates):
                 faster = voice.synthesize(
                     [t if r else "" for t, r in zip(texts, rates)], job.tgt_lang, style.voice, workdir / "voice-fast",

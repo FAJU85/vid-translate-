@@ -237,6 +237,31 @@ def split_text_like(text: str, groups: list[list[Word]]) -> list[str]:
     return pieces
 
 
+# A pause this long inside a sentence is where a dub pauses too (the speaker's mouth closes).
+PHRASE_PAUSE = 0.35
+
+
+def spoken_phrases(words: list[Word], translation: str) -> list[tuple[float, float, str]]:
+    """Lip-sync timing for a dub: the sentence's stretches of speech (between the speaker's pauses),
+    each with the part of the translation said over it, cut in the same proportions.
+
+    Returns [(start, end, text)]; the whole sentence as one phrase when the translation cannot be
+    cut that many times.
+    """
+    if not words:
+        return []
+    groups: list[list[Word]] = [[words[0]]]
+    for prev, word in zip(words, words[1:]):
+        if word[0] - prev[1] >= PHRASE_PAUSE:
+            groups.append([word])
+        else:
+            groups[-1].append(word)
+    pieces = split_text_like(translation, groups) if len(groups) > 1 else [translation]
+    if len(pieces) != len(groups) or not all(p.strip() for p in pieces):
+        return [(words[0][0], words[-1][1], translation)]
+    return [(g[0][0], g[-1][1], p) for g, p in zip(groups, pieces)]
+
+
 def settle_timing(times: list[list[float]], texts: list[str], movable: list[bool] | None = None) -> None:
     """In place: [start, end] pairs (in order) made readable without overlapping the next one.
 

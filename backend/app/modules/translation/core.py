@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from typing import Callable
 
@@ -88,6 +89,32 @@ def _get_nllb():
         return _nllb
 
 
+# Arabic unit names that speech recognition often writes as two words ("كيلو متر"): the local
+# model reads the pair as something else (miles, kilos), so they are joined first.
+_AR_UNIT = re.compile(r"(?<!\S)(كيلو|سنتي|ميلي|ملي|ميكرو|ميغا|ميجا|جيجا|غيغا)\s+(متر|مترا|مترات|غرام|غراما|جرام|جراما|لتر|لترا|واط|بايت|هرتز)(?!\S)")
+
+
+def normalize_source(text: str, src: str) -> str:
+    """Small, rule-based clean-up of recognised speech before translation."""
+    if src == "ar":
+        text = _AR_UNIT.sub(r"\1\2", text)
+    return text
+
+
+# The local model's output has tokenizer spacing: "word ." / "didn 't" / "( word )".
+_SPACE_BEFORE = re.compile(r"\s+([.,!?;:%)\]}»”،؛؟…])")
+_SPACE_AFTER = re.compile(r"([(\[{«“])\s+")
+_CONTRACTION = re.compile(r"(\w) (n't|'(?:t|s|re|ve|ll|d|m))\b", re.IGNORECASE)
+
+
+def tidy(text: str) -> str:
+    """Remove the tokenizer's stray spaces around punctuation and in English contractions."""
+    text = _SPACE_BEFORE.sub(r"\1", text)
+    text = _SPACE_AFTER.sub(r"\1", text)
+    text = _CONTRACTION.sub(r"\1\2", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) -> list[str]:
     if src not in LANGUAGES:
         raise TranslationError(f"Source language '{src}' is not supported by the translation model.")
@@ -107,7 +134,7 @@ def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) 
         )
         for res in results:
             pieces = [p for p in res.hypotheses[0] if p != tgt_code]
-            out.append(sp.decode(pieces).strip())
+            out.append(tidy(sp.decode(pieces)))
         progress(min(1.0, (i + len(chunk)) / len(texts)))
     return out
 
@@ -232,6 +259,7 @@ def translate_texts(
         return [], "none"
     if src == tgt:
         return list(texts), "none"
+    texts = [normalize_source(t, src) for t in texts]
 
     use_gemini = config.TRANSLATOR == "gemini" or (config.TRANSLATOR == "auto" and config.GEMINI_API_KEY)
     if use_gemini and config.GEMINI_API_KEY:
