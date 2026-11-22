@@ -23,10 +23,24 @@ MAX_TERMS_PER_LINE = 9
 
 def norm(text: str) -> str:
     """The form texts are compared in: lower case, without accents, diacritics (tashkeel),
-    tatweel or punctuation, single spaces. "Hello, World!" and "hello world" are the same."""
-    text = unicodedata.normalize("NFKD", text.lower()).replace("ـ", "")
-    text = "".join(c for c in text if not unicodedata.combining(c) and unicodedata.category(c)[0] not in "PS")
+    tatweel or punctuation, single spaces. "Hello, World!" and "hello world" are the same.
+
+    Exactly the Worker's rule (learning brick norm): non-spacing marks (Mn) go, spacing vowel
+    signs (Mc, e.g. Devanagari) stay, punctuation (P*) and symbols (S*) go.
+    """
+    text = unicodedata.normalize("NFKD", text.lower()).replace("\u0640", "")
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn" and unicodedata.category(c)[0] not in "PS")
     return re.sub(r"\s+", " ", text).strip()
+
+
+# Arabic diacritics (tashkeel) and tatweel, allowed between the letters of a glossary term.
+_MARKS = "[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]*"
+
+
+def _term_pattern(term: str) -> re.Pattern:
+    """A glossary term as a whole word, any letter case, with or without Arabic diacritics."""
+    body = _MARKS.join(re.escape(ch) for ch in term)
+    return re.compile(rf"(?<!\w){body}{_MARKS}(?!\w)", re.IGNORECASE)
 
 
 @dataclass
@@ -46,9 +60,8 @@ class Memory:
         terms = sorted((e for e in payload.get("terms") or [] if _usable(e, src)), key=lambda e: -len(e["source"]))
         for entry in terms:
             source = entry["source"].strip()
-            # Whole words only, any letter case ("kavox", "KAVOX"); Arabic has no case, \b still works.
-            pattern = re.compile(rf"(?<!\w){re.escape(source)}(?!\w)", re.IGNORECASE)
-            memory.terms.append((pattern, entry["translation"].strip()))
+            if len(source) <= 100:  # a term, not a passage (keeps the pattern small)
+                memory.terms.append((_term_pattern(source), entry["translation"].strip()))
         return memory
 
     def __bool__(self) -> bool:
@@ -75,13 +88,11 @@ class Memory:
 
     def restore(self, translated: str, slots: list[str]) -> str | None:
         """Put the terms' translations back; None when the model lost or doubled a placeholder."""
-        # Highest numbers first, so "ZQX1" is never replaced inside "ZQX10".
-        for n in range(len(slots), 0, -1):
-            token = PLACEHOLDER.format(n)
-            if translated.count(token) != 1:
-                return None
-            translated = translated.replace(token, slots[n - 1])
-        return None if re.search(r"ZQX\d", translated) else translated
+        # Whole placeholders only: each expected one exactly once, and no other ("ZQX10" is not "ZQX1").
+        found = [int(n) for n in re.findall(r"ZQX(\d+)", translated)]
+        if sorted(found) != list(range(1, len(slots) + 1)):
+            return None
+        return re.sub(r"ZQX(\d+)", lambda m: slots[int(m.group(1)) - 1], translated)
 
 
 def _usable(entry: dict, src: str) -> bool:

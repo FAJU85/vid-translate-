@@ -38,13 +38,24 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const [rendering, setRendering] = useState(false);
   // Corrections sent to the translation memory (once per version of the edits).
   const [taught, setTaught] = useState<{ learned: number; signed_in: boolean } | null>(null);
-  const taughtFor = useRef<string>('');
+  // Sent once per version of the edits: while sending, and after it counted. Not after a failure
+  // or while signed out, so it is sent again later (after signing in, for example).
+  const taughtFor = useRef<{ sending: string; done: string }>({ sending: '', done: '' });
   const teach = () => {
     if (!job || !cues || !edited) return;
     const key = JSON.stringify(cues.map((c) => c.translation));
-    if (taughtFor.current === key) return;
-    taughtFor.current = key;
-    api.corrections(job.id, cues).then(setTaught, () => {});
+    if (taughtFor.current.sending === key || taughtFor.current.done === key) return;
+    taughtFor.current.sending = key;
+    api
+      .corrections(job.id, cues)
+      .then((result) => {
+        setTaught(result);
+        if (result.signed_in) taughtFor.current.done = key;
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (taughtFor.current.sending === key) taughtFor.current.sending = '';
+      });
   };
   const [renderError, setRenderError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);

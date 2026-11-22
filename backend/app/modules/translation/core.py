@@ -79,11 +79,14 @@ def _get_nllb():
             import sentencepiece as spm
             from huggingface_hub import snapshot_download
 
-            path = snapshot_download(config.NLLB_MODEL)
-            device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
-            translator = ctranslate2.Translator(path, device=device, intra_threads=config.CPU_THREADS)
-            sp = spm.SentencePieceProcessor()
-            sp.load(f"{path}/sentencepiece.bpe.model")
+            try:
+                path = snapshot_download(config.NLLB_MODEL)
+                device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+                translator = ctranslate2.Translator(path, device=device, intra_threads=config.CPU_THREADS)
+                sp = spm.SentencePieceProcessor()
+                sp.load(f"{path}/sentencepiece.bpe.model")
+            except Exception as exc:  # noqa: BLE001 - a missing or incompatible model is a translation failure
+                raise TranslationError(f"The translation model {config.NLLB_MODEL} could not be loaded ({exc.__class__.__name__}).") from exc
             _nllb = (translator, sp)
         return _nllb
 
@@ -160,8 +163,10 @@ def translate_texts(
     if src == tgt:
         return list(texts), "none"
     memory = memory or Memory()
-    texts = [normalize_source(t, src) for t in texts]
-    out: list[str | None] = [memory.sentence(t) for t in texts]
+    # The memory is asked with the text as recognised and as cleaned up (its rule may be either).
+    cleaned = [normalize_source(t, src) for t in texts]
+    out: list[str | None] = [memory.sentence(t) or memory.sentence(c) for t, c in zip(texts, cleaned)]
+    texts = cleaned
     todo = [i for i, known in enumerate(out) if known is None]
     if todo:
         protected = [memory.protect(texts[i]) for i in todo]

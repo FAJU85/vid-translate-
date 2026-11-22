@@ -1,13 +1,14 @@
 import type { Env } from '../../shared/env';
 import { fileLink, type JobRow } from '../jobs';
-import { activeEntries, norm, vote } from './store';
+import { activeEntries, norm, vote, type Vote } from './store';
 
 /** At most this many rules go with a job (the most taught first). */
 const MAX_SENTENCES = 3000;
 const MAX_TERMS = 500;
 /** Longer "corrections" are rewrites of a whole passage, not something to reuse. */
 const MAX_SOURCE_CHARS = 300;
-const MAX_CORRECTIONS_PER_EDIT = 200;
+// Written in one database batch; a longer edit counts its first 100 corrected lines.
+const MAX_CORRECTIONS_PER_EDIT = 100;
 
 interface Cue {
   start: number;
@@ -35,19 +36,19 @@ export async function learnFromEdit(env: Env, job: JobRow, edited: unknown[], co
   if (!contributor || job.status !== 'done') return 0;
   const original = await originalCues(env, job);
   if (!original || !original.src || original.src === 'auto' || original.src === job.tgt_lang) return 0;
-  let counted = 0;
+  const votes: Vote[] = [];
   for (const [i, raw] of edited.entries()) {
-    if (counted >= MAX_CORRECTIONS_PER_EDIT) break;
+    if (votes.length >= MAX_CORRECTIONS_PER_EDIT) break;
     const before = original.cues[i];
     const after = raw as Partial<Cue> | null;
     if (!before || !after || typeof after.translation !== 'string' || typeof after.text !== 'string') continue;
     const sameLine = norm(after.text) === norm(before.text) && Math.abs(Number(after.start) - before.start) < 0.5;
     const changed = norm(after.translation) !== norm(before.translation);
     if (!sameLine || !changed || !norm(after.translation) || before.text.length > MAX_SOURCE_CHARS) continue;
-    await vote(env, 'sentence', original.src, job.tgt_lang, before.text, after.translation, contributor);
-    counted++;
+    votes.push({ kind: 'sentence', src: original.src, tgt: job.tgt_lang, source: before.text, translation: after.translation, contributor });
   }
-  return counted;
+  await vote(env, votes);
+  return votes.length;
 }
 
 /** The translation memory sent with a job (backend translation.Memory payload), or none. */

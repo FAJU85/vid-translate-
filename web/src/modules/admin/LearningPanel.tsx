@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Check, Loader2, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { ApiError, adminApi, api, type AppConfig, type MemoryEntry, type MemoryKind } from '../../shared/api';
 
@@ -26,13 +26,26 @@ export function LearningPanel({ password }: { password: string }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [form, setForm] = useState({ kind: 'term' as MemoryKind, src: 'en', tgt: 'ar', source: '', translation: '', replaces: 0 });
 
+  // Only the latest request may show its answer (filters and searches can overlap).
+  const latest = useRef(0);
   const load = () => {
+    const request = ++latest.current;
     setBusy(true);
     adminApi
       .memory(password, { status, q })
-      .then((r) => (setEntries(r.entries), setCounts(r.counts), setVotes(r.learn_votes), setError(null)))
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the memory.'))
-      .finally(() => setBusy(false));
+      .then((r) => {
+        if (request !== latest.current) return;
+        setEntries(r.entries);
+        setCounts(r.counts);
+        setVotes(r.learn_votes);
+        setError(null);
+      })
+      .catch((err) => {
+        if (request === latest.current) setError(err instanceof ApiError ? err.message : 'Could not load the memory.');
+      })
+      .finally(() => {
+        if (request === latest.current) setBusy(false);
+      });
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [status]);
@@ -42,8 +55,10 @@ export function LearningPanel({ password }: { password: string }) {
 
   function save(e: FormEvent) {
     e.preventDefault();
-    act(adminApi.addMemory(password, { ...form, replaces: form.replaces || undefined }).then(() =>
-      setForm((f) => ({ ...f, source: '', translation: '', replaces: 0 })),
+    const sent = form;
+    // Cleared only if it still holds what was sent (another rule may have been picked meanwhile).
+    act(adminApi.addMemory(password, { ...sent, replaces: sent.replaces || undefined }).then(() =>
+      setForm((f) => (f === sent ? { ...f, source: '', translation: '', replaces: 0 } : f)),
     ));
   }
 

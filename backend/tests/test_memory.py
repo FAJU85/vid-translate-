@@ -78,3 +78,38 @@ def test_no_memory_means_the_model_translates_everything(model):
 @pytest.mark.parametrize("bad", [None, {}, {"sentences": [{"source": "x"}], "terms": [{"translation": "y"}, "z"]}])
 def test_a_missing_or_broken_payload_is_an_empty_memory(bad):
     assert not Memory.from_payload(bad, "en")
+
+
+def test_a_glossary_term_matches_with_or_without_arabic_diacritics():
+    memory = Memory.from_payload({"terms": [{"src": "ar", "source": "الرياض", "translation": "Riyadh"}]}, "ar")
+    for text in ["زرت الرِّياض اليوم", "زرت الرياض اليوم", "زرت الريـاض اليوم"]:
+        protected, slots = memory.protect(text)
+        assert protected == "زرت ZQX1 اليوم" and slots == ["Riyadh"], text
+
+
+def test_only_the_exact_placeholders_are_accepted():
+    memory = Memory()
+    assert memory.restore("Hello ZQX1", ["X"]) == "Hello X"
+    assert memory.restore("Hello ZQX10", ["X"]) is None  # not ZQX1
+    assert memory.restore("ZQX1 and ZQX1", ["X"]) is None  # doubled
+    assert memory.restore("ZQX2 then ZQX1", ["A", "B"]) == "B then A"
+
+
+def test_a_rule_learned_from_the_text_as_recognised_still_matches_after_clean_up(model):
+    payload = {"sentences": [{"src": "ar", "source": "ألف كيلو متر", "translation": "a thousand kilometres"}]}
+    out, engine = core.translate_texts(["ألف كيلو متر"], "ar", "en", lambda f: None, Memory.from_payload(payload, "ar"))
+    assert out == ["a thousand kilometres"] and engine == "memory"
+
+
+def test_spacing_vowel_signs_keep_words_apart():
+    # Devanagari: कल (tomorrow) and काल (time) differ only by a spacing vowel sign (Mc), kept.
+    assert norm("कल") != norm("काल")
+
+
+def test_a_dub_says_what_the_corrected_subtitles_say():
+    from app.modules.jobs import pipeline
+    from app.modules.subtitles import Cue
+
+    segments = [(0.0, 4.0, "a b"), (5.0, 8.0, "c")]
+    cues = [Cue(1, 0.0, 2.0, "a", "ONE"), Cue(2, 2.0, 4.0, "b", "TWO fixed"), Cue(3, 5.0, 8.0, "c", "THREE")]
+    assert pipeline._sentences_from_cues(segments, cues, ["old", "old"]) == ["ONE TWO fixed", "THREE"]

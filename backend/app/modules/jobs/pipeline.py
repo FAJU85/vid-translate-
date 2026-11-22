@@ -114,11 +114,16 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     job.memory_hits = sum(1 for seg in segments if memory.sentence(seg[2]) is not None)
     cues = subtitles.build_cues(segments, translations)
     # ...and again for each subtitle: corrections are often made to one subtitle, not a sentence.
+    corrected = False
     for cue in cues:
         remembered = memory.sentence(cue.text)
         if remembered is not None and remembered != cue.translation:
             cue.translation = remembered
             job.memory_hits += 1
+            corrected = True
+    if corrected and job.mode == "dub":
+        # The voice says what the subtitles say: each sentence becomes its subtitles' translations.
+        translations = _sentences_from_cues(segments, cues, translations)
 
     outputs = write_subtitle_files(workdir, cues, detected, job.tgt_lang)
 
@@ -220,6 +225,18 @@ DUB_MAX_RATE = 35
 DUB_MIN_RATE = -15
 # How close to the speaker's own timing a dubbed phrase must be to be left as it is.
 FIT_LONG, FIT_SHORT = 1.03, 0.85
+
+
+def _sentences_from_cues(segments: list, cues: list, translations: list[str]) -> list[str]:
+    """Each sentence's translation rebuilt from its subtitles (a subtitle belongs to the sentence
+    it starts in), after the memory corrected some of them."""
+    out = list(translations)
+    for i, seg in enumerate(segments):
+        nxt = segments[i + 1][0] if i + 1 < len(segments) else float("inf")
+        parts = [c.translation for c in cues if seg[0] - 0.05 <= c.start < nxt and c.translation]
+        if parts:
+            out[i] = " ".join(parts)
+    return out
 
 
 def _lip_sync(segments: list, translations: list[str]) -> list[tuple[float, float, str]]:

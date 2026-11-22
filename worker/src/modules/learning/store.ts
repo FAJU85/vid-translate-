@@ -55,47 +55,60 @@ export interface MemoryEntry {
 
 /**
  * The form texts are compared in: lower case, without accents, diacritics (tashkeel), tatweel or
- * punctuation, single spaces (mirrors backend translation/memory.py norm).
+ * punctuation, single spaces. Exactly the Space's rule (backend translation/memory.py norm):
+ * non-spacing marks (Mn) go, spacing vowel signs (Mc) stay, punctuation and symbols go.
  */
 export const norm = (text: string) =>
   text
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/ـ/g, '')
-    .replace(/\p{M}/gu, '')
+    .replace(/\u0640/g, '')
+    .replace(/\p{Mn}/gu, '')
     .replace(/[\p{P}\p{S}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-/** Count one person's correction; the entry is learned once LEARN_VOTES different people made it. */
-export async function vote(env: Env, kind: EntryKind, src: string, tgt: string, source: string, translation: string, contributor: string) {
+export interface Vote {
+  kind: EntryKind;
+  src: string;
+  tgt: string;
+  source: string;
+  translation: string;
+  contributor: string;
+}
+
+/**
+ * Count people's corrections, all in one database batch: each is one vote for its entry (one vote
+ * per person), and an entry is learned once LEARN_VOTES different people made it. A translation
+ * that keeps the spoken words (a brand name, "YouTube") is a correction like any other.
+ */
+export async function vote(env: Env, votes: Vote[]): Promise<void> {
   const ts = now();
-  const sn = norm(source);
-  const tn = norm(translation);
-  if (!sn || !tn || sn === tn) return;
-  await env.DB.prepare(
-    `INSERT INTO memory_entries (kind, src, tgt, source, source_norm, translation, translation_norm, status, votes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'candidate', 0, ?, ?)
-     ON CONFLICT (kind, src, tgt, source_norm, translation_norm) DO NOTHING`,
-  )
-    .bind(kind, src, tgt, source.trim(), sn, translation.trim(), tn, ts, ts)
-    .run();
-  const entry = await env.DB.prepare(
-    'SELECT id FROM memory_entries WHERE kind = ? AND src = ? AND tgt = ? AND source_norm = ? AND translation_norm = ?',
-  )
-    .bind(kind, src, tgt, sn, tn)
-    .first<{ id: number }>();
-  if (!entry) return;
-  // One vote per person (a second edit of the same line by the same person changes nothing), then
-  // the count and the status, in one batch.
-  await env.DB.batch([
-    env.DB.prepare('INSERT OR IGNORE INTO memory_votes (entry_id, contributor, created_at) VALUES (?, ?, ?)').bind(entry.id, contributor, ts),
-    env.DB.prepare(
-      `UPDATE memory_entries SET votes = (SELECT COUNT(*) FROM memory_votes WHERE entry_id = ?1), updated_at = ?2,
-         status = CASE WHEN status = 'candidate' AND (SELECT COUNT(*) FROM memory_votes WHERE entry_id = ?1) >= ?3 THEN 'learned' ELSE status END
-       WHERE id = ?1`,
-    ).bind(entry.id, ts, LEARN_VOTES),
-  ]);
+  const match = 'kind = ? AND src = ? AND tgt = ? AND source_norm = ? AND translation_norm = ?';
+  const statements: D1PreparedStatement[] = [];
+  for (const v of votes) {
+    const sn = norm(v.source);
+    const tn = norm(v.translation);
+    if (!sn || !tn) continue;
+    const key = [v.kind, v.src, v.tgt, sn, tn];
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO memory_entries (kind, src, tgt, source, source_norm, translation, translation_norm, status, votes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'candidate', 0, ?, ?)
+         ON CONFLICT (kind, src, tgt, source_norm, translation_norm) DO NOTHING`,
+      ).bind(v.kind, v.src, v.tgt, v.source.trim(), sn, v.translation.trim(), tn, ts, ts),
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO memory_votes (entry_id, contributor, created_at) SELECT id, ?, ? FROM memory_entries WHERE ${match}`,
+      ).bind(v.contributor, ts, ...key),
+      env.DB.prepare(
+        `UPDATE memory_entries SET votes = (SELECT COUNT(*) FROM memory_votes WHERE entry_id = memory_entries.id), updated_at = ?,
+           status = CASE WHEN status = 'candidate' AND (SELECT COUNT(*) FROM memory_votes WHERE entry_id = memory_entries.id) >= ?
+                    THEN 'learned' ELSE status END
+         WHERE ${match}`,
+      ).bind(ts, LEARN_VOTES, ...key),
+    );
+  }
+  if (statements.length) await env.DB.batch(statements);
 }
 
 /**

@@ -29,7 +29,7 @@ function readPassword(): string {
 
 const workspaceFromHash = (): Workspace => {
   const hash = window.location.hash.slice(1);
-  return hash === 'settings' || hash === 'insights' || hash === 'accounts' ? hash : 'jobs';
+  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' ? hash : 'jobs';
 };
 
 /** The /admin dashboard: sign in with ADMIN_PASSWORD, then the jobs board and the settings. */

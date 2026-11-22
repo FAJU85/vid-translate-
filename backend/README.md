@@ -12,7 +12,8 @@ pinned: false
 # TarjimVideo backend
 
 Translation engine for TarjimVideo. It downloads a video (yt-dlp), transcribes the speech
-(faster-whisper), translates the lines (NLLB-200, or Gemini when a key is set), writes
+(faster-whisper), translates the lines (the translation memory sent by the Worker first, then the local
+NLLB-200 model for the rest), writes
 SRT / WebVTT files and optionally burns the subtitles into the video (ffmpeg).
 
 It is driven by the Cloudflare Worker in `worker/`; nothing here talks to Telegram.

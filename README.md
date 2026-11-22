@@ -229,9 +229,13 @@ KAVOX learns from the people who use it, with plain rules anyone can read:
 - When someone signed in corrects a translation in the subtitle editor (and renders again or
   downloads the edited subtitles), each corrected line counts as their vote for "this spoken text
   is translated like this". Once **3 different people** made the same correction, the rule is
-  learned and every later video in that language pair uses it.
-- Glossary terms (names, brands, fixed words) are written by an admin and always translated as
-  written: the term is kept away from the model and put back afterwards.
+  learned and later videos in that language pair use it. (Up to 3,000 sentence rules and 500
+  terms per target language go with each job, the most taught first; for the same spoken text an
+  admin's rule comes before a learned one.) Each edit counts at most 100 corrected lines.
+- Glossary terms (names, brands, fixed words) are written by an admin and translated as written:
+  the term is swapped for a placeholder the model copies, and the term's translation is put back
+  afterwards. In the rare case the model drops the placeholder, that line is translated again
+  without the glossary, so it may not use the admin's wording.
 - On the website's **/admin → Learning** page an admin sees every rule with its votes, approves one
   at once, corrects, rejects or deletes it, and adds sentences or terms.
 
@@ -343,7 +347,9 @@ To keep the bot private, set `ALLOWED_CHAT_IDS` in `wrangler.toml`.
 - Videos larger than 50 MB cannot be sent by a bot; the bot sends a 24-hour download link instead.
 - Defaults: 5 jobs per hour per user, 60-minute videos, 500 MB uploads (all configurable).
 - The default translation model, NLLB-200, is CC-BY-NC 4.0 (non-commercial). Before charging for
-  the service, set `NLLB_MODEL` on the Space to a model whose licence allows commercial use.
+  the service, set `NLLB_MODEL` on the Space to a model whose licence allows commercial use. It
+  must be a CTranslate2 conversion with the NLLB-200 layout: a `sentencepiece.bpe.model` file and
+  FLORES-200 language codes (such as `arb_Arab`); a model of another family will not load.
 
 ## Local development
 
