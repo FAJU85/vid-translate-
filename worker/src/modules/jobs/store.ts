@@ -31,6 +31,7 @@ export const JOBS_SCHEMA = [
     error_message TEXT,
     outputs TEXT,
     origin TEXT NOT NULL,
+    account_id TEXT,
     dispatched INTEGER NOT NULL DEFAULT 0,
     dispatch_attempts INTEGER NOT NULL DEFAULT 0,
     delivered INTEGER NOT NULL DEFAULT 0,
@@ -48,6 +49,8 @@ export const JOBS_COLUMNS: AddedColumn[] = [
   { table: 'jobs', column: 'queue_position', definition: 'INTEGER' },
   { table: 'jobs', column: 'eta', definition: 'INTEGER' },
   { table: 'jobs', column: 'cues', definition: 'TEXT' },
+  // The signed-in account that asked for the job (accounts brick), when there is one.
+  { table: 'jobs', column: 'account_id', definition: 'TEXT' },
 ];
 
 export function getJob(env: Env, id: string): Promise<JobRow | null> {

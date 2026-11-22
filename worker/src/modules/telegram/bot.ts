@@ -39,6 +39,7 @@ import {
   confirmTelegramLogin,
   creditsEnabled,
   describeTelegramLogin,
+  existingTelegramAccount,
   freshBalance,
   isProduct,
   type Account,
@@ -377,6 +378,7 @@ async function startJob(
     mode: finalMode,
     style: chatStyle(chat),
     origin,
+    accountId: (account ?? (await existingTelegramAccount(env, chat.chat_id)))?.id ?? null,
   });
   if (!job) return t(ui, error === 'busy' ? 'busy' : 'rate_limited', { n: maxPerHour(env) });
 

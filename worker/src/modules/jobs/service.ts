@@ -1,6 +1,6 @@
 import { now, type Env } from '../../shared/env';
 import * as backend from './backend';
-import { emitChanged, emitFinished, sourceFetcher } from './events';
+import { chooseOutro, emitChanged, emitFinished, sourceFetcher } from './events';
 import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind, type SubtitleMode } from './model';
 import * as store from './store';
 import type { SubtitleStyle } from './style';
@@ -34,6 +34,8 @@ export interface NewJob {
   style?: SubtitleStyle | null;
   /** 'rerender' jobs: the edited subtitles. */
   cues?: unknown[];
+  /** The account that asks for it, when known (the video's ending and share link follow it). */
+  accountId?: string | null;
   origin: string;
 }
 
@@ -83,6 +85,7 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     error_message: null,
     outputs: null,
     origin: p.origin,
+    account_id: p.accountId ?? null,
     dispatched: 0,
     dispatch_attempts: 0,
     delivered: 0,
@@ -126,6 +129,15 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       if (uploaded !== 200 && uploaded !== 409) throw new Error(`upload HTTP ${uploaded}`);
       sourceKind = 'upload';
     }
+    // The ending of a rendered video (subtitles burned in, or dubbed): a subscriber's own clip is
+    // sent first; if that fails, the video gets the KAVOX one.
+    let outro: backend.InvokeBody['outro'];
+    if (job.mode !== 'soft') {
+      const choice = await chooseOutro(env, job);
+      // A clip that cannot be sent (network, timeout) must not stop the job: it gets the KAVOX ending.
+      const sent = choice.kind === 'custom' ? await backend.uploadOutro(env, job.id, choice.file).catch(() => 0) : 0;
+      outro = choice.kind === 'custom' ? (sent === 200 ? 'custom' : 'kavox') : choice.kind;
+    }
     const { status, data } = await backend.invoke(env, {
       job_id: job.id,
       source_kind: sourceKind,
@@ -134,6 +146,7 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       tgt_lang: job.tgt_lang,
       subtitle_mode: job.mode,
       subtitle_style: job.style ? (JSON.parse(job.style) as SubtitleStyle) : undefined,
+      outro,
       ...(job.source_kind === 'rerender' ? { parent_job_id: job.source, cues: JSON.parse(job.cues || '[]') as unknown[] } : {}),
       callback_url: `${job.origin}/api/callback`,
       title: job.title,

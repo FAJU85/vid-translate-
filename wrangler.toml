@@ -43,6 +43,32 @@ binding = "DB"
 database_name = "tarjim-video"
 database_id = "a341760a-5457-4e7b-a2e4-1c21c88f0515"
 
+# Cloudflare R2 (10 GB free, no download fees): subscribers' own video endings and, later,
+# shared videos. Create the bucket once: npx wrangler r2 bucket create kavox-media
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "kavox-media"
+
+# Preview deploys (Workers Builds on pull requests) use their own empty database and bucket, so a
+# preview never touches real accounts, credits or files. Payments stay off there.
+[previews.vars]
+BACKEND_URL = "https://vooom-kavox.hf.space"
+ALLOWED_ORIGINS = "*"
+DEFAULT_TARGET_LANG = "ar"
+MAX_JOBS_PER_HOUR = "5"
+MAX_UPLOAD_MB = "500"
+CREDITS_ENABLED = "0"
+STARS_PER_USD = "50"
+
+[[previews.d1_databases]]
+binding = "DB"
+database_name = "tarjim-video-preview"
+database_id = "519d3acb-a5df-4524-94f8-1ea10cd6457f"
+
+[[previews.r2_buckets]]
+binding = "MEDIA"
+bucket_name = "kavox-media-preview"
+
 [triggers]
 # Retries hand-offs while the Space wakes up and reconciles stuck jobs.
 crons = ["* * * * *"]

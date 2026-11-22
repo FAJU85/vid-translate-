@@ -28,6 +28,7 @@ import {
   FREE_MAX_VIDEO_SECONDS,
   SECONDS_PER_CREDIT,
   accountForWeb,
+  signedInAccount,
   chargeJob,
   checkJob,
   creditsEnabled,
@@ -277,6 +278,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       mode,
       style,
       origin: api.origin,
+      accountId: (await signedInAccount(env, request))?.id ?? null,
     });
     if (!job) {
       return apiError(
@@ -329,6 +331,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
           style,
           cues,
           origin: api.origin,
+          // The same account as the video it re-renders, so its ending follows a chain of edits.
+          accountId: job.account_id ?? (await signedInAccount(env, request))?.id ?? null,
         });
         if (!next) return apiError(429, 'E_RATE_LIMITED', error === 'busy' ? 'Wait for your other translation to finish.' : 'You reached the limit for now. Try again later.');
         ctx.waitUntil(dispatch(env, next));

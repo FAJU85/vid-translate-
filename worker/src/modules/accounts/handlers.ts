@@ -24,6 +24,7 @@ import {
   paid,
   verified,
 } from './allowances';
+import { handleOutro, outroInfo } from './outro';
 import { createCheckout, createPortal, stripeConfigured } from './payments';
 import { PRODUCTS, isProduct, starsPrice } from './products';
 import { BUCKETS, SECONDS_PER_CREDIT, balance, balances, creditsEnabled, grant, history, type Bucket } from './credits';
@@ -43,6 +44,13 @@ export interface AccountsContext {
 export async function accountForWeb(env: Env, request: Request, clientId: string): Promise<Account> {
   return (await currentAccount(env, request)) ?? accountFor(env, { kind: 'guest', client: clientId });
 }
+
+/** The account a website request is signed in to, if any (no guest account is made). */
+export const signedInAccount = (env: Env, request: Request) => currentAccount(env, request);
+
+/** A Telegram user's account if they have one already (none is made). */
+export const existingTelegramAccount = (env: Env, telegramId: number) =>
+  env.DB.prepare('SELECT * FROM accounts WHERE telegram_id = ?').bind(telegramId).first<Account>();
 
 /** The account of a Telegram user (created on first use). */
 export const accountForTelegram = (env: Env, telegramId: number, name?: string | null) =>
@@ -71,6 +79,7 @@ async function me(env: Env, request: Request, api: AccountsContext, clientId: st
   const daily = held?.buckets.find((b) => b.bucket === 'daily');
   return {
     account: account && publicAccount(account),
+    outro: account ? await outroInfo(env, account) : null,
     credits_enabled: enabled,
     seconds_per_credit: SECONDS_PER_CREDIT,
     balance: held,
@@ -124,6 +133,13 @@ export async function handleAccounts(request: Request, env: Env, path: string, a
   const ip = request.headers.get('CF-Connecting-IP');
 
   if (path === '/api/me' && method === 'GET') return json(await me(env, request, api, url.searchParams.get('client_id')));
+
+  // The ending added to rendered videos: choose it, upload or remove your own (signed in only).
+  if (path === '/api/account/outro' || path === '/api/account/outro/file') {
+    const account = await currentAccount(env, request);
+    if (!account) return apiError(401, 'E_SIGN_IN', 'Sign in first.');
+    return handleOutro(env, request, account, path);
+  }
 
   if (path === '/api/me/history' && method === 'GET') {
     const client = url.searchParams.get('client_id') ?? '';

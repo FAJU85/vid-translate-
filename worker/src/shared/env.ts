@@ -33,6 +33,8 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string;
   /** Telegram Stars per US dollar for prices in the bot (default 50). */
   STARS_PER_USD?: string;
+  /** Cloudflare R2: subscribers' own video endings (and, later, shared videos). Optional. */
+  MEDIA?: R2Bucket;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);

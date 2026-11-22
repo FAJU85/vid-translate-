@@ -21,8 +21,10 @@ export {
 } from './style';
 export {
   registerJobListener,
+  registerOutroChooser,
   registerSourceFetcher,
   type JobListener,
+  type OutroChoice,
   type SourceFetcher,
   type SourceFile,
 } from './events';

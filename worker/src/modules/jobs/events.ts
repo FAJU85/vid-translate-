@@ -51,3 +51,27 @@ export function registerSourceFetcher(sourceKind: string, fetcher: SourceFetcher
 }
 
 export const sourceFetcher = (sourceKind: string): SourceFetcher | undefined => sourceFetchers.get(sourceKind);
+
+/**
+ * Port through which another brick (accounts) chooses the ending added to a job's rendered video:
+ * the KAVOX clip, the subscriber's own (sent to the Space with the job) or none.
+ */
+export type OutroChoice = { kind: 'kavox' } | { kind: 'none' } | { kind: 'custom'; file: SourceFile };
+export type OutroChooser = (env: Env, job: JobRow) => Promise<OutroChoice>;
+
+let outroChooser: OutroChooser | null = null;
+
+export function registerOutroChooser(chooser: OutroChooser): void {
+  outroChooser = chooser;
+}
+
+/** The ending for a job; the KAVOX one when nothing else is chosen or the choice fails. */
+export async function chooseOutro(env: Env, job: JobRow): Promise<OutroChoice> {
+  if (!outroChooser) return { kind: 'kavox' };
+  try {
+    return await outroChooser(env, job);
+  } catch (err) {
+    console.error('choosing the ending failed for', job.id, (err as Error).stack ?? err);
+    return { kind: 'kavox' };
+  }
+}

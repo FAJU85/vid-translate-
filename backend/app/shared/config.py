@@ -92,6 +92,8 @@ MAX_UPLOAD_BYTES = _int("MAX_UPLOAD_MB", 500) * 1024 * 1024
 MAX_DOWNLOAD_BYTES = _int("MAX_DOWNLOAD_MB", 1500) * 1024 * 1024
 MAX_QUEUE = _int("MAX_QUEUE", 20)
 OUTPUT_TTL_SEC = _int("OUTPUT_TTL_HOURS", 24) * 3600
+# A subscriber's own ending clip (outro), sent with each job.
+MAX_OUTRO_BYTES = _int("MAX_OUTRO_MB", 30) * 1024 * 1024
 # Height cap for burned-in output; keeps CPU encodes and Telegram uploads reasonable.
 HARD_SUB_MAX_HEIGHT = _int("HARD_SUB_MAX_HEIGHT", 720)
 

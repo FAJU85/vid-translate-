@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Bot, CheckCircle2, Loader2, LogOut, Mail, X } from 'lucide-react';
 import { ApiError, accountApi, type LedgerEntry, type Me } from '../../shared/api';
 import { BUCKET_LABEL, creditsText, timeText } from './format';
+import { OutroSettings } from './OutroSettings';
 
 const POLL_MS = 2000;
 const POLL_FOR_MS = 5 * 60 * 1000;
@@ -201,6 +202,14 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
               Without an account, your translations and credits stay in this browser only.
             </p>
           </section>
+        )}
+
+        {me.outro && (
+          <OutroSettings
+            outro={me.outro}
+            // Fresh account data after a change (never an older copy that an upload outlived).
+            onChange={() => accountApi.me().then(onChange, () => {})}
+          />
         )}
 
         {me.credits_enabled && history && history.length > 0 && (

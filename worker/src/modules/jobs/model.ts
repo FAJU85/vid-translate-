@@ -36,6 +36,8 @@ export interface JobRow {
   error_message: string | null;
   outputs: string | null;
   origin: string;
+  /** The account that asked for the job (signed in on the website, or the bot user's), if known. */
+  account_id: string | null;
   dispatched: number;
   dispatch_attempts: number;
   delivered: number;
