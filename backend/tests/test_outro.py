@@ -57,3 +57,22 @@ def test_a_clip_without_picture_is_refused(tmp_path):
     with pytest.raises(Exception):
         media.append_outro(video, sound, lambda: False, lambda _f: None, True)
     assert _len(video) == pytest.approx(2, abs=0.2)  # unchanged
+
+
+def test_an_ending_whose_sound_is_shorter_keeps_its_whole_picture(tmp_path):
+    video = _clip(tmp_path / "video.mp4")
+    end = tmp_path / "end.mp4"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=25:duration=4",
+                    "-f", "lavfi", "-i", "sine=duration=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(end)],
+                   check=True)
+    media.append_outro(video, end, lambda: False, lambda _f: None, True)
+    assert _len(video) == pytest.approx(6, abs=0.3)
+
+
+def test_a_hanging_probe_is_a_media_error(monkeypatch, tmp_path):
+    def hang(*_a, **_k):
+        raise subprocess.TimeoutExpired("ffprobe", 120)
+
+    monkeypatch.setattr(media.core.subprocess, "run", hang)
+    with pytest.raises(media.core.MediaError):
+        media.core._streams(tmp_path / "x.mp4")

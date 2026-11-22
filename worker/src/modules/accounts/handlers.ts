@@ -45,6 +45,13 @@ export async function accountForWeb(env: Env, request: Request, clientId: string
   return (await currentAccount(env, request)) ?? accountFor(env, { kind: 'guest', client: clientId });
 }
 
+/** The account a website request is signed in to, if any (no guest account is made). */
+export const signedInAccount = (env: Env, request: Request) => currentAccount(env, request);
+
+/** A Telegram user's account if they have one already (none is made). */
+export const existingTelegramAccount = (env: Env, telegramId: number) =>
+  env.DB.prepare('SELECT * FROM accounts WHERE telegram_id = ?').bind(telegramId).first<Account>();
+
 /** The account of a Telegram user (created on first use). */
 export const accountForTelegram = (env: Env, telegramId: number, name?: string | null) =>
   accountFor(env, { kind: 'telegram', telegram_id: telegramId, name: name ?? null });

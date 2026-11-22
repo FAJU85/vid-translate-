@@ -276,12 +276,15 @@ OUTRO_MAX_SECONDS = 30  # a longer ending is cut
 
 def _streams(path: Path) -> dict:
     """The first video and audio stream's format: {"v": {...} | None, "a": {...} | None}."""
-    proc = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries",
-         "stream=codec_type,codec_name,width,height,r_frame_rate,time_base,sample_rate,channels:stream_disposition=attached_pic",
-         "-of", "json", str(path)],
-        capture_output=True, text=True, timeout=120,
-    )
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries",
+             "stream=codec_type,codec_name,width,height,r_frame_rate,time_base,sample_rate,channels:stream_disposition=attached_pic",
+             "-of", "json", str(path)],
+            capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        raise MediaError("E_RENDER_FAILED", "The ending video could not be read.") from None
     if proc.returncode != 0:
         raise MediaError("E_RENDER_FAILED", "The ending video could not be read.")
     streams = json.loads(proc.stdout or "{}").get("streams", [])
@@ -319,7 +322,8 @@ def append_outro(video: Path, outro: Path, cancelled: CancelFn, progress: Progre
             rate, channels = int(main["a"].get("sample_rate") or 44100), int(main["a"].get("channels") or 2)
             if not end["a"]:  # a silent ending still needs a sound track to join onto
                 args += ["-f", "lavfi", "-i", f"anullsrc=r={rate}:cl={'mono' if channels == 1 else 'stereo'}"]
-            audio_out = ["-map", f"{0 if end['a'] else 1}:a:0", "-c:a", "aac", "-b:a", "128k",
+            # Sound shorter than the picture is padded with silence: the picture sets the length.
+            audio_out = ["-map", f"{0 if end['a'] else 1}:a:0", *(["-af", "apad"] if end["a"] else []), "-c:a", "aac", "-b:a", "128k",
                          "-ar", str(rate), "-ac", str(channels)]
         _run_ffmpeg(
             [*args, "-t", str(OUTRO_MAX_SECONDS), "-map", "0:v:0", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast",

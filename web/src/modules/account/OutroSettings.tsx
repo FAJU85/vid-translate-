@@ -46,10 +46,21 @@ export function OutroSettings({ outro, onChange }: { outro: Outro; onChange: (o:
         <Film className="w-3.5 h-3.5" /> Video ending
       </h3>
       {!outro.allowed ? (
-        <p className="text-sm text-slate-400">
-          Videos with burned-in subtitles or dubbing end with the 5-second KAVOX logo. With a monthly plan you can use your own
-          ending, or none.
-        </p>
+        <>
+          <p className="text-sm text-slate-400">
+            Videos with burned-in subtitles or dubbing end with the 5-second KAVOX logo. With a monthly plan you can use your own
+            ending, or none.
+          </p>
+          {outro.custom && outro.storage && (
+            <button
+              onClick={() => run('delete', accountApi.deleteOutro)}
+              disabled={Boolean(busy)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-rose-300 disabled:opacity-60"
+            >
+              {busy === 'delete' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Remove my saved ending
+            </button>
+          )}
+        </>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Video ending">
@@ -78,7 +89,17 @@ export function OutroSettings({ outro, onChange }: { outro: Outro; onChange: (o:
           )}
           {outro.storage ? (
             <div className="flex flex-wrap items-center gap-2">
-              <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = ''; // the same file can be chosen again (after a failed upload)
+                  upload(file);
+                }}
+              />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={Boolean(busy)}

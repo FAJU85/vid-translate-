@@ -36,8 +36,12 @@ export async function outroInfo(env: Env, account: Account) {
   };
 }
 
-/** The account a job is charged to: its own credit hold, or (a re-render) the original job's. */
+/**
+ * The account behind a job: the one recorded when it was made (signed in, or the bot user's), else
+ * the one its credits were set aside from (a guest's), else the original job's for a re-render.
+ */
 async function jobAccount(env: Env, job: JobRow): Promise<Account | null> {
+  if (job.account_id) return getAccount(env, job.account_id);
   const ids = job.source_kind === 'rerender' ? [job.id, job.source] : [job.id];
   for (const id of ids) {
     const hold = await env.DB.prepare('SELECT account_id FROM credit_holds WHERE job_id = ?').bind(id).first<{ account_id: string }>();

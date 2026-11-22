@@ -204,7 +204,13 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           </section>
         )}
 
-        {me.outro && <OutroSettings outro={me.outro} onChange={(outro) => onChange({ ...me, outro })} />}
+        {me.outro && (
+          <OutroSettings
+            outro={me.outro}
+            // Fresh account data after a change (never an older copy that an upload outlived).
+            onChange={() => accountApi.me().then(onChange, () => {})}
+          />
+        )}
 
         {me.credits_enabled && history && history.length > 0 && (
           <section>

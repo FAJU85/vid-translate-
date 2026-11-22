@@ -34,6 +34,8 @@ export interface NewJob {
   style?: SubtitleStyle | null;
   /** 'rerender' jobs: the edited subtitles. */
   cues?: unknown[];
+  /** The account that asks for it, when known (the video's ending and share link follow it). */
+  accountId?: string | null;
   origin: string;
 }
 
@@ -83,6 +85,7 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     error_message: null,
     outputs: null,
     origin: p.origin,
+    account_id: p.accountId ?? null,
     dispatched: 0,
     dispatch_attempts: 0,
     delivered: 0,
@@ -131,7 +134,9 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
     let outro: backend.InvokeBody['outro'];
     if (job.mode !== 'soft') {
       const choice = await chooseOutro(env, job);
-      outro = choice.kind === 'custom' ? ((await backend.uploadOutro(env, job.id, choice.file)) === 200 ? 'custom' : 'kavox') : choice.kind;
+      // A clip that cannot be sent (network, timeout) must not stop the job: it gets the KAVOX ending.
+      const sent = choice.kind === 'custom' ? await backend.uploadOutro(env, job.id, choice.file).catch(() => 0) : 0;
+      outro = choice.kind === 'custom' ? (sent === 200 ? 'custom' : 'kavox') : choice.kind;
     }
     const { status, data } = await backend.invoke(env, {
       job_id: job.id,
