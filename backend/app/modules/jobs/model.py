@@ -18,6 +18,8 @@ OUTPUT_FILES = {
 # again without downloading and transcribing anything ("rerender" jobs). Never published.
 KEPT_SOURCE = "source_video.bin"
 UPLOAD_NAME = "upload.bin"
+# A subscriber's own ending clip, sent by the Worker with the job (outro "custom").
+OUTRO_UPLOAD = "outro.bin"
 TERMINAL = {"done", "failed", "cancelled"}
 
 # (start %, end %) of overall progress for each stage, per subtitle mode.
@@ -40,6 +42,7 @@ class Job:
     callback_url: str | None
     style: dict | None = None   # burned-in subtitle style (subtitles.SubtitleStyle fields)
     cues: list | None = None    # rerender: the edited subtitles [{start, end, text, translation}]
+    outro: str = "kavox"        # ending added to rendered videos: "kavox" | "custom" | "none"
     status: str = "queued"
     stage: str = "queued"
     progress: int = 0

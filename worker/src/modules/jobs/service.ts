@@ -1,6 +1,6 @@
 import { now, type Env } from '../../shared/env';
 import * as backend from './backend';
-import { emitChanged, emitFinished, sourceFetcher } from './events';
+import { chooseOutro, emitChanged, emitFinished, sourceFetcher } from './events';
 import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind, type SubtitleMode } from './model';
 import * as store from './store';
 import type { SubtitleStyle } from './style';
@@ -126,6 +126,13 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       if (uploaded !== 200 && uploaded !== 409) throw new Error(`upload HTTP ${uploaded}`);
       sourceKind = 'upload';
     }
+    // The ending of a rendered video (subtitles burned in, or dubbed): a subscriber's own clip is
+    // sent first; if that fails, the video gets the KAVOX one.
+    let outro: backend.InvokeBody['outro'];
+    if (job.mode !== 'soft') {
+      const choice = await chooseOutro(env, job);
+      outro = choice.kind === 'custom' ? ((await backend.uploadOutro(env, job.id, choice.file)) === 200 ? 'custom' : 'kavox') : choice.kind;
+    }
     const { status, data } = await backend.invoke(env, {
       job_id: job.id,
       source_kind: sourceKind,
@@ -134,6 +141,7 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       tgt_lang: job.tgt_lang,
       subtitle_mode: job.mode,
       subtitle_style: job.style ? (JSON.parse(job.style) as SubtitleStyle) : undefined,
+      outro,
       ...(job.source_kind === 'rerender' ? { parent_job_id: job.source, cues: JSON.parse(job.cues || '[]') as unknown[] } : {}),
       callback_url: `${job.origin}/api/callback`,
       title: job.title,

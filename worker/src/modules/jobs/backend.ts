@@ -17,6 +17,8 @@ export interface InvokeBody {
   subtitle_style?: object;
   parent_job_id?: string;
   cues?: unknown[];
+  /** The ending added to rendered videos; 'custom' after uploadOutro. */
+  outro?: 'kavox' | 'custom' | 'none';
   callback_url: string;
   title: string | null;
 }
@@ -76,6 +78,23 @@ export async function upload(env: Env, jobId: string, file: { body: ReadableStre
     headers: { 'Content-Type': 'application/octet-stream' },
     body,
     signal: AbortSignal.timeout(120_000),
+  });
+  return res.status;
+}
+
+/** Send a subscriber's own ending clip for one job (before /invoke). Returns the HTTP status. */
+export async function uploadOutro(env: Env, jobId: string, file: { body: ReadableStream<Uint8Array>; length: number | null }): Promise<number> {
+  let body = file.body;
+  if (file.length !== null) {
+    const fixed = new FixedLengthStream(file.length);
+    file.body.pipeTo(fixed.writable).catch(() => {});
+    body = fixed.readable;
+  }
+  const res = await fetch(`${base(env)}/outro/${jobId}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(env), 'Content-Type': 'application/octet-stream' },
+    body,
+    signal: AbortSignal.timeout(60_000),
   });
   return res.status;
 }

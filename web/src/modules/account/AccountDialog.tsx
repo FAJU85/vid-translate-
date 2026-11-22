@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Bot, CheckCircle2, Loader2, LogOut, Mail, X } from 'lucide-react';
 import { ApiError, accountApi, type LedgerEntry, type Me } from '../../shared/api';
 import { BUCKET_LABEL, creditsText, timeText } from './format';
+import { OutroSettings } from './OutroSettings';
 
 const POLL_MS = 2000;
 const POLL_FOR_MS = 5 * 60 * 1000;
@@ -202,6 +203,8 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
             </p>
           </section>
         )}
+
+        {me.outro && <OutroSettings outro={me.outro} onChange={(outro) => onChange({ ...me, outro })} />}
 
         {me.credits_enabled && history && history.length > 0 && (
           <section>

@@ -269,6 +269,86 @@ def burn_subtitles(src: Path, ass_name: str, dest: Path, duration: float,
     )
 
 
+# ---------------------------------------------------------------------------------- outro
+
+OUTRO_MAX_SECONDS = 30  # a longer ending is cut
+
+
+def _streams(path: Path) -> dict:
+    """The first video and audio stream's format: {"v": {...} | None, "a": {...} | None}."""
+    proc = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries",
+         "stream=codec_type,codec_name,width,height,r_frame_rate,time_base,sample_rate,channels:stream_disposition=attached_pic",
+         "-of", "json", str(path)],
+        capture_output=True, text=True, timeout=120,
+    )
+    if proc.returncode != 0:
+        raise MediaError("E_RENDER_FAILED", "The ending video could not be read.")
+    streams = json.loads(proc.stdout or "{}").get("streams", [])
+    video = next((s for s in streams if s.get("codec_type") == "video"
+                  and not (s.get("disposition") or {}).get("attached_pic")), None)
+    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+    return {"v": video, "a": audio}
+
+
+def append_outro(video: Path, outro: Path, cancelled: CancelFn, progress: ProgressFn, encoded_here: bool) -> None:
+    """Add an ending clip after `video`, in place, fitted to its size, frame rate and sound.
+
+    `encoded_here`: the video was made by burn_subtitles, so the ending is encoded the same way and
+    the two are joined without encoding the video again. Otherwise (a picture copied from the
+    source) both are encoded into one new file.
+    """
+    main = _streams(video)
+    if not main["v"]:
+        return  # audio only: no picture to end with
+    end = _streams(outro)
+    if not end["v"]:
+        raise MediaError("E_RENDER_FAILED", "The ending has no picture.")
+    v = main["v"]
+    w, h, fps = int(v["width"]), int(v["height"]), v.get("r_frame_rate") or "30/1"
+    timescale = (v.get("time_base") or "1/15360").split("/")[-1]
+    work = video.parent
+    fitted = work / "outro_fitted.mp4"
+    joined = work / "outro_joined.mp4"
+    try:
+        vf = (f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,"
+              f"setsar=1,fps={fps},format=yuv420p")
+        args = ["-i", str(outro)]
+        audio_out: list[str] = ["-an"]
+        if main["a"]:
+            rate, channels = int(main["a"].get("sample_rate") or 44100), int(main["a"].get("channels") or 2)
+            if not end["a"]:  # a silent ending still needs a sound track to join onto
+                args += ["-f", "lavfi", "-i", f"anullsrc=r={rate}:cl={'mono' if channels == 1 else 'stereo'}"]
+            audio_out = ["-map", f"{0 if end['a'] else 1}:a:0", "-c:a", "aac", "-b:a", "128k",
+                         "-ar", str(rate), "-ac", str(channels)]
+        _run_ffmpeg(
+            [*args, "-t", str(OUTRO_MAX_SECONDS), "-map", "0:v:0", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast",
+             "-crf", "24", "-pix_fmt", "yuv420p", "-video_track_timescale", timescale, *audio_out, "-shortest", str(fitted)],
+            work, 0, cancelled, lambda _f: None,
+        )
+        same_codecs = v.get("codec_name") == "h264" and (not main["a"] or main["a"].get("codec_name") == "aac")
+        if encoded_here and same_codecs:
+            listing = work / "outro_list.txt"
+            listing.write_text(f"file '{video.name}'\nfile '{fitted.name}'\n", encoding="utf-8")
+            try:
+                _run_ffmpeg(["-f", "concat", "-safe", "0", "-i", listing.name, "-c", "copy", "-movflags", "+faststart",
+                             str(joined)], work, 0, cancelled, lambda _f: None)
+            finally:
+                listing.unlink(missing_ok=True)
+        else:
+            streams = "[0:v]setsar=1[v0];[v0][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]" if main["a"] else \
+                "[0:v]setsar=1[v0];[v0][1:v]concat=n=2:v=1:a=0[v]"
+            maps = ["-map", "[v]", *(["-map", "[a]", "-c:a", "aac", "-b:a", "128k"] if main["a"] else [])]
+            duration = probe(video)["duration"]
+            _run_ffmpeg(["-i", str(video), "-i", str(fitted), "-filter_complex", streams, *maps, "-c:v", "libx264",
+                         "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(joined)],
+                        work, duration, cancelled, progress)
+        joined.replace(video)
+    finally:
+        fitted.unlink(missing_ok=True)
+        joined.unlink(missing_ok=True)
+
+
 # ---------------------------------------------------------------------------------- dubbing
 
 DUB_RATE = 24000  # Hz; what the voices are made at

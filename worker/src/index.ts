@@ -12,6 +12,7 @@ import {
   backendHealth,
   handleBackendCallback,
   registerJobListener,
+  registerOutroChooser,
   registerSourceFetcher,
   sweep,
 } from './modules/jobs';
@@ -26,7 +27,7 @@ import {
   telegramJobListener,
 } from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
-import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, handleStripeWebhook } from './modules/accounts';
+import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { handleApi } from './modules/web-api';
 
 // Telegram follows job progress through the jobs brick's listener port, and supplies the files
@@ -35,6 +36,7 @@ registerJobListener(telegramJobListener);
 // Credits follow jobs the same way: refunds when a job fails, the real cost once its length is known.
 registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
+registerOutroChooser(chooseOutro);
 
 const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS];

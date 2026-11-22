@@ -220,3 +220,28 @@ def test_a_refused_rerender_leaves_no_video_behind(client, monkeypatch):
             "cues": [{"start": 0, "end": 1, "translation": "x"}]}
     assert client.post("/invoke", json=body, headers=AUTH).status_code == 429
     assert not (manager.job_dir(job) / KEPT_SOURCE).exists() and kept.exists()
+
+
+def test_outro_upload_needs_the_shared_secret(client):
+    job = "0b0b0b0b-0000-4000-8000-000000000001"
+    assert client.put(f"/outro/{job}", content=b"x").status_code == 401
+    assert client.put(f"/outro/{job}", content=b"", headers=AUTH).status_code == 400
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+@pytest.mark.parametrize("outro,extra", [("custom", 2.0), ("none", 0.0), ("kavox", 5.2)])
+def test_rendered_videos_end_with_the_chosen_outro(client, tmp_path, outro, extra):
+    job = f"0b0b0b0b-0000-4000-8000-00000000001{['custom', 'none', 'kavox'].index(outro)}"
+    clip = make_clip(tmp_path)
+    assert client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=clip).status_code == 200
+    if outro == "custom":
+        assert client.put(f"/outro/{job}", content=clip, headers=AUTH).status_code == 200
+    body = {"job_id": job, "source_kind": "upload", "tgt_lang": "ar", "subtitle_mode": "hard", "outro": outro}
+    assert client.post("/invoke", json=body, headers=AUTH).status_code == 202
+    assert wait_done(client, job)["status"] == "done"
+    mp4 = client.get(f"/files/{job}/video.mp4", params=signed(f"file:{job}:video.mp4"))
+    out = tmp_path / "out.mp4"
+    out.write_bytes(mp4.content)
+    from app.modules import media
+
+    assert media.probe(out)["duration"] == pytest.approx(2.0 + extra, abs=0.4)

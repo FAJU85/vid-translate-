@@ -168,6 +168,20 @@ export interface Me {
   /** How to pay (credits on only): card (Stripe) and Telegram Stars (the bot). */
   payments?: { card: boolean; stars: boolean; bot_username: string | null; stars_prices: Record<string, number>; count: number } | null;
   sign_in: { telegram: boolean; email: boolean; google: boolean };
+  /** The ending added to rendered videos (signed in only). */
+  outro?: Outro | null;
+}
+export type OutroMode = 'kavox' | 'custom' | 'none';
+export interface Outro {
+  mode: OutroMode;
+  /** An own ending is uploaded. */
+  custom: boolean;
+  /** A monthly plan: may use an own ending or none. */
+  allowed: boolean;
+  /** Storage for own endings is set up on the server. */
+  storage: boolean;
+  max_mb: number;
+  max_seconds: number;
 }
 export interface LedgerEntry {
   id: number;
@@ -188,6 +202,11 @@ export const accountApi = {
   googleUrl: () => `${BASE}/api/auth/google`,
   portal: () => call<{ url: string }>('/api/billing/portal', { method: 'POST', body: '{}' }),
   checkout: (product: string) => call<{ url: string }>('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ product }) }),
+  setOutro: (mode: OutroMode) => call<Outro>('/api/account/outro', { method: 'POST', body: JSON.stringify({ mode }) }),
+  uploadOutro: (file: File) =>
+    call<Outro>('/api/account/outro/file', { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'video/mp4' } }),
+  deleteOutro: () => call<Outro>('/api/account/outro/file', { method: 'DELETE' }),
+  outroFileUrl: () => `${BASE}/api/account/outro/file`,
   logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST', body: '{}' }),
 };
 

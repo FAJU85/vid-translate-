@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .modules import speech, subtitles, translation
-from .modules.jobs import KEPT_SOURCE, OUTPUT_FILES, UPLOAD_NAME, Job, manager
+from .modules.jobs import KEPT_SOURCE, OUTPUT_FILES, OUTRO_UPLOAD, UPLOAD_NAME, Job, manager
 from .shared import config, security
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -84,6 +84,8 @@ class InvokeRequest(BaseModel):
     # rerender: burn these edited subtitles into the video kept from `parent_job_id`.
     parent_job_id: str | None = None
     cues: list[dict] | None = Field(default=None, max_length=5000)
+    # The ending added to rendered videos; "custom" uses the clip PUT to /outro/{job_id} first.
+    outro: str = Field(default="kavox", pattern="^(kavox|custom|none)$")
 
 
 def _require_auth(authorization: str | None) -> None:
@@ -169,6 +171,7 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         title=req.title,
         style=subtitles.SubtitleStyle.from_dict(req.subtitle_style).to_dict(),
         cues=req.cues if req.source_kind == "rerender" else None,
+        outro=req.outro,
     )
     try:
         job = manager.submit(job)
@@ -223,6 +226,32 @@ async def upload(job_id: str, request: Request, exp: str = "", sig: str = "") ->
         if size == 0:
             raise HTTPException(status_code=400, detail="Empty upload")
         partial.replace(workdir / UPLOAD_NAME)
+    finally:
+        partial.unlink(missing_ok=True)
+    return {"job_id": job_id, "bytes": size}
+
+
+@app.put("/outro/{job_id}")
+async def outro(job_id: str, request: Request, authorization: str | None = Header(default=None)) -> dict:
+    """A subscriber's own ending clip for one job, sent by the Worker before /invoke."""
+    _require_auth(authorization)
+    _require_job_id(job_id)
+    if job_id in manager.jobs:
+        raise HTTPException(status_code=409, detail="Job already started")
+    workdir = manager.job_dir(job_id)
+    workdir.mkdir(parents=True, exist_ok=True)
+    partial = workdir / (OUTRO_UPLOAD + ".part")
+    size = 0
+    try:
+        with partial.open("wb") as fh:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > config.MAX_OUTRO_BYTES:
+                    raise HTTPException(status_code=413, detail="Ending clip too large")
+                fh.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=400, detail="Empty upload")
+        partial.replace(workdir / OUTRO_UPLOAD)
     finally:
         partial.unlink(missing_ok=True)
     return {"job_id": job_id, "bytes": size}

@@ -10,12 +10,14 @@ from typing import Callable
 from .. import media, speech, subtitles, translation, voice
 from ...shared import config, security
 from ...shared.errors import Cancelled, PipelineError
-from .model import KEPT_SOURCE, OUTPUT_FILES, STAGE_SPAN, UPLOAD_NAME, Job
+from .model import KEPT_SOURCE, OUTPUT_FILES, OUTRO_UPLOAD, STAGE_SPAN, UPLOAD_NAME, Job
 
 log = logging.getLogger("tarjim.jobs")
 
 # Styled subtitles for the burn-in; a working file, removed with the other inputs.
 BURN_FILE = "burn.ass"
+# The KAVOX ending every rendered video gets, unless a subscriber chose their own or none.
+KAVOX_OUTRO = Path(__file__).resolve().parents[2] / "assets" / "outro.mp4"
 
 Notify = Callable[[Job, bool], None]  # (job, force)
 
@@ -118,8 +120,9 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, detected), encoding="utf-8")
         media.burn_subtitles(
             source, BURN_FILE, workdir / OUTPUT_FILES["mp4"],
-            info["duration"], cancelled, reporter("rendering"),
+            info["duration"], cancelled, lambda f: reporter("rendering")(f * 0.95),
         )
+        _add_outro(job, workdir, workdir / OUTPUT_FILES["mp4"], cancelled, lambda f: reporter("rendering")(0.95 + f * 0.05), True)
         outputs["mp4"] = OUTPUT_FILES["mp4"]
         source.replace(workdir / KEPT_SOURCE)  # kept for "render again with my edits"
 
@@ -167,9 +170,26 @@ def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
     outputs = write_subtitle_files(workdir, cues, src_lang or "auto", job.tgt_lang)
     style = subtitles.SubtitleStyle.from_dict(job.style)
     (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang), encoding="utf-8")
-    media.burn_subtitles(source, BURN_FILE, workdir / OUTPUT_FILES["mp4"], info["duration"], cancelled, reporter("rendering"))
+    media.burn_subtitles(source, BURN_FILE, workdir / OUTPUT_FILES["mp4"], info["duration"], cancelled,
+                         lambda f: reporter("rendering")(f * 0.95))
+    _add_outro(job, workdir, workdir / OUTPUT_FILES["mp4"], cancelled, lambda f: reporter("rendering")(0.95 + f * 0.05), True)
     outputs["mp4"] = OUTPUT_FILES["mp4"]
     job.outputs = outputs
+
+
+def _add_outro(job: Job, workdir: Path, video: Path, cancelled, report, encoded_here: bool) -> None:
+    """End the video with the chosen clip. A subscriber's own clip that cannot be used falls back to
+    the KAVOX one; a failing ending never fails the translation (the video is kept without it)."""
+    if job.outro == "none":
+        return
+    custom = workdir / OUTRO_UPLOAD
+    choices = ([custom] if job.outro == "custom" and custom.is_file() else []) + [KAVOX_OUTRO]
+    for clip in choices:
+        try:
+            media.append_outro(video, clip, cancelled, report, encoded_here)
+            return
+        except PipelineError as exc:
+            log.warning("job %s: ending %s not added: %s", job.id, clip.name, exc)
 
 
 def _dub(job: Job, workdir: Path, source: Path, cues: list, info: dict, report, cancelled) -> str:
@@ -198,7 +218,8 @@ def _dub(job: Job, workdir: Path, source: Path, cues: list, info: dict, report, 
             lines.append((cue.start, min(nxt, cue.end + 1.5), clip))
         media.build_dub_track(lines, info["duration"], track)
         media.mix_dub(source, track, workdir / OUTPUT_FILES["dubbed"], info["duration"], info["has_video"],
-                      cancelled, lambda f: report(0.8 + f * 0.2))
+                      cancelled, lambda f: report(0.8 + f * 0.15))
+        _add_outro(job, workdir, workdir / OUTPUT_FILES["dubbed"], cancelled, lambda f: report(0.95 + f * 0.05), False)
     finally:
         shutil.rmtree(lines_dir, ignore_errors=True)
         track.unlink(missing_ok=True)

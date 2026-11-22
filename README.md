@@ -108,6 +108,10 @@ npx wrangler login
 npx wrangler d1 create tarjim-video
 ```
 
+```bash
+npx wrangler r2 bucket create kavox-media
+```
+
 Edit `wrangler.toml` (repository root): paste the printed `database_id`, and set `BACKEND_URL` to your Space URL
 (`https://vooom-kavox.hf.space`, already filled in). Then add the three secrets and deploy:
 
@@ -208,6 +212,15 @@ Packs add credits that never expire; a plan sets that month's credits at each pa
 ones do not carry over). Every payment is counted once, however often its notice arrives. The
 website waits for the credits after opening a payment, then restarts the video that was refused.
 Buying needs an account (signing in), so the credits are kept.
+
+### Video ending (outro)
+
+Every video with burned-in subtitles or dubbing ends with the 5-second KAVOX logo
+(`backend/app/assets/outro.mp4`), fitted to the video's size. Subscribers to a monthly plan choose
+in their account panel: the KAVOX ending, their own (a video up to 30 MB, of which the first 30
+seconds are used) or none. Their own endings are kept in the R2 bucket `kavox-media` (binding
+`MEDIA` in `wrangler.toml`); the Worker sends the clip to the Space with each job. An ending that
+cannot be used is replaced by the KAVOX one, and never fails a translation.
 
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
