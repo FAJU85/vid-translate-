@@ -70,14 +70,14 @@ def voice_for(lang: str, gender: str = "female") -> str | None:
     return pair[1] if gender == "male" else pair[0]
 
 
-async def _one(text: str, voice: str, dest: Path, semaphore: asyncio.Semaphore) -> None:
+async def _one(text: str, voice: str, dest: Path, semaphore: asyncio.Semaphore, rate: int = 0) -> None:
     import edge_tts
 
     async with semaphore:
         last: Exception | None = None
         for attempt in range(TRIES):
             try:
-                await asyncio.wait_for(edge_tts.Communicate(text, voice).save(str(dest)), TIMEOUT)
+                await asyncio.wait_for(edge_tts.Communicate(text, voice, rate=f"{rate:+d}%").save(str(dest)), TIMEOUT)
                 if dest.exists() and dest.stat().st_size > 0:
                     return
                 last = VoiceError("empty audio")
@@ -94,19 +94,25 @@ def synthesize(
     out_dir: Path,
     cancelled: Callable[[], bool],
     progress: Callable[[float], None],
+    rates: list[int] | None = None,
 ) -> list[Path | None]:
-    """One MP3 per text (None for an empty text), spoken in `lang`."""
+    """One MP3 per text (None for an empty text), spoken in `lang`.
+
+    rates: speaking speed per text, in percent faster than normal (0 = normal). The voice itself
+    speaks faster, which sounds far better than speeding the sound up afterwards.
+    """
     voice = voice_for(lang, gender)
     if not voice:
         raise VoiceError(f"No voice for language '{lang}'.")
     out_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path | None] = [out_dir / f"line{i:05d}.mp3" if t.strip() else None for i, t in enumerate(texts)]
-    todo = [(t, p) for t, p in zip(texts, paths) if p is not None]
+    speeds = rates or [0] * len(texts)
+    todo = [(t, p, r) for t, p, r in zip(texts, paths, speeds) if p is not None]
 
     async def run() -> None:
         semaphore = asyncio.Semaphore(PARALLEL)
         done = 0
-        tasks = [asyncio.create_task(_one(t, voice, p, semaphore)) for t, p in todo]
+        tasks = [asyncio.create_task(_one(t, voice, p, semaphore, r)) for t, p, r in todo]
         try:
             pending = set(tasks)
             while pending:  # wake every half second so a cancel is noticed even while the service is slow

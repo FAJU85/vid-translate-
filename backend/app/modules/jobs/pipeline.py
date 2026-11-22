@@ -103,9 +103,11 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     # 3. Translation -------------------------------------------------------------
     enter("translating")
+    # A dub is spoken over the original timing: the translator is told how long each line may last.
+    seconds = _speaking_time(segments, info["duration"]) if job.mode == "dub" else None
     try:
         translations, job.engine = translation.translate_texts(
-            [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating")
+            [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating"), job.title, seconds
         )
     except translation.TranslationError as exc:
         raise PipelineError("E_NMT_FAILED", str(exc)) from exc
@@ -130,7 +132,9 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     # 5. Dubbing: the translation spoken over the original sound ---------------------
     if job.mode == "dub":
         enter("dubbing")
-        outputs["dubbed"] = _dub(job, workdir, source, cues, info, reporter("dubbing"), cancelled)
+        # Whole sentences are spoken (not subtitle pieces): the voice keeps a natural intonation.
+        spoken = [(seg[0], seg[1], subtitles.clean_text(tr) or seg[2]) for seg, tr in zip(segments, translations)]
+        outputs["dubbed"] = _dub(job, workdir, source, spoken, info, reporter("dubbing"), cancelled)
         if info["has_video"]:
             _add_thumbnail(workdir, workdir / OUTPUT_FILES["dubbed"], info["duration"], outputs)
 
@@ -202,8 +206,27 @@ def _add_outro(job: Job, workdir: Path, video: Path, cancelled, report, encoded_
             log.warning("job %s: ending %s not added: %s", job.id, clip.name, exc)
 
 
-def _dub(job: Job, workdir: Path, source: Path, cues: list, info: dict, report, cancelled) -> str:
-    """Speak every subtitle in the target language and mix it over the quietened original sound."""
+# A dubbed line may run into the pause before the next sentence, but never into it.
+DUB_GAP = 0.08
+# The voice speaks at most this much faster than normal (percent); past that, the track speeds it up.
+DUB_MAX_RATE = 35
+
+
+def _speaking_time(segments: list, duration: float) -> list[float]:
+    """How long each sentence may be spoken: until the next one starts."""
+    out = []
+    for i, seg in enumerate(segments):
+        nxt = segments[i + 1][0] if i + 1 < len(segments) else max(duration, seg[1])
+        out.append(max(0.4, nxt - seg[0] - DUB_GAP))
+    return out
+
+
+def _dub(job: Job, workdir: Path, source: Path, spoken: list, info: dict, report, cancelled) -> str:
+    """Speak every sentence in the target language and mix it over the quietened original sound.
+
+    spoken: (start, end, text) per sentence. A line longer than its time is spoken again, faster,
+    by the voice itself; only what still does not fit is sped up (and at worst cut) in the track.
+    """
     if not config.DUBBING_ENABLED:
         raise PipelineError("E_NO_VOICE", "Dubbing is switched off on this server.")
     style = subtitles.SubtitleStyle.from_dict(job.style)
@@ -213,24 +236,30 @@ def _dub(job: Job, workdir: Path, source: Path, cues: list, info: dict, report, 
     track = workdir / "dub.wav"
     try:  # the spoken lines and the track are only steps: removed however the job ends
         try:
-            clips = voice.synthesize(
-                [c.translation or c.text for c in cues], job.tgt_lang, style.voice, lines_dir, cancelled,
-                lambda f: report(f * 0.8),
-            )
+            texts = [text for _s, _e, text in spoken]
+            clips = voice.synthesize(texts, job.tgt_lang, style.voice, lines_dir, cancelled, lambda f: report(f * 0.6))
+            # Each sentence may last until the next one starts.
+            slots = _speaking_time(spoken, info["duration"])
+            rates = []
+            for clip, slot in zip(clips, slots, strict=True):
+                length = media.probe(clip)["duration"] if clip else 0
+                over = length / slot if slot else 1
+                rates.append(min(DUB_MAX_RATE, int((over - 1) * 100) + 5) if over > 1.03 else 0)
+            if any(rates):
+                faster = voice.synthesize(
+                    [t if r else "" for t, r in zip(texts, rates)], job.tgt_lang, style.voice, workdir / "voice-fast",
+                    cancelled, lambda f: report(0.6 + f * 0.2), rates,
+                )
+                clips = [f or c for f, c in zip(faster, clips)]
         except voice.VoiceError as exc:
             raise PipelineError("E_TTS_FAILED", f"The voice service did not answer ({exc}). Try again later.") from exc
-        # Each line may last until the next subtitle starts, and at most a little after its own ends.
-        lines = []
-        for i, (cue, clip) in enumerate(zip(cues, clips, strict=True)):
-            if clip is None:
-                continue
-            nxt = cues[i + 1].start if i + 1 < len(cues) else max(info["duration"], cue.end)
-            lines.append((cue.start, min(nxt, cue.end + 1.5), clip))
+        lines = [(s, s + slot, clip) for (s, _e, _t), slot, clip in zip(spoken, slots, clips) if clip is not None]
         media.build_dub_track(lines, info["duration"], track)
         media.mix_dub(source, track, workdir / OUTPUT_FILES["dubbed"], info["duration"], info["has_video"],
                       cancelled, lambda f: report(0.8 + f * 0.15))
         _add_outro(job, workdir, workdir / OUTPUT_FILES["dubbed"], cancelled, lambda f: report(0.95 + f * 0.05), False)
     finally:
         shutil.rmtree(lines_dir, ignore_errors=True)
+        shutil.rmtree(workdir / "voice-fast", ignore_errors=True)
         track.unlink(missing_ok=True)
     return OUTPUT_FILES["dubbed"]

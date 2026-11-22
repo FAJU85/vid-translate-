@@ -24,8 +24,9 @@ SHARED_SECRET = os.environ.get("SHARED_SECRET", "")
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/tmp/tarjim"))
 
-# Speech recognition (faster-whisper). "small" is a sane default for a free CPU Space.
-WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
+# Speech recognition (faster-whisper). "large-v3-turbo" is far more accurate than "small" (Arabic
+# especially) for about 1.4x the time on a free 2-CPU Space; "small" remains the fast choice.
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
 WHISPER_BEAM_SIZE = _int("WHISPER_BEAM_SIZE", 2)
 # Dubbing (translated voice, media.mix_dub + the voice brick). Off: the option is refused.
 DUBBING_ENABLED = _bool("DUBBING_ENABLED", True)

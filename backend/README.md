@@ -26,7 +26,7 @@ Set these under **Settings → Variables and secrets** of the Space.
 | `SHARED_SECRET` | secret, **required** | – | Same value as the Worker's `SHARED_SECRET`. |
 | `GEMINI_API_KEY` | secret | – | Use Gemini for translation (better quality); falls back to NLLB on errors. |
 | `GEMINI_MODEL` | variable | `gemini-2.5-flash` | Gemini model name. |
-| `WHISPER_MODEL` | variable | `small` | `tiny`, `base`, `small`, `medium`, `large-v3`… Larger is slower and more accurate. |
+| `WHISPER_MODEL` | variable | `large-v3-turbo` | `tiny`, `base`, `small`, `medium`, `large-v3-turbo`, `large-v3`… Larger is slower and more accurate; `large-v3-turbo` is the best balance on a free CPU Space (`small` is about 1.4× faster, with many more mistakes). |
 | `WORD_TIMESTAMPS` | variable | `1` | Word timings for sentence-aware subtitles timed to the speech (about 6% more speech-recognition time). `0` turns them off. |
 | `MAX_DURATION_MIN` | variable | `60` | Longest video accepted. |
 | `MAX_UPLOAD_MB` | variable | `500` | Largest browser upload. |

@@ -29,7 +29,7 @@ def fake_models(monkeypatch):
     )
     monkeypatch.setattr(
         translation, "translate_texts",
-        lambda texts, src, tgt, progress: ([f"[{tgt}] {t}" for t in texts], "fake"),
+        lambda texts, src, tgt, progress, title=None, seconds=None: ([f"[{tgt}] {t}" for t in texts], "fake"),
     )
 
 
