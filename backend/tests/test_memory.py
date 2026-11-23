@@ -207,3 +207,5 @@ def test_a_term_ending_in_a_full_stop_does_not_double_it():
     assert memory.restore("The attack targeted ZQX1.", slots) == "The attack targeted Washington D.C."
     assert memory.restore("ZQX1 is the capital.", slots) == "Washington D.C. is the capital."
     assert memory.restore("Is it ZQX1?", slots) == "Is it Washington D.C.?"
+    # Only the sentence's own mark is dropped, never the start of the next term (".NET").
+    assert memory.restore("ZQX1ZQX2 now.", ["A.", ".NET"]) == "A..NET now."
