@@ -199,3 +199,11 @@ def test_each_model_gets_a_placeholder_it_copies():
     assert memory.restore("جرب XQ1 في XQ2 اليوم.", slots, "XQ") == "جرب كافوكس برو في الرياض اليوم."
     assert memory.restore("جرب ⁇X1 في XQ2 اليوم.", slots, "XQ") is None  # lost: translated again without it
     assert memory.restore("Try XQ1 at MAXQ2 store and XQ2.", slots, "XQ") is not None  # "MAXQ2" is no placeholder
+
+
+def test_a_term_ending_in_a_full_stop_does_not_double_it():
+    memory = Memory.from_payload({"terms": [{"src": "ar", "source": "واشنطن", "translation": "Washington D.C."}]}, "ar")
+    _, slots = memory.protect("الهجوم يستهدف واشنطن")
+    assert memory.restore("The attack targeted ZQX1.", slots) == "The attack targeted Washington D.C."
+    assert memory.restore("ZQX1 is the capital.", slots) == "Washington D.C. is the capital."
+    assert memory.restore("Is it ZQX1?", slots) == "Is it Washington D.C.?"
