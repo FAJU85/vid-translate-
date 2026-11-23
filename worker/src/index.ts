@@ -12,6 +12,7 @@ import {
   backendHealth,
   handleBackendCallback,
   registerJobListener,
+  registerDownloadPlanner,
   registerMemoryProvider,
   registerOutroChooser,
   registerSourceFetcher,
@@ -30,7 +31,7 @@ import {
 import { SETTINGS_SCHEMA } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { SHARES_SCHEMA, handleSharePage, sharesJobListener, sweepShares } from './modules/shares';
-import { LEARNING_SCHEMA, memoryFor } from './modules/learning';
+import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
 
 // A finished video gets its public page first, so Telegram's message can carry the link.
@@ -44,8 +45,11 @@ registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
 // The translation memory (learning brick) goes with every job.
 registerMemoryProvider(memoryFor);
+// ...and the download methods that work best for a link's site, learned from every download.
+registerDownloadPlanner(downloadPlanFor);
+registerJobListener(sitesJobListener);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

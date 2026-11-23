@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, X } from 'lucide-react';
-import { api, type AppConfig, type Cue, type Job } from '../../shared/api';
+import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { api, type AppConfig, type Cue, type Job, type RatingAspect } from '../../shared/api';
 import { ShareLink } from './ShareLink';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
 
@@ -43,7 +43,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
   const taughtFor = useRef<{ sending: string; done: string }>({ sending: '', done: '' });
   const teach = () => {
     if (!job || !cues || !edited) return;
-    const key = JSON.stringify(cues.map((c) => c.translation));
+    const key = JSON.stringify(cues.map((c) => [c.text, c.translation])); // the words heard teach too
     if (taughtFor.current.sending === key || taughtFor.current.done === key) return;
     taughtFor.current.sending = key;
     api
@@ -357,6 +357,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
                   : 'Sign in so your corrections teach KAVOX to translate better for everyone.'}
               </p>
             )}
+            {job.status === 'done' && <Rating job={job} onCorrect={() => setEditing(cues?.[0]?.index ?? null)} />}
             {edited && cues && job.can_rerender && (
               <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-amber-400/40 bg-amber-400/5">
                 <span className="flex-1 min-w-[12rem] text-sm text-amber-100">
@@ -546,5 +547,52 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * 👍 / 👎 on the translation (and the voice of a dubbed video). A thumbs down asks for a
+ * correction: corrections are what teach KAVOX; the ratings show the admin where it is needed.
+ */
+function Rating({ job, onCorrect }: { job: Job; onCorrect: () => void }) {
+  const [ratings, setRatings] = useState(job.ratings ?? {});
+  const [failed, setFailed] = useState(false);
+  const aspects: { key: RatingAspect; label: string }[] = [
+    { key: 'translation', label: 'Translation' },
+    ...(job.mode === 'dub' ? [{ key: 'voice' as const, label: 'Voice' }] : []),
+  ];
+  const send = (aspect: RatingAspect, value: 1 | -1) => {
+    setRatings({ ...ratings, [aspect]: value });
+    setFailed(false);
+    api
+      .rate(job.id, aspect, value)
+      .then((r) => setRatings(r.ratings))
+      .catch(() => setFailed(true));
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
+      {aspects.map(({ key, label }) => (
+        <span key={key} className="inline-flex items-center gap-1.5">
+          {label}
+          {([1, -1] as const).map((v) => (
+            <button
+              key={v}
+              aria-label={`${label}: ${v === 1 ? 'good' : 'needs work'}`}
+              aria-pressed={ratings[key] === v}
+              onClick={() => send(key, v)}
+              className={`p-1.5 rounded-lg border ${ratings[key] === v ? 'border-amber-400 bg-amber-400/15 text-amber-300' : 'border-slate-700 text-slate-400 hover:text-white'}`}
+            >
+              {v === 1 ? <ThumbsUp className="w-4 h-4" /> : <ThumbsDown className="w-4 h-4" />}
+            </button>
+          ))}
+        </span>
+      ))}
+      {ratings.translation === -1 && (
+        <button onClick={onCorrect} className="text-xs text-amber-300 underline underline-offset-2">
+          Correct the lines below: your corrections teach KAVOX
+        </button>
+      )}
+      {failed && <span className="text-xs text-red-400">Your rating was not saved. Try again.</span>}
+    </div>
   );
 }

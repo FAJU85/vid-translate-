@@ -1,6 +1,6 @@
 import { now, type Env } from '../../shared/env';
 import * as backend from './backend';
-import { chooseOutro, emitChanged, emitFinished, memoryFor, sourceFetcher } from './events';
+import { chooseOutro, downloadPlan, emitChanged, emitFinished, memoryFor, sourceFetcher } from './events';
 import { TERMINAL, type BackendState, type Channel, type JobRow, type SourceKind, type SubtitleMode } from './model';
 import * as store from './store';
 import type { SubtitleStyle } from './style';
@@ -86,6 +86,7 @@ export async function createJob(env: Env, p: NewJob): Promise<{ job?: JobRow; er
     outputs: null,
     origin: p.origin,
     account_id: p.accountId ?? null,
+    downloads: null,
     dispatched: 0,
     dispatch_attempts: 0,
     delivered: 0,
@@ -148,6 +149,7 @@ export async function dispatch(env: Env, job: JobRow): Promise<boolean> {
       subtitle_style: job.style ? (JSON.parse(job.style) as SubtitleStyle) : undefined,
       outro,
       memory: (await memoryFor(env, job)) ?? undefined,
+      download: job.source_kind === 'url' ? ((await downloadPlan(env, job)) ?? undefined) : undefined,
       ...(job.source_kind === 'rerender' ? { parent_job_id: job.source, cues: JSON.parse(job.cues || '[]') as unknown[] } : {}),
       callback_url: `${job.origin}/api/callback`,
       title: job.title,
@@ -207,6 +209,7 @@ export async function applyState(env: Env, job: JobRow, state: BackendState): Pr
     queue_position: state.queue_position ?? null,
     eta: state.eta_seconds ?? null,
   };
+  if (state.downloads?.length) patch.downloads = JSON.stringify(state.downloads.slice(0, 8));
   if (state.status === 'done') {
     Object.assign(patch, { status: 'done', stage: 'done', progress: 100, outputs: JSON.stringify(state.outputs ?? {}) });
   } else if (state.status === 'failed') {

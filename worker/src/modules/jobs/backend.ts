@@ -21,6 +21,8 @@ export interface InvokeBody {
   outro?: 'kavox' | 'custom' | 'none';
   /** Translation memory for the target language (learning brick). */
   memory?: Record<string, unknown>;
+  /** Download methods that worked best for the link's site, best first (learning brick). */
+  download?: string[];
   callback_url: string;
   title: string | null;
 }

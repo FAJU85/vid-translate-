@@ -1,5 +1,7 @@
 import { apiError, json } from '../../shared/http';
 import type { Env } from '../../shared/env';
+import { ratingSummary } from './ratings';
+import { listSites, score } from './sites';
 import { ENTRY_KINDS, LEARN_VOTES, ONE_LANGUAGE, counts, deleteEntry, getEntry, listEntries, saveByAdmin, setStatus, type EntryKind } from './store';
 const LANG = /^[a-z]{2,3}$/;
 
@@ -9,6 +11,11 @@ const LANG = /^[a-z]{2,3}$/;
  */
 export async function handleMemoryAdmin(request: Request, env: Env, path: string): Promise<Response | null> {
   const url = new URL(request.url);
+  if (path === '/api/admin/ratings' && request.method === 'GET') return json({ ratings: await ratingSummary(env) });
+  if (path === '/api/admin/sites' && request.method === 'GET') {
+    const sites = await listSites(env);
+    return json({ sites: sites.map((m) => ({ ...m, score: Math.round(score(m) * 100) / 100 })) });
+  }
   if (path === '/api/admin/memory' && request.method === 'GET') {
     const entries = await listEntries(env, {
       status: url.searchParams.get('status') || undefined,

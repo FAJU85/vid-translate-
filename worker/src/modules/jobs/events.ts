@@ -88,6 +88,29 @@ export async function memoryFor(env: Env, job: JobRow): Promise<Record<string, u
   }
 }
 
+/**
+ * Port through which another brick (learning) says which download methods to try first for a
+ * link job, learned from how every download from that site went.
+ */
+export type DownloadPlanner = (env: Env, job: JobRow) => Promise<string[] | null>;
+
+let downloadPlanner: DownloadPlanner | null = null;
+
+export function registerDownloadPlanner(planner: DownloadPlanner): void {
+  downloadPlanner = planner;
+}
+
+/** The methods to try first for a link job; none when nothing is learned or it cannot be read. */
+export async function downloadPlan(env: Env, job: JobRow): Promise<string[] | null> {
+  if (!downloadPlanner) return null;
+  try {
+    return await downloadPlanner(env, job);
+  } catch (err) {
+    console.error('reading the download methods failed for', job.id, (err as Error).stack ?? err);
+    return null;
+  }
+}
+
 /** The ending for a job; the KAVOX one when nothing else is chosen or the choice fails. */
 export async function chooseOutro(env: Env, job: JobRow): Promise<OutroChoice> {
   if (!outroChooser) return { kind: 'kavox' };

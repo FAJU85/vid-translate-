@@ -65,7 +65,10 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
             security.assert_public_url(job.source_url or "")
         except security.UnsafeUrl as exc:
             raise PipelineError("E_URL_INVALID", str(exc)) from exc
-        source, meta = media.download_url(job.source_url or "", workdir, want_video, cancelled, reporter("downloading"))
+        # The methods the Worker learned work for this site come first; every try is reported back.
+        source, meta = media.download_url(
+            job.source_url or "", workdir, want_video, cancelled, reporter("downloading"), job.download, job.downloads,
+        )
         job.title = job.title or meta.get("title")
 
     info = media.probe(source)

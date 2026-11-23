@@ -51,6 +51,8 @@ export const JOBS_COLUMNS: AddedColumn[] = [
   { table: 'jobs', column: 'cues', definition: 'TEXT' },
   // The signed-in account that asked for the job (accounts brick), when there is one.
   { table: 'jobs', column: 'account_id', definition: 'TEXT' },
+  // How each download try went on the Space (learning brick learns the best method per site).
+  { table: 'jobs', column: 'downloads', definition: 'TEXT' },
 ];
 
 export function getJob(env: Env, id: string): Promise<JobRow | null> {

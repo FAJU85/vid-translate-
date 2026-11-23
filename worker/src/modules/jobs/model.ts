@@ -38,6 +38,8 @@ export interface JobRow {
   origin: string;
   /** The account that asked for the job (signed in on the website, or the bot user's), if known. */
   account_id: string | null;
+  /** JSON of how each download try went on the Space: [{strategy, ok, code}] (link jobs). */
+  downloads: string | null;
   dispatched: number;
   dispatch_attempts: number;
   delivered: number;
@@ -59,6 +61,14 @@ export interface BackendState {
   error?: { code: string; message: string } | null;
   queue_position?: number | null;
   eta_seconds?: number | null;
+  /** How each download try went (link jobs): the method, and whether it worked. */
+  downloads?: DownloadTry[] | null;
+}
+
+export interface DownloadTry {
+  strategy: string;
+  ok: boolean;
+  code: string | null;
 }
 
 export const TERMINAL: JobStatus[] = ['done', 'failed', 'cancelled'];

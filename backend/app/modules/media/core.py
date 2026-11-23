@@ -43,40 +43,64 @@ def is_site_block(message: str) -> bool:
 
 _FACEBOOK = re.compile(r"(^|\.)(facebook\.com|fb\.watch|fb\.com)$")
 
+# Ways of downloading from a site, by name. The Worker learns which one works best for each site
+# (from how every download went) and sends that order with the job; see `download_order`.
+STRATEGIES: dict[str, dict] = {
+    "plain": {},
+    # Looks like Chrome at the connection level (TLS fingerprint, curl-cffi), for sites that refuse
+    # anything else.
+    "chrome": {"impersonate": "chrome"},
+    # IPv4 only: some sites publish IPv6 addresses this server cannot use, or that stall.
+    "ipv4": {"source_address": "0.0.0.0"},
+    "chrome-ipv4": {"impersonate": "chrome", "source_address": "0.0.0.0", "extractor_retries": 3},
+}
+MAX_TRIES = 4
+
+
+def download_order(url: str, learned: list[str] | None = None) -> list[str]:
+    """The methods to try for a link, in order: what the Worker learned works for its site first,
+    then the built-in order for it. Facebook only answers Chrome over IPv4, and some of its
+    addresses stall at random, so it gets that method three times; any other site gets a plain
+    try and then the Chrome one."""
+    host = (urlparse(url).hostname or "").lower()
+    default = ["chrome-ipv4"] * 3 if _FACEBOOK.search(host) else ["plain", "chrome"]
+    order = [s for s in (learned or []) if s in STRATEGIES]
+    order += [s for s in default if s not in order or default.count(s) > 1]
+    return order[:MAX_TRIES]
+
 
 def site_options(url: str) -> tuple[dict, int]:
-    """Extra yt-dlp options for a site, and how many times to try it.
-
-    Facebook never answers this server unless the request looks like Chrome at the connection
-    level (TLS fingerprint): with curl-cffi's Chrome impersonation it answers at once. Some of its
-    addresses also stall at random (and it publishes IPv6 ones this server cannot use), so
-    Facebook goes over IPv4 and gets three tries. Measured from the Space: 5 of 6 downloads
-    succeeded on the first try, the failure was a stalled connection.
-    """
-    host = (urlparse(url).hostname or "").lower()
-    if _FACEBOOK.search(host):
-        return {
-            "impersonate": "chrome",  # turned into yt-dlp's ImpersonateTarget at download time
-            "source_address": "0.0.0.0",  # IPv4 only
-            "extractor_retries": 3,
-        }, 3
-    return {}, 1
+    """yt-dlp options of the first method for a site, and how many tries it gets by default."""
+    order = download_order(url)
+    return dict(STRATEGIES[order[0]]), order.count(order[0])
 
 
-def download_url(url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn, progress: ProgressFn) -> tuple[Path, dict]:
-    """Download with yt-dlp (Facebook, Instagram, TikTok, X, direct links, ...)."""
-    extra, attempts = site_options(url)
-    for attempt in range(1, attempts + 1):
+def download_url(
+    url: str, dest_dir: Path, want_video: bool, cancelled: CancelFn, progress: ProgressFn,
+    learned: list[str] | None = None, tried: list[dict] | None = None,
+) -> tuple[Path, dict]:
+    """Download with yt-dlp (Facebook, Instagram, TikTok, X, direct links, ...), trying the
+    methods of `download_order` until one works. Each try is appended to `tried`, as
+    {"strategy", "ok", "code"}, so the Worker can learn from it whether the download works or not."""
+    order = download_order(url, learned)
+    for attempt, strategy in enumerate(order, start=1):
         if attempt > 1 and cancelled():  # the user cancelled while the last try was failing
             raise Cancelled()
         try:
-            return _download_url(url, dest_dir, want_video, cancelled, progress, extra)
+            result = _download_url(url, dest_dir, want_video, cancelled, progress, STRATEGIES[strategy])
         except MediaError as exc:
-            if attempt == attempts or exc.code not in ("E_DOWNLOAD_FAILED", "E_SITE_BLOCKED"):
+            retry = exc.code in ("E_DOWNLOAD_FAILED", "E_SITE_BLOCKED")
+            if tried is not None and retry:  # only what says something about the site counts
+                tried.append({"strategy": strategy, "ok": False, "code": exc.code})
+            if attempt == len(order) or not retry:
                 raise
-            log.warning("download attempt %d of %d failed (%s); retrying", attempt, attempts, exc.message)
+            log.warning("download try %d of %d (%s) failed (%s); next", attempt, len(order), strategy, exc.message)
             for partial in dest_dir.glob("source.*"):
                 partial.unlink(missing_ok=True)
+            continue
+        if tried is not None:
+            tried.append({"strategy": strategy, "ok": True, "code": None})
+        return result
     raise AssertionError("unreachable")
 
 
