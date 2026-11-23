@@ -10,6 +10,7 @@ from typing import Callable
 from .. import media, speech, subtitles, translation, voice
 from ...shared import config, security
 from ...shared.errors import Cancelled, PipelineError
+from . import dubbing
 from .model import KEPT_SOURCE, OUTPUT_FILES, OUTRO_UPLOAD, STAGE_SPAN, UPLOAD_NAME, Job
 
 log = logging.getLogger("tarjim.jobs")
@@ -102,7 +103,7 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     job.detected_lang = detected
     # The translation memory (rules learned from people's corrections) decides first:
     # speech fixes correct words the recognition keeps getting wrong, before anything else.
-    memory = translation.Memory.from_payload(job.memory, detected)
+    memory = translation.Memory.from_payload(job.memory, detected, job.tgt_lang)
     segments, job.speech_fixes = memory.fix_segments(segments)
     # Whole sentences (from word timestamps) translate better than Whisper's audio chunks.
     segments = subtitles.sentence_segments(subtitles.clean_segments(segments))
@@ -150,8 +151,8 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     # 5. Dubbing: the translation spoken over the original sound ---------------------
     if job.mode == "dub":
         enter("dubbing")
-        spoken = _lip_sync(segments, translations)
-        outputs["dubbed"] = _dub(job, workdir, source, spoken, info, reporter("dubbing"), cancelled)
+        sentences = dubbing.plan(segments, translations, info["duration"])
+        outputs["dubbed"] = _dub(job, workdir, source, sentences, info, reporter("dubbing"), cancelled, memory)
         if info["has_video"]:
             _add_thumbnail(workdir, workdir / OUTPUT_FILES["dubbed"], info["duration"], outputs)
 
@@ -223,16 +224,6 @@ def _add_outro(job: Job, workdir: Path, video: Path, cancelled, report, encoded_
             log.warning("job %s: ending %s not added: %s", job.id, clip.name, exc)
 
 
-# A dubbed line may run into the pause before the next sentence, but never into it.
-DUB_GAP = 0.08
-# The voice speaks at most this much faster than normal (percent); past that, the track speeds it up.
-DUB_MAX_RATE = 35
-# ...and at most this much slower, so a short line still lasts as long as the speaker's mouth moves.
-DUB_MIN_RATE = -15
-# How close to the speaker's own timing a dubbed phrase must be to be left as it is.
-FIT_LONG, FIT_SHORT = 1.03, 0.85
-
-
 def _sentences_from_cues(segments: list, cues: list, translations: list[str]) -> list[str]:
     """Each sentence's translation rebuilt from its subtitles (a subtitle belongs to the sentence
     it starts in), after the memory corrected some of them."""
@@ -245,50 +236,13 @@ def _sentences_from_cues(segments: list, cues: list, translations: list[str]) ->
     return out
 
 
-def _lip_sync(segments: list, translations: list[str]) -> list[tuple[float, float, str]]:
-    """What the dub says and when: timing lip-sync (isochrony), without changing the picture.
-
-    Each sentence is spoken over the speaker's own stretches of speech: it starts when they start,
-    pauses where they pause (word timestamps) and ends when they stop. Without word timestamps the
-    whole sentence is one stretch. Returns [(start, end of the speech, text)].
-    """
-    out: list[tuple[float, float, str]] = []
-    for seg, translated in zip(segments, translations):
-        text = subtitles.clean_text(translated) or seg[2]
-        phrases = subtitles.spoken_phrases(seg[3], text) if len(seg) > 3 and seg[3] else []
-        out.extend(phrases or [(seg[0], seg[1], text)])
-    return out
-
-
-def _fit_rate(length: float, speech: float, room: float) -> int:
-    """How much faster (or slower) the voice should speak a line of `length` seconds so that it
-    lasts as long as the speaker's own `speech`, without running past `room` (the next line)."""
-    if length <= 0 or speech <= 0:
-        return 0
-    if length > room * FIT_LONG or length > speech * 1.25:
-        target = min(room, max(speech, room * 0.9)) if length > room * FIT_LONG else speech * 1.1
-        return min(DUB_MAX_RATE, int((length / target - 1) * 100) + 3)
-    if length < speech * FIT_SHORT:
-        return max(DUB_MIN_RATE, int((length / speech - 1) * 100))
-    return 0
-
-
-def _speaking_time(segments: list, duration: float) -> list[float]:
-    """How long each sentence may be spoken: until the next one starts."""
-    out = []
-    for i, seg in enumerate(segments):
-        nxt = segments[i + 1][0] if i + 1 < len(segments) else max(duration, seg[1])
-        out.append(max(0.4, nxt - seg[0] - DUB_GAP))
-    return out
-
-
-def _dub(job: Job, workdir: Path, source: Path, spoken: list, info: dict, report, cancelled) -> str:
+def _dub(job: Job, workdir: Path, source: Path, sentences: list, info: dict, report, cancelled, memory=None) -> str:
     """Speak every sentence in the target language and mix it over the quietened original sound.
 
-    spoken: (start, end of the speech, text) per phrase (_lip_sync). A phrase much longer or
-    shorter than the speaker's own is spoken again by the voice itself, faster or a little slower,
-    so it follows the speaker's mouth; only what still does not fit is sped up (and at worst cut)
-    in the track.
+    sentences: dubbing.plan(). Each sentence is spoken in one take, cut between words where the
+    speaker paused and placed over the speaker's own speech; a sentence much longer or shorter
+    than the speaker's is spoken again by the voice itself, faster or a little slower (gradually
+    from one sentence to the next). See jobs/dubbing.py.
     """
     if not config.DUBBING_ENABLED:
         raise PipelineError("E_NO_VOICE", "Dubbing is switched off on this server.")
@@ -297,26 +251,24 @@ def _dub(job: Job, workdir: Path, source: Path, spoken: list, info: dict, report
         raise PipelineError("E_NO_VOICE", "Dubbing is not available for this language yet. Choose subtitles instead.")
     lines_dir = workdir / "voice"
     track = workdir / "dub.wav"
+    # How the voice should say some words (pronunciation rules): only what is spoken changes.
+    texts = [memory.pronounce(s.text) if memory else s.text for s in sentences]
     try:  # the spoken lines and the track are only steps: removed however the job ends
         try:
-            texts = [text for _s, _e, text in spoken]
-            clips = voice.synthesize(texts, job.tgt_lang, style.voice, lines_dir, cancelled, lambda f: report(f * 0.6))
-            # Each sentence may last until the next one starts.
-            slots = _speaking_time(spoken, info["duration"])
-            rates = [
-                _fit_rate(media.probe(clip)["duration"] if clip else 0, max(0.2, end - start), slot)
-                for clip, slot, (start, end, _t) in zip(clips, slots, spoken, strict=True)
-            ]
+            takes = voice.synthesize(texts, job.tgt_lang, style.voice, lines_dir, cancelled, lambda f: report(f * 0.6))
+            layouts = dubbing.takes_layout(sentences, takes)
+            rates = dubbing.smooth([dubbing.sentence_rate(p) if p else 0 for p in layouts], sentences)
             if any(rates):
-                faster = voice.synthesize(
+                again = voice.synthesize(
                     [t if r else "" for t, r in zip(texts, rates)], job.tgt_lang, style.voice, workdir / "voice-fast",
                     cancelled, lambda f: report(0.6 + f * 0.2), rates,
                 )
-                clips = [f or c for f, c in zip(faster, clips)]
+                takes = [a or t for a, t in zip(again, takes)]
+                layouts = dubbing.takes_layout(sentences, takes)
         except voice.VoiceError as exc:
             raise PipelineError("E_TTS_FAILED", f"The voice service did not answer ({exc}). Try again later.") from exc
-        lines = [(s, s + slot, clip) for (s, _e, _t), slot, clip in zip(spoken, slots, clips) if clip is not None]
-        media.build_dub_track(lines, info["duration"], track)
+        pieces = [p for take, lay in zip(takes, layouts) if take for p in dubbing.track_pieces(lay, take)]
+        media.build_dub_track(pieces, info["duration"], track)
         media.mix_dub(source, track, workdir / OUTPUT_FILES["dubbed"], info["duration"], info["has_video"],
                       cancelled, lambda f: report(0.8 + f * 0.15))
         _add_outro(job, workdir, workdir / OUTPUT_FILES["dubbed"], cancelled, lambda f: report(0.95 + f * 0.05), False)

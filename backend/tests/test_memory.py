@@ -150,3 +150,11 @@ def test_fix_segments_keep_word_timing():
 def test_hotwords_are_the_right_words():
     assert Memory.from_payload(FIXES, "ar").hotwords() == "كافوكس واشنطن"
     assert Memory.from_payload(None, "ar").hotwords() is None
+
+
+def test_pronunciation_rules_change_only_what_the_voice_says():
+    payload = {"say": [{"src": "ar", "source": "علم", "translation": "عَلَم"}, {"src": "ar", "source": "KAVOX", "translation": "كافوكس"}]}
+    memory = Memory.from_payload(payload, "en", "ar")
+    assert memory.pronounce("رفع العلم وعلم kavox اليوم، علم.") == "رفع العلم وعلم كافوكس اليوم، عَلَم."
+    assert Memory.from_payload(payload, "en", "fr").pronounce("KAVOX") == "KAVOX"  # another language's rules
+    assert Memory.from_payload(payload, "en").pronounce("KAVOX") == "KAVOX"

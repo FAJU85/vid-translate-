@@ -6,6 +6,7 @@ import { activeEntries, norm, vote, type Vote } from './store';
 const MAX_SENTENCES = 3000;
 const MAX_TERMS = 500;
 const MAX_FIXES = 500;
+const MAX_SAYS = 500;
 /** A speech fix is a few words; a longer change is a rewrite, not a recognition mistake. */
 const MAX_FIX_WORDS = 6;
 /** Longer "corrections" are rewrites of a whole passage, not something to reuse. */
@@ -86,15 +87,17 @@ export async function learnFromEdit(env: Env, job: JobRow, edited: unknown[], co
 /** The translation memory sent with a job (backend translation.Memory payload), or none. */
 export async function memoryFor(env: Env, job: JobRow): Promise<Record<string, unknown> | null> {
   if (job.source_kind === 'rerender') return null; // nothing is translated again
-  const [sentences, terms, fixes] = await Promise.all([
+  const [sentences, terms, fixes, says] = await Promise.all([
     activeEntries(env, job.tgt_lang, 'sentence', MAX_SENTENCES),
     activeEntries(env, job.tgt_lang, 'term', MAX_TERMS),
     // Speech fixes are for the spoken language: every language's when it is detected later.
     activeEntries(env, null, 'fix', MAX_FIXES).then((all) =>
       job.src_lang && job.src_lang !== 'auto' ? all.filter((e) => e.src === job.src_lang) : all,
     ),
+    // Pronunciations are for the dubbing voice, in the target language.
+    job.mode === 'dub' ? activeEntries(env, job.tgt_lang, 'say', MAX_SAYS) : Promise.resolve([]),
   ]);
-  if (!sentences.length && !terms.length && !fixes.length) return null;
+  if (!sentences.length && !terms.length && !fixes.length && !says.length) return null;
   const pack = (e: { src: string; source: string; translation: string }) => ({ src: e.src, source: e.source, translation: e.translation });
-  return { sentences: sentences.map(pack), terms: terms.map(pack), fixes: fixes.map(pack) };
+  return { sentences: sentences.map(pack), terms: terms.map(pack), fixes: fixes.map(pack), say: says.map(pack) };
 }

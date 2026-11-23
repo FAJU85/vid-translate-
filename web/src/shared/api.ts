@@ -373,8 +373,9 @@ export const adminApi = {
 };
 
 /** A rule in the translation memory (a learned or written sentence, or a glossary term). */
-/** fix: a speech fix, words the speech recognition mishears and what was said (src = tgt). */
-export type MemoryKind = 'sentence' | 'term' | 'fix';
+/** fix: a speech fix, words the speech recognition mishears and what was said (src = tgt);
+ * say: how the dubbing voice says a word (src = tgt). */
+export type MemoryKind = 'sentence' | 'term' | 'fix' | 'say';
 export interface MemoryEntry {
   id: number;
   kind: MemoryKind;

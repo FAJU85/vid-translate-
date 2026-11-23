@@ -133,3 +133,52 @@ def test_the_classic_voice_speaks_without_any_model(tmp_path):
     asyncio.run(core._espeak("Welcome to KAVOX", "en", dest, 0))
     with wave.open(str(dest)) as w:
         assert w.getnframes() / w.getframerate() > 0.5
+
+
+def test_a_piece_is_gently_fitted_to_the_speakers_timing(tmp_path):
+    take = tone(tmp_path / "t.wav", 3.0)
+    track = tmp_path / "dub.wav"
+    # 1 s of the take, where the speaker spoke for 0.95 s: close enough, left as spoken
+    # 1 s of the take over 0.5 s of speech: stretched, but only by FIT_FASTER at most
+    media.build_dub_track([media.DubPiece(0.0, 2.0, take, 0.0, 1.0, 0.95), media.DubPiece(3.0, 5.0, take, 1.0, 2.0, 0.5)], 6.0, track)
+    rate, s = read(track)
+    assert loud(s, rate, 0.05, 0.95) and not loud(s, rate, 1.05, 2.9)
+    assert loud(s, rate, 3.05, 3.85) and not loud(s, rate, 1 / media.core.FIT_FASTER + 3.05, 6.0)
+
+
+def test_the_silence_around_a_voice_is_not_counted(tmp_path):
+    clip = tmp_path / "padded.wav"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+                    "-af", "adelay=500,apad=pad_dur=0.7", str(clip)], check=True)
+    start, end = media.speech_bounds(clip)
+    assert start == pytest.approx(0.5, abs=0.03) and end == pytest.approx(1.5, abs=0.03)
+
+
+def test_a_slowed_down_piece_keeps_its_last_word(tmp_path):
+    take = tone(tmp_path / "t.wav", 2.0)
+    track = tmp_path / "dub.wav"
+    # 1 s of the take over 2 s of speech: played at FIT_SLOWER, so it lasts 1/0.9 s, all of it
+    media.build_dub_track([media.DubPiece(1.0, 4.0, take, 0.5, 1.5, 2.0)], 5.0, track)
+    rate, s = read(track)
+    assert loud(s, rate, 1.05, 1.0 + 1 / media.core.FIT_SLOWER - 0.05)
+    assert loud(s, rate, 2.02, 2.06)  # the last bit, past where a 1 s cut would have stopped
+    assert not loud(s, rate, 1.0 + 1 / media.core.FIT_SLOWER + 0.05, 5.0)
+
+
+def test_pronunciation_rules_alone_reach_the_voice(client, tmp_path, monkeypatch):
+    said = []
+
+    def fake_synthesize(texts, lang, gender, out_dir, cancelled, progress, rates=None):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        said.extend(texts)
+        return [tone(out_dir / f"{i}.wav", 0.8) if t else None for i, t in enumerate(texts)]
+
+    monkeypatch.setattr(voice, "synthesize", fake_synthesize)
+    job = "0c0c0c0c-0000-4000-8000-000000000003"
+    client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path))
+    memory = {"say": [{"src": "ar", "source": "Hello", "translation": "هالو"}]}  # nothing else in the memory
+    r = client.post("/invoke", json={"job_id": job, "source_kind": "upload", "tgt_lang": "ar", "subtitle_mode": "dub",
+                                      "memory": memory}, headers=AUTH)
+    assert r.status_code == 202
+    assert wait_done(client, job)["status"] == "done"
+    assert said and "هالو" in said[0] and "Hello" not in said[0]  # the fake translation is "[ar] Hello there."

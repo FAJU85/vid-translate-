@@ -33,10 +33,13 @@ export const LEARNING_SCHEMA = [
 
 /**
  * sentence: a whole subtitle or sentence; term: a word or name in the glossary; fix: words the
- * speech recognition keeps getting wrong and what was really said (src = tgt = the spoken language).
+ * speech recognition keeps getting wrong and what was really said (src = tgt = the spoken language);
+ * say: how the dubbing voice says a word of a language (src = tgt = that language).
  */
-export type EntryKind = 'sentence' | 'term' | 'fix';
-export const ENTRY_KINDS: readonly EntryKind[] = ['sentence', 'term', 'fix'];
+export type EntryKind = 'sentence' | 'term' | 'fix' | 'say';
+export const ENTRY_KINDS: readonly EntryKind[] = ['sentence', 'term', 'fix', 'say'];
+/** Kinds about one language only (src = tgt). */
+export const ONE_LANGUAGE: readonly EntryKind[] = ['fix', 'say'];
 /** candidate: taught, not yet trusted; learned: taught by enough people; approved: by an admin. */
 export type EntryStatus = 'candidate' | 'learned' | 'approved' | 'rejected';
 /** Different people who must make the same correction before it is used for everyone. */
