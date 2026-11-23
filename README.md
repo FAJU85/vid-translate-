@@ -216,8 +216,14 @@ Buying needs an account (signing in), so the credits are kept.
 
 Speech is recognised with Whisper `large-v3-turbo` (set `WHISPER_MODEL` on the Space to change it),
 with Whisper's invented lines over silence filtered out. Translation is mechanical first: the
-**translation memory** (rules, below) decides, and the local NLLB model translates only what it
-does not know, with small rule-based clean-ups before and after it. No cloud AI is used.
+**translation memory** (rules, below) decides, and a local model translates only what it does not
+know, with small rule-based clean-ups before and after it. No cloud AI is used. The local model is
+**OPUS-MT** (Helsinki-NLP) for Arabic→English, English→Arabic and English→French, where it measured
+better and about 5× faster than NLLB (FLORES-200 devtest, chrF++: 65.8 vs 61.8, 59.2 vs 52.1,
+69.5 vs 67.5), and **NLLB-200** for every other pair. The OPUS-MT models are converted when the
+Space image is built (`backend/tools/convert_opus.sh`, pinned versions); `OPUS_ENABLED=0` sends
+every pair to NLLB. Glossary terms are kept out of the model's hands with a placeholder each
+model copies as it is (`ZQX1` for NLLB, `XQ1` for OPUS-MT, whose Arabic vocabulary has no "Z").
 
 Dubbing uses timing lip-sync (isochrony), done mechanically (`backend/app/modules/jobs/dubbing.py`):
 
@@ -272,8 +278,8 @@ each subtitle).
   video, to the voice (and may change it). A 👎 on the translation points them to the subtitle
   editor, since corrections are what teach KAVOX. On **/admin → Learning → Quality and sites** an
   admin sees the counts per language pair and per language and voice, worst first. With one
-  translation engine (the memory, then NLLB) ratings do not choose an engine yet; they show where
-  corrections are needed.
+  translation engine per language pair (the memory, then OPUS-MT or NLLB) ratings do not choose an
+  engine yet; they show where corrections are needed.
 - **Download methods per site**: the Space downloads a link with one of a few methods (plain;
   looking like Chrome at the connection level; IPv4 only; both) and reports every try. The Worker
   counts, per site, the tries that worked and failed; a failed try counts only when the site
@@ -386,8 +392,11 @@ To keep the bot private, set `ALLOWED_CHAT_IDS` in `wrangler.toml`.
   Files delivered in Telegram stay in the chat.
 - Videos larger than 50 MB cannot be sent by a bot; the bot sends a 24-hour download link instead.
 - Defaults: 5 jobs per hour per user, 60-minute videos, 500 MB uploads (all configurable).
-- The default translation model, NLLB-200, is CC-BY-NC 4.0 (non-commercial). Before charging for
-  the service, set `NLLB_MODEL` on the Space to a model whose licence allows commercial use. It
+- Licences of the translation models: OPUS-MT `tc-big` ar-en and en-ar are CC-BY 4.0 (credit:
+  Helsinki-NLP, OPUS-MT; each model's README is kept next to it in the image) and en-fr is
+  Apache 2.0, both fine for commercial use. NLLB-200, used for every other pair, is CC-BY-NC 4.0
+  (non-commercial). Before charging for the service, set `NLLB_MODEL` on the Space to a model
+  whose licence allows commercial use. It
   must be a CTranslate2 conversion with the NLLB-200 layout: a `sentencepiece.bpe.model` file and
   FLORES-200 language codes (such as `arb_Arab`); a model of another family will not load.
 

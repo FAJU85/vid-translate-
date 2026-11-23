@@ -25,7 +25,9 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
-PLACEHOLDER = "ZQX{}"
+# What a glossary term is swapped for while a model translates: letters the model copies as they
+# are. NLLB copies "ZQX1"; OPUS-MT's Arabic vocabulary has no "Z", so its pairs use "XQ1".
+PLACEHOLDER = "ZQX"
 MAX_TERMS_PER_LINE = 9
 
 
@@ -163,8 +165,9 @@ class Memory:
         key = norm(text)
         return self.sentences.get(key) if key else None
 
-    def protect(self, text: str) -> tuple[str, list[str]]:
-        """The text with glossary terms swapped for placeholders, and what each placeholder stands for."""
+    def protect(self, text: str, tag: str = PLACEHOLDER) -> tuple[str, list[str]]:
+        """The text with glossary terms swapped for placeholders (tag + number), and what each
+        placeholder stands for."""
         slots: list[str] = []
         for pattern, target in self.terms:
             if len(slots) >= MAX_TERMS_PER_LINE:
@@ -172,18 +175,19 @@ class Memory:
 
             def swap(_match: re.Match) -> str:
                 slots.append(target)
-                return PLACEHOLDER.format(len(slots))
+                return f"{tag}{len(slots)}"
 
             text = pattern.sub(swap, text, count=MAX_TERMS_PER_LINE - len(slots))
         return text, slots
 
-    def restore(self, translated: str, slots: list[str]) -> str | None:
+    def restore(self, translated: str, slots: list[str], tag: str = PLACEHOLDER) -> str | None:
         """Put the terms' translations back; None when the model lost or doubled a placeholder."""
         # Whole placeholders only: each expected one exactly once, and no other ("ZQX10" is not "ZQX1").
-        found = [int(n) for n in re.findall(r"ZQX(\d+)", translated)]
+        pattern = re.compile(rf"(?<![A-Za-z]){re.escape(tag)}(\d+)")
+        found = [int(n) for n in pattern.findall(translated)]
         if sorted(found) != list(range(1, len(slots) + 1)):
             return None
-        return re.sub(r"ZQX(\d+)", lambda m: slots[int(m.group(1)) - 1], translated)
+        return pattern.sub(lambda m: slots[int(m.group(1)) - 1], translated)
 
 
 def _trailing_marks(word: str) -> str:
