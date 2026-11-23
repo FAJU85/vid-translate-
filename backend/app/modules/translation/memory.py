@@ -94,7 +94,7 @@ class Memory:
         return combined.sub(lambda m: self.says[m.lastindex - 1][1] if m.lastindex else m.group(0), text)
 
     def __bool__(self) -> bool:
-        return bool(self.sentences or self.terms or self.fixes)
+        return bool(self.sentences or self.terms or self.fixes or self.says)
 
     def hotwords(self, limit: int = 40) -> str | None:
         """The right words of the speech fixes, as hints for the speech recognition."""

@@ -76,7 +76,8 @@ def plan(segments: list, translations: list[str], duration: float) -> list[Sente
             text=text,
             phrases=[(s, e) for s, e, _t in phrases],
             pieces=[t for _s, _e, t in phrases],
-            latest_end=max(seg[0] + 0.4, nxt - DUB_GAP),
+            # at least 0.4 s when there is room, but never past the next sentence's start
+            latest_end=max(nxt - DUB_GAP, min(seg[0] + 0.4, nxt)),
         ))
     return out
 
@@ -158,7 +159,7 @@ def layout(sentence: Sentence, take: Path, said: list[tuple[float, float, str]])
         t1 = said[b][1] + TAIL
         if b + 1 < len(said):
             t1 = min(t1, said[b + 1][0])
-        out.append(Piece(start, end - start, max(start + 0.2, latest), t0, t1))
+        out.append(Piece(start, end - start, max(start + 0.05, latest), t0, t1))
     return out
 
 

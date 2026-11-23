@@ -34,6 +34,11 @@ def test_loops_and_silence_are_dropped():
     assert is_invented("Hmm.", no_speech_prob=0.8, avg_logprob=-1.4, compression_ratio=1.0)
 
 
+def test_a_sentence_never_runs_into_one_that_starts_right_after():
+    plan = dubbing.plan([(0.0, 0.2, "a"), (0.3, 1.0, "b")], ["x", "y"], 2.0)
+    assert plan[0].latest_end <= 0.3
+
+
 def test_a_sentence_may_be_spoken_until_the_next_one_starts():
     plan = dubbing.plan([(0.0, 1.0, "a"), (3.0, 4.0, "b")], ["x", "y"], 10.0)
     assert plan[0].latest_end == pytest.approx(3.0 - dubbing.DUB_GAP)

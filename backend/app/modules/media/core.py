@@ -454,7 +454,7 @@ def build_dub_track(lines: list, duration: float, dest: Path) -> None:
     track = np.zeros(int((duration + 1) * DUB_RATE), dtype=np.float32)
     for piece in pieces:
         samples = _decode(piece.clip, 1.0, piece.t0, piece.t1)
-        slot = max(0.2, piece.latest_end - piece.start)
+        slot = max(0.05, piece.latest_end - piece.start)  # never past latest_end, however short
         tempo = _tempo(len(samples) / DUB_RATE, piece.window, slot)
         if tempo != 1.0:
             samples = _decode(piece.clip, tempo, piece.t0, piece.t1)

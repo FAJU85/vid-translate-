@@ -161,4 +161,24 @@ def test_a_slowed_down_piece_keeps_its_last_word(tmp_path):
     media.build_dub_track([media.DubPiece(1.0, 4.0, take, 0.5, 1.5, 2.0)], 5.0, track)
     rate, s = read(track)
     assert loud(s, rate, 1.05, 1.0 + 1 / media.core.FIT_SLOWER - 0.05)
+    assert loud(s, rate, 2.02, 2.06)  # the last bit, past where a 1 s cut would have stopped
     assert not loud(s, rate, 1.0 + 1 / media.core.FIT_SLOWER + 0.05, 5.0)
+
+
+def test_pronunciation_rules_alone_reach_the_voice(client, tmp_path, monkeypatch):
+    said = []
+
+    def fake_synthesize(texts, lang, gender, out_dir, cancelled, progress, rates=None):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        said.extend(texts)
+        return [tone(out_dir / f"{i}.wav", 0.8) if t else None for i, t in enumerate(texts)]
+
+    monkeypatch.setattr(voice, "synthesize", fake_synthesize)
+    job = "0c0c0c0c-0000-4000-8000-000000000003"
+    client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path))
+    memory = {"say": [{"src": "ar", "source": "Hello", "translation": "هالو"}]}  # nothing else in the memory
+    r = client.post("/invoke", json={"job_id": job, "source_kind": "upload", "tgt_lang": "ar", "subtitle_mode": "dub",
+                                      "memory": memory}, headers=AUTH)
+    assert r.status_code == 202
+    assert wait_done(client, job)["status"] == "done"
+    assert said and "هالو" in said[0] and "Hello" not in said[0]  # the fake translation is "[ar] Hello there."
