@@ -288,7 +288,9 @@ each subtitle).
   refused it or another method then worked (a broken link teaches nothing). Methods that worked
   more often than not are sent with the next job from that site, best first; the Space tries its
   built-in order after them (Facebook: Chrome over IPv4, three tries; others: plain, then Chrome).
-  Counts are halved once a method has 40 tries, so when a site changes, KAVOX follows.
+  Counts are halved once a method has 40 tries, so when a site changes, KAVOX follows. When no
+  method has worked even 40% of the time for a site (after 3 tries or more), the website warns
+  under the link box that downloads from it have been failing lately (`GET /api/site-status`).
 
 ### Video ending (outro)
 

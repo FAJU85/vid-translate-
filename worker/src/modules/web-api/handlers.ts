@@ -25,7 +25,7 @@ import {
   type JobRow,
 } from '../jobs';
 import { handleAdminJobs } from './admin';
-import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, type Aspect } from '../learning';
+import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
 import {
@@ -257,6 +257,12 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     return json({ status: 'ok', backend: await backendHealth(env) });
   }
 
+  // How downloads from a link's site are going (learned from every download), for a hint by the link box.
+  if (path === '/api/site-status' && method === 'GET') {
+    const link = url.searchParams.get('url') ?? '';
+    if (!/^https?:\/\//i.test(link) || link.length > 2000) return apiError(400, 'E_BAD_REQUEST', 'Give an http(s) link.');
+    return json(await siteStatus(env, link));
+  }
   if (path === '/api/config' && method === 'GET') {
     return json({
       bot_username: await api.botUsername(),

@@ -10,5 +10,5 @@
 export { LEARNING_SCHEMA, LEARN_VOTES, norm } from './store';
 export { learnFromEdit, memoryFor, speechFix } from './service';
 export { handleMemoryAdmin } from './handlers';
-export { SITES_SCHEMA, downloadPlanFor, sitesJobListener } from './sites';
+export { SITES_SCHEMA, downloadPlanFor, siteStatus, sitesJobListener, type SiteStatus } from './sites';
 export { ASPECTS, RATINGS_SCHEMA, rate, ratingsOf, type Aspect } from './ratings';

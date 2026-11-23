@@ -46,6 +46,24 @@ const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
 export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, resume = 0 }: Props) {
   const [source, setSource] = useState<'url' | 'upload'>('url');
   const [videoUrl, setVideoUrl] = useState('');
+  // A site whose downloads have been failing lately (learned from every download): said before starting.
+  const [troubleHost, setTroubleHost] = useState<string | null>(null);
+  useEffect(() => {
+    const link = videoUrl.trim();
+    setTroubleHost(null);
+    if (!/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(link)) return;
+    let current = true;
+    const timer = setTimeout(() => {
+      api
+        .siteStatus(link)
+        .then((s) => current && setTroubleHost(s.status === 'trouble' ? s.host : null))
+        .catch(() => {});
+    }, 600);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [videoUrl]);
   const [file, setFile] = useState<File | null>(null);
   const [srcLang, setSrcLang] = useState('auto');
   const [tgtLang, setTgtLang] = useState('ar');
@@ -165,6 +183,12 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
               className={inputClass}
             />
             <span className="block mt-1.5 text-xs text-slate-500">{SITE.translate.link_hint}</span>
+            {troubleHost && (
+              <span role="status" className="block mt-1.5 text-xs text-amber-300">
+                Downloads from {troubleHost} have been failing lately. You can still try, or download the video yourself and
+                upload the file.
+              </span>
+            )}
           </label>
         ) : (
           <label className="block cursor-pointer rounded-xl border border-dashed border-slate-700 hover:border-amber-400 bg-slate-950/60 p-6 text-center">

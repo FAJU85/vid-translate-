@@ -86,6 +86,25 @@ export async function downloadPlanFor(env: Env, job: JobRow): Promise<string[] |
   return good.length ? good.map((m) => m.strategy) : null;
 }
 
+export type SiteStatus = 'working' | 'trouble' | 'unknown';
+/** Tries a site needs before its status is said. */
+const STATUS_MIN_TRIES = 3;
+
+/**
+ * How downloads from a link's site are going, from the counts: "working" when its best method
+ * works at least 60% of the time, "trouble" when none works even 40% of the time, otherwise (or
+ * with fewer than STATUS_MIN_TRIES tries) "unknown".
+ */
+export async function siteStatus(env: Env, link: string): Promise<{ host: string | null; status: SiteStatus }> {
+  const host = siteOf(link);
+  if (!host) return { host: null, status: 'unknown' };
+  const { results } = await env.DB.prepare('SELECT * FROM site_methods WHERE host = ?').bind(host).all<SiteMethod>();
+  const tries = results.reduce((n, m) => n + m.ok + m.fail, 0);
+  if (tries < STATUS_MIN_TRIES) return { host, status: 'unknown' };
+  const best = Math.max(...results.map((m) => m.ok / Math.max(1, m.ok + m.fail)));
+  return { host, status: best >= 0.6 ? 'working' : best < 0.4 ? 'trouble' : 'unknown' };
+}
+
 /** Every site's methods, for the admin page (most used sites first). */
 export async function listSites(env: Env, limit = 300): Promise<SiteMethod[]> {
   const { results } = await env.DB.prepare(
