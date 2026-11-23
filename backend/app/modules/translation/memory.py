@@ -187,7 +187,16 @@ class Memory:
         found = [int(n) for n in pattern.findall(translated)]
         if sorted(found) != list(range(1, len(slots) + 1)):
             return None
-        return pattern.sub(lambda m: slots[int(m.group(1)) - 1], translated)
+        out, last = [], 0
+        for m in pattern.finditer(translated):
+            term = slots[int(m.group(1)) - 1]
+            out += [translated[last : m.start()], term]
+            last = m.end()
+            # A term that ends a sentence itself ("D.C.") is not given the sentence's own mark again
+            # (only the model's own mark is dropped, never the start of a following term).
+            if term[-1:] in ".!?؟" and translated[last : last + 1] == term[-1]:
+                last += 1
+        return "".join(out) + translated[last:]
 
 
 def _trailing_marks(word: str) -> str:

@@ -264,6 +264,9 @@ export const accountApi = {
 
 export const api = {
   config: () => call<AppConfig>('/api/config'),
+  /** How downloads from a link's site are going lately (learned from every download). */
+  siteStatus: (link: string) =>
+    call<{ host: string | null; status: 'working' | 'trouble' | 'unknown' }>(`/api/site-status?url=${encodeURIComponent(link)}`),
   job: (id: string) => call<Job>(`/api/jobs/${id}`),
   jobs: () => call<Job[]>(`/api/jobs?client_id=${clientId()}`),
   create: (body: Record<string, unknown>) =>

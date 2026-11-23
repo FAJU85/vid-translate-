@@ -28,6 +28,7 @@ import {
   type SubtitleStyle,
 } from '../jobs';
 import { welcomeOverride } from '../settings';
+import { siteStatus } from '../learning';
 import {
   DAILY_SECONDS,
   FREE_MAX_VIDEO_SECONDS,
@@ -282,7 +283,13 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     return;
   }
 
-  const sent = await sendMessage(env, chatId, t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) }), chooseKeyboard(ui, pending, chat.tgt_lang));
+  let prompt = t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) });
+  // A site whose downloads have been failing lately (learned from every download) is said first.
+  if (pending.kind === 'url') {
+    const site = await siteStatus(env, pending.source).catch(() => null);
+    if (site?.status === 'trouble' && site.host) prompt = `${t(ui, 'site_trouble', { host: site.host })}\n\n${prompt}`;
+  }
+  const sent = await sendMessage(env, chatId, prompt, chooseKeyboard(ui, pending, chat.tgt_lang));
   if (sent) await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: JSON.stringify({ ...pending, messageId: sent.message_id }) });
 }
 
