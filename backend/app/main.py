@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from .modules import speech, subtitles, translation
+from .modules import media, speech, subtitles, translation
 from .modules.jobs import KEPT_SOURCE, OUTPUT_FILES, OUTRO_UPLOAD, UPLOAD_NAME, Job, manager
 from .shared import config, security
 
@@ -89,6 +89,8 @@ class InvokeRequest(BaseModel):
     outro: str = Field(default="kavox", pattern="^(kavox|custom|none)$")
     # Translation memory for the target language, learned by the Worker from people's corrections.
     memory: dict | None = None
+    # Download methods (media.STRATEGIES) that worked best for the link's site, best first.
+    download: list[str] | None = Field(default=None, max_length=8)
 
 
 def _require_auth(authorization: str | None) -> None:
@@ -176,6 +178,7 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         cues=req.cues if req.source_kind == "rerender" else None,
         outro=req.outro,
         memory=req.memory,
+        download=[s for s in req.download or [] if s in media.STRATEGIES] or None,
     )
     try:
         job = manager.submit(job)

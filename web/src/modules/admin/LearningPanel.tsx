@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Check, Loader2, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { ApiError, adminApi, api, type AppConfig, type MemoryEntry, type MemoryKind } from '../../shared/api';
+import { QualityPanel } from './QualityPanel';
 
 const STATUS: Record<MemoryEntry['status'], { label: string; tone: string }> = {
   candidate: { label: 'Waiting', tone: 'bg-slate-700 text-slate-200' },
@@ -204,6 +205,8 @@ export function LearningPanel({ password }: { password: string }) {
           </table>
         </div>
       )}
+
+      <QualityPanel password={password} />
     </div>
   );
 }

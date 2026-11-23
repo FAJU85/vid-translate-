@@ -266,6 +266,22 @@ Each job is sent the active rules for its target language (and the speech fixes 
 language); the Space applies them before its models (speech fixes, then a whole sentence, then
 each subtitle).
 
+### Ratings and download methods (learning without AI)
+
+- **Ratings**: under a finished video its owner gives 👍 / 👎 to the translation and, for a dubbed
+  video, to the voice (and may change it). A 👎 on the translation points them to the subtitle
+  editor, since corrections are what teach KAVOX. On **/admin → Learning → Quality and sites** an
+  admin sees the counts per language pair and per language and voice, worst first. With one
+  translation engine (the memory, then NLLB) ratings do not choose an engine yet; they show where
+  corrections are needed.
+- **Download methods per site**: the Space downloads a link with one of a few methods (plain;
+  looking like Chrome at the connection level; IPv4 only; both) and reports every try. The Worker
+  counts, per site, the tries that worked and failed; a failed try counts only when the site
+  refused it or another method then worked (a broken link teaches nothing). Methods that worked
+  more often than not are sent with the next job from that site, best first; the Space tries its
+  built-in order after them (Facebook: Chrome over IPv4, three tries; others: plain, then Chrome).
+  Counts are halved once a method has 40 tries, so when a site changes, KAVOX follows.
+
 ### Video ending (outro)
 
 Every video with burned-in subtitles or dubbing ends with the 5-second KAVOX logo

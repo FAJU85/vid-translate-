@@ -3,7 +3,7 @@
  * Other bricks follow jobs through the JobListener port instead of being called from here.
  * This file is the brick's only public interface.
  */
-export type { BackendState, Channel, JobRow, JobStatus, SourceKind, SubtitleMode } from './model';
+export type { BackendState, Channel, DownloadTry, JobRow, JobStatus, SourceKind, SubtitleMode } from './model';
 export { TERMINAL } from './model';
 export {
   JOBS_COLUMNS,
@@ -33,6 +33,7 @@ export {
   type SubtitleStyle,
 } from './style';
 export {
+  registerDownloadPlanner,
   registerJobListener,
   registerMemoryProvider,
   registerOutroChooser,

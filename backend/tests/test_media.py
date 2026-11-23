@@ -84,3 +84,33 @@ def test_a_cancel_during_a_failing_try_stops_the_retries(monkeypatch, tmp_path):
     with pytest.raises(core.Cancelled):
         core.download_url("https://www.facebook.com/reel/1/", tmp_path, True, lambda: cancelled["now"], lambda p: None)
     assert calls == [1]
+
+
+def test_the_learned_methods_come_first_then_the_built_in_ones():
+    assert core.download_order("https://www.tiktok.com/@a/video/1") == ["plain", "chrome"]
+    assert core.download_order("https://www.tiktok.com/@a/video/1", ["chrome"]) == ["chrome", "plain"]
+    assert core.download_order("https://fb.watch/x/", ["chrome"]) == ["chrome", "chrome-ipv4", "chrome-ipv4", "chrome-ipv4"]
+    assert core.download_order("https://x.com/a/status/1", ["made-up", "ipv4"]) == ["ipv4", "plain", "chrome"]
+
+
+def test_every_try_is_reported_and_the_next_method_is_used(monkeypatch, tmp_path):
+    used, tried = [], []
+
+    def fake(url, dest_dir, want_video, cancelled, progress, extra):
+        used.append(extra)
+        if not extra:  # the plain try is refused, the Chrome one works
+            raise PipelineError("E_SITE_BLOCKED", "HTTP Error 429")
+        return Path("x.mp4"), {}
+
+    monkeypatch.setattr(core, "_download_url", fake)
+    core.download_url("https://www.instagram.com/p/a/", tmp_path, True, lambda: False, lambda p: None, None, tried)
+    assert used == [{}, {"impersonate": "chrome"}]
+    assert tried == [{"strategy": "plain", "ok": False, "code": "E_SITE_BLOCKED"}, {"strategy": "chrome", "ok": True, "code": None}]
+
+
+def test_a_bad_video_says_nothing_about_the_site(monkeypatch, tmp_path):
+    tried = []
+    monkeypatch.setattr(core, "_download_url", lambda *a: (_ for _ in ()).throw(PipelineError("E_VIDEO_TOO_LONG", "long")))
+    with pytest.raises(PipelineError):
+        core.download_url("https://www.instagram.com/p/a/", tmp_path, True, lambda: False, lambda p: None, None, tried)
+    assert tried == []

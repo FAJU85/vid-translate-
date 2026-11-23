@@ -25,7 +25,7 @@ import {
   type JobRow,
 } from '../jobs';
 import { handleAdminJobs } from './admin';
-import { handleMemoryAdmin, learnFromEdit } from '../learning';
+import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
 import {
@@ -183,6 +183,8 @@ async function publicJob(env: Env, job: JobRow) {
     outputs,
     // The video's public page (shares brick), once it is done.
     share_url: job.status === 'done' ? await shareUrl(env, job) : null,
+    // 👍 / 👎 given to it: { translation: 1, voice: -1 } (learning brick).
+    ratings: job.status === 'done' ? await ratingsOf(env, job.id) : {},
   };
 }
 
@@ -272,8 +274,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/admin/jobs' || path === '/api/admin/stats' || path.startsWith('/api/admin/jobs/')) {
     return handleAdminJobs(request, env, ctx, path);
   }
-  // The translation memory: what KAVOX learned from corrections, to review, approve or add.
-  if (path === '/api/admin/memory' || path.startsWith('/api/admin/memory/')) {
+  // What KAVOX learned (translation memory from corrections, download methods per site), to review.
+  if (path === '/api/admin/memory' || path.startsWith('/api/admin/memory/') || path === '/api/admin/sites' || path === '/api/admin/ratings') {
     if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const memory = await handleMemoryAdmin(request, env, path);
     if (memory) return memory;
@@ -359,7 +361,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     );
   }
 
-  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry|\/render|\/corrections)?$/);
+  const match = path.match(/^\/api\/jobs\/([0-9a-f-]{36})(\/start|\/cancel|\/retry|\/render|\/corrections|\/rating)?$/);
   if (match) {
     const job = await getJob(env, match[1]);
     if (!job) return apiError(404, 'E_JOB_NOT_FOUND', 'Job not found.');
@@ -380,6 +382,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
         const account = await signedInAccount(env, request);
         const learned = await learnFromEdit(env, job, parsed.cues, account?.id ?? null);
         return json({ learned, signed_in: Boolean(account) });
+      }
+      // 👍 / 👎 on the translation or the voice: shows the admin where KAVOX needs correcting.
+      if (match[2] === '/rating') {
+        const aspect = String(body?.aspect ?? '') as Aspect;
+        const value = body?.value === 1 || body?.value === -1 ? (body.value as 1 | -1) : null;
+        if (!ASPECTS.includes(aspect) || value === null) return apiError(400, 'E_BAD_REQUEST', 'Rate the translation or the voice, 1 or -1.');
+        if (!(await rate(env, job, aspect, value))) return apiError(400, 'E_BAD_REQUEST', 'This video cannot be rated that way.');
+        return json({ ratings: await ratingsOf(env, job.id) });
       }
       if (match[2] === '/render') {
         const pub = await publicJob(env, job);

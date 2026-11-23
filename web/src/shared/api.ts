@@ -49,7 +49,11 @@ export interface Job {
   upload_url?: string;
   /** The video's public page (/v/<id>), once a rendered video is done. */
   share_url?: string | null;
+  /** 👍 (1) / 👎 (-1) given to its translation and, for a dubbed video, its voice. */
+  ratings?: Partial<Record<RatingAspect, 1 | -1>>;
 }
+
+export type RatingAspect = 'translation' | 'voice';
 
 export interface Cue {
   index: number;
@@ -275,6 +279,12 @@ export const api = {
         cues: cues.map(({ start, end, text, translation }) => ({ start, end, text, translation })),
       }),
     }),
+  /** 👍 / 👎 on a finished video's translation or voice. */
+  rate: (id: string, aspect: RatingAspect, value: 1 | -1) =>
+    call<{ ratings: Partial<Record<RatingAspect, 1 | -1>> }>(`/api/jobs/${id}/rating`, {
+      method: 'POST',
+      body: JSON.stringify({ client_id: clientId(), aspect, value }),
+    }),
   render: (id: string, cues: Cue[]) =>
     call<Job>(`/api/jobs/${id}/render`, {
       method: 'POST',
@@ -362,6 +372,8 @@ export const adminApi = {
     call<{ id: number }>('/api/admin/memory', { method: 'POST', headers: auth(password), body: JSON.stringify(e) }),
   judgeMemory: (password: string, id: number, status: 'approved' | 'rejected') =>
     call<{ ok: true }>(`/api/admin/memory/${id}`, { method: 'POST', headers: auth(password), body: JSON.stringify({ status }) }),
+  ratings: (password: string) => call<{ ratings: RatingSummary[] }>('/api/admin/ratings', { headers: auth(password) }),
+  sites: (password: string) => call<{ sites: SiteMethod[] }>('/api/admin/sites', { headers: auth(password) }),
   deleteMemory: (password: string, id: number) =>
     call<{ ok: true }>(`/api/admin/memory/${id}`, { method: 'DELETE', headers: auth(password) }),
   act: (password: string, action: AdminAction, ids: string[]) =>
@@ -385,6 +397,26 @@ export interface MemoryEntry {
   translation: string;
   status: 'candidate' | 'learned' | 'approved' | 'rejected';
   votes: number;
+  updated_at: number;
+}
+
+/** Thumbs up and down per language pair (translation) or per language and voice (dubbing). */
+export interface RatingSummary {
+  aspect: RatingAspect;
+  src: string;
+  tgt: string;
+  voice: string | null;
+  up: number;
+  down: number;
+}
+
+/** How downloads from a site went with one method (the Space's download strategies). */
+export interface SiteMethod {
+  host: string;
+  strategy: string;
+  ok: number;
+  fail: number;
+  score: number;
   updated_at: number;
 }
 

@@ -47,6 +47,8 @@ class Job:
     outro: str = "kavox"        # ending added to rendered videos: "kavox" | "custom" | "none"
     memory: dict | None = None  # translation memory for this job (translation.Memory payload)
     memory_hits: int = 0        # lines the memory translated (the rest went to the model)
+    download: list[str] | None = None  # download methods to try first, learned by the Worker per site
+    downloads: list[dict] = field(default_factory=list)  # how each download try went (media.download_url)
     speech_fixes: int = 0       # recognised words corrected by learned speech fixes
     status: str = "queued"
     stage: str = "queued"
@@ -76,6 +78,7 @@ class Job:
             "engine": self.engine,
             "memory_hits": self.memory_hits,
             "speech_fixes": self.speech_fixes,
+            "downloads": self.downloads,
             "outputs": self.outputs,
             "error": {"code": self.error_code, "message": self.error_message} if self.error_code else None,
         }
