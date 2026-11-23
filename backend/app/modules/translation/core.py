@@ -8,7 +8,8 @@ import threading
 from typing import Callable
 
 from ...shared import config
-from .memory import Memory
+from . import opus
+from .memory import PLACEHOLDER, Memory
 
 log = logging.getLogger("tarjim.translate")
 
@@ -141,6 +142,15 @@ def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) 
     return out
 
 
+def _model_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) -> tuple[list[str], str]:
+    """The model that translates what the memory does not know: OPUS-MT for the pairs where it
+    measured better (opus.PAIRS), NLLB for the rest and whenever OPUS-MT cannot be used."""
+    done = opus.translate(texts, src, tgt, progress, tidy)
+    if done is not None:
+        return done, "opus-mt"
+    return _nllb_translate(texts, src, tgt, progress), "nllb"
+
+
 # -------------------------------------------------------------------------- entry
 
 def translate_texts(
@@ -168,24 +178,30 @@ def translate_texts(
     out: list[str | None] = [memory.sentence(t) or memory.sentence(c) for t, c in zip(texts, cleaned)]
     texts = cleaned
     todo = [i for i, known in enumerate(out) if known is None]
+    model = "nllb"
     if todo:
-        protected = [memory.protect(texts[i]) for i in todo]
-        done = _nllb_translate([p for p, _ in protected], src, tgt, progress)
+        # Each model has a placeholder it copies as it is (if OPUS-MT then cannot be loaded, NLLB
+        # gets "XQ1" and copies it almost as well; a lost one is retried without the glossary).
+        tag = opus.PLACEHOLDER if opus.available(src, tgt) else PLACEHOLDER
+        protected = [memory.protect(texts[i], tag) for i in todo]
+        done, model = _model_translate([p for p, _ in protected], src, tgt, progress)
         retry = []
         for i, (_, slots), result in zip(todo, protected, done):
-            restored = memory.restore(result, slots)
+            restored = memory.restore(result, slots, tag)
             if restored is None:  # the model lost a placeholder: translate the plain text instead
                 retry.append(i)
             else:
                 out[i] = restored
         if retry:
-            for i, result in zip(retry, _nllb_translate([texts[i] for i in retry], src, tgt, lambda _f: None)):
+            for i, result in zip(retry, _model_translate([texts[i] for i in retry], src, tgt, lambda _f: None)[0]):
                 out[i] = result
     progress(1.0)
-    engine = "nllb" if len(todo) == len(texts) else "memory" if not todo else "memory+nllb"
+    engine = model if len(todo) == len(texts) else "memory" if not todo else f"memory+{model}"
     return [t or "" for t in out], engine
 
 
 def warm_up() -> None:
-    """Load the local model now, so the first job does not wait for it."""
+    """Load the local models now, so the first job does not wait for them."""
     _get_nllb()
+    for src, tgt in opus.PAIRS:
+        opus.translate(["."], src, tgt, lambda _f: None, tidy)

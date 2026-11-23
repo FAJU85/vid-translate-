@@ -158,3 +158,44 @@ def test_pronunciation_rules_change_only_what_the_voice_says():
     assert memory.pronounce("رفع العلم وعلم kavox اليوم، علم.") == "رفع العلم وعلم كافوكس اليوم، عَلَم."
     assert Memory.from_payload(payload, "en", "fr").pronounce("KAVOX") == "KAVOX"  # another language's rules
     assert Memory.from_payload(payload, "en").pronounce("KAVOX") == "KAVOX"
+
+
+# --- which model translates ------------------------------------------------------------------
+
+def test_pairs_with_an_opus_model_use_it_and_others_use_nllb(monkeypatch):
+    from app.modules.translation import opus
+
+    used = []
+    monkeypatch.setattr(core, "_nllb_translate", lambda texts, s, t, p: used.append(("nllb", s, t)) or [f"N:{x}" for x in texts])
+    monkeypatch.setattr(opus, "translate", lambda texts, s, t, p, tidy: used.append(("opus", s, t)) or [f"O:{x}" for x in texts]
+                        if (s, t) in opus.PAIRS else None)
+    assert core.translate_texts(["Hi."], "en", "ar", lambda f: None) == (["O:Hi."], "opus-mt")
+    assert core.translate_texts(["Salut."], "fr", "ar", lambda f: None) == (["N:Salut."], "nllb")
+    memory = Memory.from_payload(PAYLOAD, "en")
+    out, engine = core.translate_texts(["welcome back to the channel", "New."], "en", "ar", lambda f: None, memory)
+    assert engine == "memory+opus-mt" and out[1] == "O:New."
+
+
+def test_without_its_model_files_a_pair_falls_back_to_nllb(tmp_path, monkeypatch):
+    from app.modules.translation import opus
+
+    monkeypatch.setattr(opus.config, "OPUS_DIR", str(tmp_path))
+    monkeypatch.setattr(opus, "_broken", set())
+    assert not opus.available("en", "ar")
+    (tmp_path / "opus-mt-tc-big-en-ar").mkdir()
+    (tmp_path / "opus-mt-tc-big-en-ar" / "model.bin").write_bytes(b"not a model")
+    assert opus.available("en", "ar")
+    # a model that cannot be loaded is set aside, and NLLB translates instead
+    assert opus.translate(["Hi."], "en", "ar", lambda f: None, str) is None
+    assert not opus.available("en", "ar")
+    monkeypatch.setattr(opus.config, "OPUS_ENABLED", False)
+    assert not opus.available("en", "fr")
+
+
+def test_each_model_gets_a_placeholder_it_copies():
+    memory = Memory.from_payload(PAYLOAD, "en")
+    text, slots = memory.protect("Try kavox pro in Riyadh today.", "XQ")
+    assert text == "Try XQ1 in XQ2 today."
+    assert memory.restore("جرب XQ1 في XQ2 اليوم.", slots, "XQ") == "جرب كافوكس برو في الرياض اليوم."
+    assert memory.restore("جرب ⁇X1 في XQ2 اليوم.", slots, "XQ") is None  # lost: translated again without it
+    assert memory.restore("Try XQ1 at MAXQ2 store and XQ2.", slots, "XQ") is not None  # "MAXQ2" is no placeholder

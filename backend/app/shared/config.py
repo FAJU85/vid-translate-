@@ -47,6 +47,9 @@ WORD_TIMESTAMPS = _bool("WORD_TIMESTAMPS", True)
 
 # Translation: the translation memory (sent with each job) first, then this local model.
 NLLB_MODEL = os.environ.get("NLLB_MODEL", "JustFrederik/nllb-200-distilled-600M-ct2-int8")
+# OPUS-MT models for the pairs where they beat NLLB (translation/opus.py), converted at image build.
+OPUS_DIR = os.environ.get("OPUS_DIR", "/home/user/opus")
+OPUS_ENABLED = _bool("OPUS_ENABLED", True)
 
 def _available_cpus() -> int:
     """CPUs this container may really use.
