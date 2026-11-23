@@ -557,17 +557,26 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
 function Rating({ job, onCorrect }: { job: Job; onCorrect: () => void }) {
   const [ratings, setRatings] = useState(job.ratings ?? {});
   const [failed, setFailed] = useState(false);
+  // One rating is saved at a time, so the last one pressed is the one kept.
+  const [saving, setSaving] = useState(false);
   const aspects: { key: RatingAspect; label: string }[] = [
     { key: 'translation', label: 'Translation' },
     ...(job.mode === 'dub' ? [{ key: 'voice' as const, label: 'Voice' }] : []),
   ];
   const send = (aspect: RatingAspect, value: 1 | -1) => {
+    if (saving) return;
+    const before = ratings;
     setRatings({ ...ratings, [aspect]: value });
     setFailed(false);
+    setSaving(true);
     api
       .rate(job.id, aspect, value)
       .then((r) => setRatings(r.ratings))
-      .catch(() => setFailed(true));
+      .catch(() => {
+        setRatings(before);
+        setFailed(true);
+      })
+      .finally(() => setSaving(false));
   };
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-300">
@@ -579,6 +588,7 @@ function Rating({ job, onCorrect }: { job: Job; onCorrect: () => void }) {
               key={v}
               aria-label={`${label}: ${v === 1 ? 'good' : 'needs work'}`}
               aria-pressed={ratings[key] === v}
+              disabled={saving}
               onClick={() => send(key, v)}
               className={`p-1.5 rounded-lg border ${ratings[key] === v ? 'border-amber-400 bg-amber-400/15 text-amber-300' : 'border-slate-700 text-slate-400 hover:text-white'}`}
             >

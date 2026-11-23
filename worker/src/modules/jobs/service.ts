@@ -291,6 +291,7 @@ export async function retryJob(env: Env, job: JobRow): Promise<JobRow | null> {
     error_code: null,
     error_message: null,
     outputs: null,
+    downloads: null, // the earlier tries were counted with the job that made them
     dispatched: 0,
     dispatch_attempts: 0,
     delivered: 0,
