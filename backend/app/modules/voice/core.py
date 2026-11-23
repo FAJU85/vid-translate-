@@ -8,6 +8,7 @@ the dubbing job, with a clear message.
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Callable
 
@@ -100,18 +101,45 @@ async def _espeak(text: str, voice: str, dest: Path, rate: int) -> None:
         raise VoiceError(f"eSpeak NG failed: {err.decode(errors='replace')[:150]}")
 
 
+def _words_file(clip: Path) -> Path:
+    return clip.with_suffix(".words.json")
+
+
+def words(clip: Path) -> list[tuple[float, float, str]]:
+    """When each word of a spoken line is said in its clip, [(start, end, word)] in seconds, as the
+    voice itself reported it; [] when it did not (eSpeak NG)."""
+    try:
+        return [tuple(w) for w in json.loads(_words_file(clip).read_text(encoding="utf-8"))]
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+async def _edge(text: str, voice: str, dest: Path, rate: int) -> None:
+    """One line with an Edge voice: the MP3, and when each word is said (the voice's own timing)."""
+    import edge_tts
+
+    audio = bytearray()
+    said: list[tuple[float, float, str]] = []
+    async for chunk in edge_tts.Communicate(text, voice, rate=f"{rate:+d}%", boundary="WordBoundary").stream():
+        if chunk["type"] == "audio":
+            audio += chunk["data"]
+        elif chunk["type"] == "WordBoundary":  # offsets in 100 ns units
+            start = chunk["offset"] / 1e7
+            said.append((round(start, 3), round(start + chunk["duration"] / 1e7, 3), chunk["text"]))
+    dest.write_bytes(bytes(audio))
+    _words_file(dest).write_text(json.dumps(said, ensure_ascii=False), encoding="utf-8")
+
+
 async def _one(text: str, voice: str, dest: Path, semaphore: asyncio.Semaphore, rate: int = 0) -> None:
     if voice.startswith("espeak:"):
         async with semaphore:
             await _espeak(text, voice.split(":", 1)[1], dest, rate)
         return
-    import edge_tts
-
     async with semaphore:
         last: Exception | None = None
         for attempt in range(TRIES):
             try:
-                await asyncio.wait_for(edge_tts.Communicate(text, voice, rate=f"{rate:+d}%").save(str(dest)), TIMEOUT)
+                await asyncio.wait_for(_edge(text, voice, dest, rate), TIMEOUT)
                 if dest.exists() and dest.stat().st_size > 0:
                     return
                 last = VoiceError("empty audio")
@@ -130,7 +158,8 @@ def synthesize(
     progress: Callable[[float], None],
     rates: list[int] | None = None,
 ) -> list[Path | None]:
-    """One MP3 per text (None for an empty text), spoken in `lang`.
+    """One MP3 per text (None for an empty text), spoken in `lang`; `words(clip)` tells when each
+    word is said in it.
 
     rates: speaking speed per text, in percent faster than normal (0 = normal). The voice itself
     speaks faster, which sounds far better than speeding the sound up afterwards.

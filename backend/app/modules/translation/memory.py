@@ -6,7 +6,11 @@ entries for a job's target language with the job:
 
     {"sentences": [{"src": "en", "source": "...", "translation": "..."}, ...],
      "terms":     [{"src": "en", "source": "KAVOX", "translation": "كافوكس"}, ...],
-     "fixes":     [{"src": "ar", "source": "واشنطر", "translation": "واشنطن"}, ...]}
+     "fixes":     [{"src": "ar", "source": "واشنطر", "translation": "واشنطن"}, ...],
+     "say":       [{"src": "ar", "source": "علم", "translation": "عَلَم"}, ...]}
+
+- a pronunciation rule tells the dubbing voice how to say a word of the target language (with
+  diacritics, or spelled as it sounds); only what is spoken changes, never the subtitles;
 
 - a speech fix replaces words the speech recognition keeps getting wrong, right after recognition
   (keeping the words' timing), before anything is translated;
@@ -52,10 +56,12 @@ class Memory:
     sentences: dict[str, str] = field(default_factory=dict)  # norm(source) -> translation
     terms: list[tuple[re.Pattern, str]] = field(default_factory=list)  # longest first
     fixes: list[tuple[list[str], str]] = field(default_factory=list)  # (wrong words normalised, right text), longest first
+    says: list[tuple[re.Pattern, str]] = field(default_factory=list)  # pronunciations, longest first
 
     @classmethod
-    def from_payload(cls, payload: dict | None, src: str) -> "Memory":
-        """The entries for one source language (the Worker sends those of every source)."""
+    def from_payload(cls, payload: dict | None, src: str, tgt: str | None = None) -> "Memory":
+        """The entries for one source language (the Worker sends those of every source), and the
+        pronunciation rules of the target language."""
         memory = cls()
         if not payload:
             return memory
@@ -73,7 +79,19 @@ class Memory:
             wrong = [norm(w) for w in entry["source"].split()]
             if wrong and all(wrong) and len(wrong) <= 6:
                 memory.fixes.append((wrong, entry["translation"].strip()))
+        says = [e for e in payload.get("say") or [] if tgt and _usable(e, tgt) and e.get("src") == tgt]
+        for entry in sorted(says, key=lambda e: -len(e["source"])):
+            if len(entry["source"]) <= 100:
+                memory.says.append((_term_pattern(entry["source"].strip()), entry["translation"].strip()))
         return memory
+
+    def pronounce(self, text: str) -> str:
+        """What the dubbing voice is given to say: the text with the pronunciation rules applied."""
+        if not self.says:
+            return text
+        # One pass over the text, so what one rule wrote is never changed again by another.
+        combined = re.compile("|".join(f"({p.pattern})" for p, _s in self.says), re.IGNORECASE)
+        return combined.sub(lambda m: self.says[m.lastindex - 1][1] if m.lastindex else m.group(0), text)
 
     def __bool__(self) -> bool:
         return bool(self.sentences or self.terms or self.fixes)

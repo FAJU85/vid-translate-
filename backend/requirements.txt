@@ -10,4 +10,4 @@ huggingface_hub>=0.25
 # curl-cffi: Chrome impersonation, without which Facebook does not answer this server.
 yt-dlp[default,curl-cffi]
 # Dubbing voices (Microsoft Edge online text-to-speech; see modules/voice).
-edge-tts>=7.0
+edge-tts>=7.2  # word timings (boundary="WordBoundary")

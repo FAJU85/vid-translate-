@@ -217,10 +217,23 @@ Buying needs an account (signing in), so the credits are kept.
 Speech is recognised with Whisper `large-v3-turbo` (set `WHISPER_MODEL` on the Space to change it),
 with Whisper's invented lines over silence filtered out. Translation is mechanical first: the
 **translation memory** (rules, below) decides, and the local NLLB model translates only what it
-does not know, with small rule-based clean-ups before and after it. No cloud AI is used. Dubbing uses timing lip-sync (isochrony): each sentence is spoken over the speaker's own
-stretches of speech, starting when they start, pausing where they pause and ending when they stop;
-the voice itself speaks a line faster (up to +35%) or a little slower (down to −15%) to fit. The
-picture is not changed.
+does not know, with small rule-based clean-ups before and after it. No cloud AI is used.
+
+Dubbing uses timing lip-sync (isochrony), done mechanically (`backend/app/modules/jobs/dubbing.py`):
+
+- Each sentence is spoken in **one take**, so its intonation and the way its words are said fit the
+  whole sentence (a fragment spoken on its own sounds like a sentence of its own).
+- The voice reports when it says each word. The take is cut between words where the speaker
+  paused, and each piece is placed where the speaker said that part: the dub starts, pauses and
+  stops with the speaker. The silence the voice adds around a line is not counted.
+- One speaking speed per sentence (the voice itself, up to +35% or down to −15%), changing
+  **gradually** between neighbouring sentences (at most 10 points apart), never in jumps.
+- What is still a little off is fitted by stretching each piece slightly (pitch kept, 0.9×–1.12×).
+  A translation much shorter than what was said gets longer pauses where the voice breathes
+  instead of being dragged out. Only a piece that cannot fit before the next line is sped up
+  more (and, at worst, faded out). The picture is not changed.
+- **Pronunciations** (admin, **/admin → Learning**): how the voice says a word of a language, with
+  diacritics (عَلَم, not علم) or spelled as it sounds; the subtitles keep the word as written.
 
 Voices: **female** and **male** are Microsoft Edge voices; **classic** is eSpeak NG, a rule-based
 (formant) voice that runs on the Space itself with no model and no AI. It sounds synthetic, but

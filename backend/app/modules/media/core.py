@@ -7,7 +7,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 from urllib.parse import urlparse
 
 import httpx
@@ -369,15 +369,44 @@ def thumbnail(video: Path, dest: Path, duration: float) -> bool:
 DUB_RATE = 24000  # Hz; what the voices are made at
 MAX_SPEEDUP = 1.5  # a line that does not fit its gap is sped up this much at most, then faded out
 FADE = 0.08  # seconds
+# A piece is gently stretched (pitch kept) to last as long as the speaker's own words, within
+# these bounds: beyond them a stretched voice starts to sound wrong, and the voice's own speed
+# (chosen per sentence) has to do the rest.
+FIT_SLOWER, FIT_FASTER = 0.9, 1.12
+FIT_CLOSE = 0.04  # within 4% of the speaker's timing: left as spoken
+SILENCE = 0.01  # amplitude below which a voice clip is silent (about -40 dB)
 
 
-def _decode(path: Path, tempo: float = 1.0):
-    """A clip as mono float32 samples at DUB_RATE (optionally sped up without changing the pitch)."""
+class DubPiece(NamedTuple):
+    """A stretch of a spoken clip placed on the dub track.
+
+    start: when it starts in the video; latest_end: when it must have stopped (the next line);
+    t0/t1: the stretch of the clip (seconds; t1=None for its end); window: how long the speaker
+    spoke there, which the piece is gently fitted to (None: as spoken).
+    """
+
+    start: float
+    latest_end: float
+    clip: Path
+    t0: float = 0.0
+    t1: float | None = None
+    window: float | None = None
+
+
+def _decode(path: Path, tempo: float = 1.0, t0: float = 0.0, t1: float | None = None):
+    """A clip (or a stretch of it) as mono float32 samples at DUB_RATE, optionally sped up or
+    slowed down without changing the pitch."""
     import numpy as np
 
     args = ["ffmpeg", "-nostdin", "-loglevel", "error", "-i", str(path)]
+    # Cut first, then stretch: a length limit on the output would clip a slowed-down piece's end.
+    chain = []
+    if t0 > 0 or t1 is not None:
+        chain += [f"atrim=start={t0:.3f}" + (f":end={max(t0 + 0.01, t1):.3f}" if t1 is not None else ""), "asetpts=PTS-STARTPTS"]
     if abs(tempo - 1.0) > 0.01:
-        args += ["-filter:a", f"atempo={tempo:.3f}"]
+        chain.append(f"atempo={tempo:.3f}")
+    if chain:
+        args += ["-filter:a", ",".join(chain)]
     args += ["-f", "f32le", "-ac", "1", "-ar", str(DUB_RATE), "-"]
     try:
         proc = subprocess.run(args, capture_output=True, timeout=120)
@@ -388,31 +417,53 @@ def _decode(path: Path, tempo: float = 1.0):
     return np.frombuffer(proc.stdout, dtype=np.float32)
 
 
-def build_dub_track(lines: list[tuple[float, float, Path]], duration: float, dest: Path) -> None:
-    """Place each spoken line at its start time in one WAV the length of the video.
+def speech_bounds(clip: Path) -> tuple[float, float]:
+    """When the voice in a clip starts and stops (seconds), without the silence around it."""
+    import numpy as np
 
-    lines: (start, latest end, clip). A clip longer than its slot is sped up (up to MAX_SPEEDUP)
-    and, if still too long, cut with a short fade so it never runs into the next line.
+    samples = _decode(clip)
+    loud = np.flatnonzero(np.abs(samples) > SILENCE)
+    if not len(loud):
+        return 0.0, len(samples) / DUB_RATE
+    return loud[0] / DUB_RATE, (loud[-1] + 1) / DUB_RATE
+
+
+def _tempo(length: float, window: float | None, slot: float) -> float:
+    """How much faster (>1) or slower (<1) to play a piece of `length` seconds."""
+    tempo = 1.0
+    if window and window > 0 and abs(length / window - 1) > FIT_CLOSE:
+        tempo = min(FIT_FASTER, max(FIT_SLOWER, length / window))
+    if length / tempo > slot * 1.02:  # it must stop before the next line, whatever it sounds like
+        tempo = min(length / slot, MAX_SPEEDUP)
+    return tempo
+
+
+def build_dub_track(lines: list, duration: float, dest: Path) -> None:
+    """Place spoken pieces (DubPiece, or (start, latest_end, clip)) in one WAV the video's length.
+
+    A piece is gently fitted to the speaker's own timing (its window) and, when it does not fit
+    before the next line, sped up (up to MAX_SPEEDUP) and at worst cut with a short fade.
     """
     import wave
 
     import numpy as np
 
+    pieces = [DubPiece(*line) for line in lines]
     # An unknown length (0) must not cut every line after the first second: fit the last line too.
-    duration = max(duration, max((end for _s, end, _c in lines), default=0.0))
+    duration = max(duration, max((p.latest_end for p in pieces), default=0.0))
     track = np.zeros(int((duration + 1) * DUB_RATE), dtype=np.float32)
-    for start, latest_end, clip in lines:
-        samples = _decode(clip)
-        slot = max(0.2, latest_end - start)
-        length = len(samples) / DUB_RATE
-        if length > slot * 1.02:
-            samples = _decode(clip, min(length / slot, MAX_SPEEDUP))
+    for piece in pieces:
+        samples = _decode(piece.clip, 1.0, piece.t0, piece.t1)
+        slot = max(0.2, piece.latest_end - piece.start)
+        tempo = _tempo(len(samples) / DUB_RATE, piece.window, slot)
+        if tempo != 1.0:
+            samples = _decode(piece.clip, tempo, piece.t0, piece.t1)
         room = int(slot * DUB_RATE)
         if len(samples) > room:
             samples = samples[:room].copy()
             fade = min(len(samples), int(FADE * DUB_RATE))
             samples[-fade:] *= np.linspace(1, 0, fade, dtype=np.float32)
-        at = int(start * DUB_RATE)
+        at = int(piece.start * DUB_RATE)
         end = min(len(track), at + len(samples))
         if end > at:
             track[at:end] += samples[: end - at]

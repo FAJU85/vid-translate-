@@ -133,3 +133,32 @@ def test_the_classic_voice_speaks_without_any_model(tmp_path):
     asyncio.run(core._espeak("Welcome to KAVOX", "en", dest, 0))
     with wave.open(str(dest)) as w:
         assert w.getnframes() / w.getframerate() > 0.5
+
+
+def test_a_piece_is_gently_fitted_to_the_speakers_timing(tmp_path):
+    take = tone(tmp_path / "t.wav", 3.0)
+    track = tmp_path / "dub.wav"
+    # 1 s of the take, where the speaker spoke for 0.95 s: close enough, left as spoken
+    # 1 s of the take over 0.5 s of speech: stretched, but only by FIT_FASTER at most
+    media.build_dub_track([media.DubPiece(0.0, 2.0, take, 0.0, 1.0, 0.95), media.DubPiece(3.0, 5.0, take, 1.0, 2.0, 0.5)], 6.0, track)
+    rate, s = read(track)
+    assert loud(s, rate, 0.05, 0.95) and not loud(s, rate, 1.05, 2.9)
+    assert loud(s, rate, 3.05, 3.85) and not loud(s, rate, 1 / media.core.FIT_FASTER + 3.05, 6.0)
+
+
+def test_the_silence_around_a_voice_is_not_counted(tmp_path):
+    clip = tmp_path / "padded.wav"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+                    "-af", "adelay=500,apad=pad_dur=0.7", str(clip)], check=True)
+    start, end = media.speech_bounds(clip)
+    assert start == pytest.approx(0.5, abs=0.03) and end == pytest.approx(1.5, abs=0.03)
+
+
+def test_a_slowed_down_piece_keeps_its_last_word(tmp_path):
+    take = tone(tmp_path / "t.wav", 2.0)
+    track = tmp_path / "dub.wav"
+    # 1 s of the take over 2 s of speech: played at FIT_SLOWER, so it lasts 1/0.9 s, all of it
+    media.build_dub_track([media.DubPiece(1.0, 4.0, take, 0.5, 1.5, 2.0)], 5.0, track)
+    rate, s = read(track)
+    assert loud(s, rate, 1.05, 1.0 + 1 / media.core.FIT_SLOWER - 0.05)
+    assert not loud(s, rate, 1.0 + 1 / media.core.FIT_SLOWER + 0.05, 5.0)
