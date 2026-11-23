@@ -81,13 +81,17 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
     enter("transcribing")
     audio = workdir / "audio.wav"
     media.extract_audio(source, audio, info["duration"], cancelled, lambda _f: None)
+    known = None if job.src_lang in ("", "auto") else job.src_lang
+    # Speech fixes people taught KAVOX for this language become hints for the recognition.
+    hints = translation.Memory.from_payload(job.memory, known).hotwords() if known else None
     try:
         segments, detected = speech.transcribe(
             audio,
-            None if job.src_lang in ("", "auto") else job.src_lang,
+            known,
             info["duration"],
             cancelled,
             reporter("transcribing"),
+            hints,
         )
     except (Cancelled, PipelineError):
         raise
@@ -96,6 +100,10 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         raise PipelineError("E_ASR_FAILED", f"Speech recognition failed: {exc.__class__.__name__}") from exc
     audio.unlink(missing_ok=True)
     job.detected_lang = detected
+    # The translation memory (rules learned from people's corrections) decides first:
+    # speech fixes correct words the recognition keeps getting wrong, before anything else.
+    memory = translation.Memory.from_payload(job.memory, detected)
+    segments, job.speech_fixes = memory.fix_segments(segments)
     # Whole sentences (from word timestamps) translate better than Whisper's audio chunks.
     segments = subtitles.sentence_segments(subtitles.clean_segments(segments))
     if not segments:
@@ -103,8 +111,6 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     # 3. Translation -------------------------------------------------------------
     enter("translating")
-    # The translation memory (rules learned from people's corrections) decides first.
-    memory = translation.Memory.from_payload(job.memory, detected)
     try:
         translations, job.engine = translation.translate_texts(
             [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating"), memory

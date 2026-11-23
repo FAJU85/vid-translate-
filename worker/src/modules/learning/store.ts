@@ -31,8 +31,12 @@ export const LEARNING_SCHEMA = [
   )`,
 ];
 
-/** sentence: a whole subtitle or sentence; term: a word or name in the glossary. */
-export type EntryKind = 'sentence' | 'term';
+/**
+ * sentence: a whole subtitle or sentence; term: a word or name in the glossary; fix: words the
+ * speech recognition keeps getting wrong and what was really said (src = tgt = the spoken language).
+ */
+export type EntryKind = 'sentence' | 'term' | 'fix';
+export const ENTRY_KINDS: readonly EntryKind[] = ['sentence', 'term', 'fix'];
 /** candidate: taught, not yet trusted; learned: taught by enough people; approved: by an admin. */
 export type EntryStatus = 'candidate' | 'learned' | 'approved' | 'rejected';
 /** Different people who must make the same correction before it is used for everyone. */
@@ -112,20 +116,20 @@ export async function vote(env: Env, votes: Vote[]): Promise<void> {
 }
 
 /**
- * The rules a job uses, for its target language: for each source text one translation (an
- * admin's first, then the one most people taught, then the newest).
+ * The rules a job uses, for its target language (any, with null: speech fixes): for each source
+ * text one translation (an admin's first, then the one most people taught, then the newest).
  */
-export async function activeEntries(env: Env, tgt: string, kind: EntryKind, limit: number): Promise<MemoryEntry[]> {
+export async function activeEntries(env: Env, tgt: string | null, kind: EntryKind, limit: number): Promise<MemoryEntry[]> {
   const { results } = await env.DB.prepare(
     `SELECT * FROM (
        SELECT *, ROW_NUMBER() OVER (
          PARTITION BY kind, src, source_norm
          ORDER BY CASE status WHEN 'approved' THEN 0 ELSE 1 END, votes DESC, updated_at DESC
        ) AS pick
-       FROM memory_entries WHERE tgt = ? AND kind = ? AND status IN ('learned', 'approved')
+       FROM memory_entries WHERE (? IS NULL OR tgt = ?) AND kind = ? AND status IN ('learned', 'approved')
      ) WHERE pick = 1 ORDER BY votes DESC, updated_at DESC LIMIT ?`,
   )
-    .bind(tgt, kind, limit)
+    .bind(tgt, tgt, kind, limit)
     .all<MemoryEntry>();
   return results;
 }

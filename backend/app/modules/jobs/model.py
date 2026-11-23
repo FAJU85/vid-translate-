@@ -47,6 +47,7 @@ class Job:
     outro: str = "kavox"        # ending added to rendered videos: "kavox" | "custom" | "none"
     memory: dict | None = None  # translation memory for this job (translation.Memory payload)
     memory_hits: int = 0        # lines the memory translated (the rest went to the model)
+    speech_fixes: int = 0       # recognised words corrected by learned speech fixes
     status: str = "queued"
     stage: str = "queued"
     progress: int = 0
@@ -74,6 +75,7 @@ class Job:
             "detected_lang": self.detected_lang,
             "engine": self.engine,
             "memory_hits": self.memory_hits,
+            "speech_fixes": self.speech_fixes,
             "outputs": self.outputs,
             "error": {"code": self.error_code, "message": self.error_message} if self.error_code else None,
         }

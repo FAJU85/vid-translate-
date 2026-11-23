@@ -95,6 +95,7 @@ def transcribe(
     duration: float,
     cancelled: Callable[[], bool],
     progress: Callable[[float], None],
+    hotwords: str | None = None,
 ) -> tuple[list[tuple], str]:
     """Return ([(start, end, text, words), ...], detected_language).
 
@@ -118,6 +119,8 @@ def transcribe(
         # The language is decided from several 30-second windows, not only the first one (an
         # intro with music or another language picked the wrong one).
         language_detection_segments=4,
+        # Words people taught KAVOX to hear right (speech fixes), when the language is known.
+        hotwords=hotwords if language else None,
         # Skips silent stretches where Whisper starts to invent text (needs word timestamps).
         hallucination_silence_threshold=2.0 if config.WORD_TIMESTAMPS else None,
     )

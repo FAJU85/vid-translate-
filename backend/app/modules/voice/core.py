@@ -1,4 +1,5 @@
-"""Translated speech with edge-tts (Microsoft Edge's online "Read aloud" voices).
+"""Translated speech: Microsoft Edge's online "Read aloud" voices (edge-tts), or eSpeak NG, a
+rule-based (formant) synthesizer with no AI that runs on this machine ("classic" voice).
 
 Free and good in Arabic, but it is not an official, documented API: it can change or stop
 without notice. Dubbing can be switched off with DUBBING_ENABLED=0, and a failure here fails only
@@ -54,6 +55,17 @@ VOICES: dict[str, tuple[str, str]] = {
     "ps": ("ps-AF-LatifaNeural", "ps-AF-GulNawazNeural"),
 }
 
+# eSpeak NG voices (rule-based, offline). Somali, Hausa and Pashto have none.
+ESPEAK: dict[str, str] = {
+    "ar": "ar", "en": "en-us", "fr": "fr-fr", "es": "es", "de": "de", "it": "it", "pt": "pt-br", "ru": "ru",
+    "tr": "tr", "fa": "fa", "ur": "ur", "hi": "hi", "bn": "bn", "id": "id", "ms": "ms", "zh": "cmn", "ja": "ja",
+    "ko": "ko", "nl": "nl", "pl": "pl", "uk": "uk", "sv": "sv", "he": "he", "el": "el", "ro": "ro", "cs": "cs",
+    "hu": "hu", "fi": "fi", "da": "da", "no": "nb", "vi": "vi", "th": "th", "sw": "sw", "ku": "ku", "am": "am",
+    "ta": "ta", "az": "az", "kk": "kk", "uz": "uz",
+}
+ESPEAK_WPM = 165  # words per minute at the normal rate (eSpeak's own default is 175)
+CLASSIC = "classic"
+
 PARALLEL = 4
 TRIES = 3
 TIMEOUT = 40.0
@@ -64,13 +76,35 @@ class VoiceError(Exception):
 
 
 def voice_for(lang: str, gender: str = "female") -> str | None:
+    if gender == CLASSIC:
+        return f"espeak:{ESPEAK[lang]}" if lang in ESPEAK else None
     pair = VOICES.get(lang)
     if not pair:
         return None
     return pair[1] if gender == "male" else pair[0]
 
 
+async def _espeak(text: str, voice: str, dest: Path, rate: int) -> None:
+    """One line with eSpeak NG, as a WAV file (the speed is set in words per minute)."""
+    speed = max(80, round(ESPEAK_WPM * (1 + rate / 100)))
+    proc = await asyncio.create_subprocess_exec(
+        "espeak-ng", "-v", voice, "-s", str(speed), "-w", str(dest), "--", text,
+        stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        _, err = await asyncio.wait_for(proc.communicate(), TIMEOUT)
+    except asyncio.TimeoutError:
+        proc.kill()
+        raise VoiceError("eSpeak NG took too long") from None
+    if proc.returncode != 0 or not dest.exists() or dest.stat().st_size == 0:
+        raise VoiceError(f"eSpeak NG failed: {err.decode(errors='replace')[:150]}")
+
+
 async def _one(text: str, voice: str, dest: Path, semaphore: asyncio.Semaphore, rate: int = 0) -> None:
+    if voice.startswith("espeak:"):
+        async with semaphore:
+            await _espeak(text, voice.split(":", 1)[1], dest, rate)
+        return
     import edge_tts
 
     async with semaphore:
@@ -105,7 +139,8 @@ def synthesize(
     if not voice:
         raise VoiceError(f"No voice for language '{lang}'.")
     out_dir.mkdir(parents=True, exist_ok=True)
-    paths: list[Path | None] = [out_dir / f"line{i:05d}.mp3" if t.strip() else None for i, t in enumerate(texts)]
+    ext = "wav" if voice.startswith("espeak:") else "mp3"
+    paths: list[Path | None] = [out_dir / f"line{i:05d}.{ext}" if t.strip() else None for i, t in enumerate(texts)]
     speeds = rates or [0] * len(texts)
     todo = [(t, p, r) for t, p, r in zip(texts, paths, speeds) if p is not None]
 

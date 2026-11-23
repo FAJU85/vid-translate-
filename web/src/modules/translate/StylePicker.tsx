@@ -32,7 +32,7 @@ export function rememberedStyle(): SubtitleStyle {
     background: oneOf(['outline', 'box'], saved.background, DEFAULT_STYLE.background),
     font: oneOf(['modern', 'classic', 'bold'], saved.font, DEFAULT_STYLE.font),
     bilingual: saved.bilingual === true,
-    voice: saved.voice === 'male' ? 'male' : 'female',
+    voice: saved.voice === 'male' || saved.voice === 'classic' ? saved.voice : 'female',
     animation: oneOf(['none', 'highlight', 'pop'] as const, saved.animation, 'none'),
   };
 }

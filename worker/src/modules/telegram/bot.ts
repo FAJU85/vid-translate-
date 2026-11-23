@@ -340,7 +340,7 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     colors.slice(0, 3),
     colors.slice(3),
     [{ text: t(ui, style.bilingual ? 'bilingual_on' : 'bilingual_off'), callback_data: `st:bilingual:${style.bilingual ? 'off' : 'on'}` }],
-    (['female', 'male'] as const).map((v) => ({ text: mark(style.voice === v, t(ui, `voice_${v}`)), callback_data: `st:voice:${v}` })),
+    (['female', 'male', 'classic'] as const).map((v) => ({ text: mark(style.voice === v, t(ui, `voice_${v}`)), callback_data: `st:voice:${v}` })),
   ];
   return { text, keyboard };
 }

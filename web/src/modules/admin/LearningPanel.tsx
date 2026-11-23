@@ -81,7 +81,8 @@ export function LearningPanel({ password }: { password: string }) {
           <p className="text-sm text-slate-400 max-w-2xl">
             KAVOX's translation memory: rules, not AI. When {votes} different signed-in people make the same correction to a
             translation, it is learned and used for everyone; your approval makes it count at once. Glossary terms (names, brands,
-            fixed words) are always translated as you write them. These rules are applied before the translation model.
+            fixed words) are always translated as you write them. Speech fixes correct words the speech recognition keeps
+            mishearing, before anything is translated. These rules are applied before the models.
           </p>
         </div>
         <button onClick={load} disabled={busy} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800">
@@ -95,14 +96,19 @@ export function LearningPanel({ password }: { password: string }) {
           <select aria-label="Kind" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as MemoryKind })} className="px-2 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white">
             <option value="term">Glossary term</option>
             <option value="sentence">Sentence</option>
+            <option value="fix">Speech fix</option>
           </select>
-          {select(form.src, (src) => setForm({ ...form, src }), 'From')}
-          <span className="self-center text-slate-500">→</span>
-          {select(form.tgt, (tgt) => setForm({ ...form, tgt }), 'Into')}
+          {select(form.src, (src) => setForm({ ...form, src }), form.kind === 'fix' ? 'Spoken language' : 'From')}
+          {form.kind !== 'fix' && (
+            <>
+              <span className="self-center text-slate-500">→</span>
+              {select(form.tgt, (tgt) => setForm({ ...form, tgt }), 'Into')}
+            </>
+          )}
         </div>
         <div className="grid gap-2 md:grid-cols-2">
-          <input required dir="auto" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder={form.kind === 'term' ? 'Term as spoken, e.g. KAVOX' : 'Sentence as spoken'} className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
-          <input required dir="auto" value={form.translation} onChange={(e) => setForm({ ...form, translation: e.target.value })} placeholder="Its translation, e.g. كافوكس" className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
+          <input required dir="auto" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder={form.kind === 'term' ? 'Term as spoken, e.g. KAVOX' : form.kind === 'fix' ? 'Words as misheard, e.g. Cavox' : 'Sentence as spoken'} className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
+          <input required dir="auto" value={form.translation} onChange={(e) => setForm({ ...form, translation: e.target.value })} placeholder={form.kind === 'fix' ? 'What was really said, e.g. KAVOX' : 'Its translation, e.g. كافوكس'} className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white" />
         </div>
         <div className="flex gap-2">
           <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-sm font-semibold text-slate-950">
@@ -156,7 +162,7 @@ export function LearningPanel({ password }: { password: string }) {
                 <tr key={e.id} className="align-top">
                   <td className="px-3 py-2 text-slate-200" dir="auto">
                     <span className="block text-[11px] text-slate-500">
-                      {e.kind === 'term' ? 'Term' : 'Sentence'} · {e.src} → {e.tgt}
+                      {e.kind === 'fix' ? `Speech fix · ${e.src}` : `${e.kind === 'term' ? 'Term' : 'Sentence'} · ${e.src} → ${e.tgt}`}
                     </span>
                     {e.source}
                   </td>

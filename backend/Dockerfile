@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg fonts-noto-core fonts-noto-cjk \
+ && apt-get install -y --no-install-recommends ffmpeg fonts-noto-core fonts-noto-cjk espeak-ng \
  && rm -rf /var/lib/apt/lists/*
 
 # Hugging Face Spaces run the container as uid 1000.

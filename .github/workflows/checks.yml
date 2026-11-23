@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg espeak-ng
       # Speech and translation models are not needed: the tests replace them with stand-ins.
       - run: pip install fastapi uvicorn httpx pytest numpy
       - run: python -m pytest -q tests
