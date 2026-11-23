@@ -71,10 +71,28 @@ def test_a_dubbed_job_gives_a_video_and_the_subtitles(client, tmp_path, monkeypa
 def test_dubbing_a_language_without_voices_fails_clearly(client, tmp_path):
     job = JOB.format("e")
     client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path))
-    client.post("/invoke", json={"job_id": job, "source_kind": "upload", "tgt_lang": "ku", "subtitle_mode": "dub"},
+    client.post("/invoke", json={"job_id": job, "source_kind": "upload", "tgt_lang": "ha", "subtitle_mode": "dub"},
                 headers=AUTH)
     data = wait_done(client, job)
     assert data["status"] == "failed" and data["error"]["code"] == "E_NO_VOICE"
+
+
+def test_kurdish_is_dubbed_by_the_classic_voice_whatever_voice_was_chosen(client, tmp_path, monkeypatch):
+    used = []
+
+    def fake_synthesize(texts, lang, gender, out_dir, cancelled, progress, rates=None):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        used.append((lang, gender))
+        return [tone(out_dir / f"{i}.wav", 0.8) if t else None for i, t in enumerate(texts)]
+
+    monkeypatch.setattr(voice, "synthesize", fake_synthesize)
+    job = "0c0c0c0c-0000-4000-8000-000000000004"
+    client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path))
+    r = client.post("/invoke", json={"job_id": job, "source_kind": "upload", "tgt_lang": "ku", "subtitle_mode": "dub",
+                                      "subtitle_style": {"voice": "female"}}, headers=AUTH)
+    assert r.status_code == 202
+    assert wait_done(client, job)["status"] == "done"
+    assert used and all(u == ("ku", "classic") for u in used)
 
 
 def test_every_target_language_but_two_has_both_voices():

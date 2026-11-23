@@ -250,7 +250,9 @@ def _dub(job: Job, workdir: Path, source: Path, sentences: list, info: dict, rep
     if not config.DUBBING_ENABLED:
         raise PipelineError("E_NO_VOICE", "Dubbing is switched off on this server.")
     style = subtitles.SubtitleStyle.from_dict(job.style)
-    if not voice.voice_for(job.tgt_lang, style.voice):
+    # A language with no Edge voice (Kurdish) is spoken by the classic, rule-based one instead.
+    speaker = style.voice if voice.voice_for(job.tgt_lang, style.voice) else voice.CLASSIC
+    if not voice.voice_for(job.tgt_lang, speaker):
         raise PipelineError("E_NO_VOICE", "Dubbing is not available for this language yet. Choose subtitles instead.")
     lines_dir = workdir / "voice"
     track = workdir / "dub.wav"
@@ -258,12 +260,12 @@ def _dub(job: Job, workdir: Path, source: Path, sentences: list, info: dict, rep
     texts = [memory.pronounce(s.text) if memory else s.text for s in sentences]
     try:  # the spoken lines and the track are only steps: removed however the job ends
         try:
-            takes = voice.synthesize(texts, job.tgt_lang, style.voice, lines_dir, cancelled, lambda f: report(f * 0.6))
+            takes = voice.synthesize(texts, job.tgt_lang, speaker, lines_dir, cancelled, lambda f: report(f * 0.6))
             layouts = dubbing.takes_layout(sentences, takes)
             rates = dubbing.smooth([dubbing.sentence_rate(p) if p else 0 for p in layouts], sentences)
             if any(rates):
                 again = voice.synthesize(
-                    [t if r else "" for t, r in zip(texts, rates)], job.tgt_lang, style.voice, workdir / "voice-fast",
+                    [t if r else "" for t, r in zip(texts, rates)], job.tgt_lang, speaker, workdir / "voice-fast",
                     cancelled, lambda f: report(0.6 + f * 0.2), rates,
                 )
                 takes = [a or t for a, t in zip(again, takes)]

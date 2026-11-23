@@ -72,8 +72,9 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
   useEffect(() => () => void (localVideo && URL.revokeObjectURL(localVideo.url)), [localVideo]);
 
   const maxMb = config?.max_upload_mb ?? 500;
-  // Microsoft Edge has no voice for these (worker jobs/style.ts NO_DUB_LANGS).
-  const canDub = !['ku', 'ha'].includes(tgtLang);
+  // No voice at all for Hausa; Kurdish only has the classic one (worker jobs/style.ts).
+  const canDub = tgtLang !== 'ha';
+  const classicOnly = tgtLang === 'ku';
   useEffect(() => {
     if (!canDub && mode === 'dub') setMode('soft');
   }, [canDub, mode]);
@@ -223,20 +224,22 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
                 <button
                   key={v}
                   type="button"
+                  disabled={classicOnly && v !== 'classic'}
                   onClick={() => {
                     const next = { ...style, voice: v };
                     remember(next);
                     setStyle(next);
                   }}
-                  aria-pressed={(style.voice ?? 'female') === v}
-                  className={`px-3 py-1.5 rounded-lg ${(style.voice ?? 'female') === v ? 'bg-amber-400 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white'}`}
+                  aria-pressed={(classicOnly ? 'classic' : style.voice ?? 'female') === v}
+                  className={`px-3 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed ${(classicOnly ? 'classic' : style.voice ?? 'female') === v ? 'bg-amber-400 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white'}`}
                 >
                   {v === 'female' ? 'Female' : v === 'male' ? 'Male' : 'Classic'}
                 </button>
               ))}
             </div>
             <p className="text-xs text-slate-400">
-              {style.voice === 'classic'
+              {classicOnly && 'Kurdish has no Microsoft Edge voice, so it is spoken by the classic voice. '}
+              {classicOnly || style.voice === 'classic'
                 ? 'Spoken by eSpeak NG, a rule-based voice (no AI): clear and predictable, but it sounds synthetic.'
                 : 'Each sentence is spoken in the target language by a Microsoft Edge voice, timed to the speaker, over the original sound turned down low.'}{' '}
               You also get the subtitle files.

@@ -27,6 +27,7 @@ export {
   SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
+  CLASSIC_ONLY_LANGS,
   NO_DUB_LANGS,
   canDub,
   parseSubtitleStyle,

@@ -51,6 +51,9 @@ export function parseSubtitleStyle(input: unknown): SubtitleStyle {
   };
 }
 
-/** Target languages with no Microsoft Edge voice: subtitles only. */
-export const NO_DUB_LANGS = ['ku', 'ha'];
+/** Target languages with no voice at all: subtitles only. (Kurdish has no Microsoft Edge voice;
+ * the Space speaks it with the classic eSpeak NG voice whatever voice was chosen.) */
+export const NO_DUB_LANGS = ['ha'];
+/** Target languages only the classic voice speaks. */
+export const CLASSIC_ONLY_LANGS = ['ku'];
 export const canDub = (lang: string) => !NO_DUB_LANGS.includes(lang);
