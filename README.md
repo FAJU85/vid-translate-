@@ -243,7 +243,9 @@ Dubbing uses timing lip-sync (isochrony), done mechanically (`backend/app/module
 
 Voices: **female** and **male** are Microsoft Edge voices; **classic** is eSpeak NG, a rule-based
 (formant) voice that runs on the Space itself with no model and no AI. It sounds synthetic, but
-it is entirely mechanical and predictable.
+it is entirely mechanical and predictable. Kurdish has no Edge voice, so Kurdish dubbing always
+uses the classic voice (the website shows it; the Space switches to it whatever was chosen).
+Hausa has no voice at all and stays subtitles only.
 
 ### Translation memory (learning without AI)
 
