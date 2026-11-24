@@ -251,6 +251,9 @@ export const dashboardApi = {
   /** Post a video to your profile (public) or keep it for people with the link only. */
   setVisibility: (id: string, visibility: 'link' | 'public') =>
     call<Share>(`/api/shares/${id}?client_id=${clientId()}`, { method: 'POST', body: JSON.stringify({ visibility }) }),
+  /** The caption shown on the video's page, your profile and the feed (#hashtags work). */
+  setTitle: (id: string, title: string) =>
+    call<Share>(`/api/shares/${id}?client_id=${clientId()}`, { method: 'POST', body: JSON.stringify({ title }) }),
 };
 
 /** Your public profile: a unique @handle, a name and a short bio. */
@@ -313,6 +316,18 @@ export const socialApi = {
   deleteComment: (id: number) => call<{ ok: true }>(`/api/comments/${id}`, { method: 'DELETE' }),
   report: (r: { kind: ReportKind; target: string; reason: ReportReason; details: string }) =>
     call<{ ok: true }>('/api/reports', { method: 'POST', body: JSON.stringify(r) }),
+};
+
+export interface CreatorHit {
+  handle: string;
+  display_name: string | null;
+  bio: string | null;
+  followers: number;
+}
+export const discoverApi = {
+  search: (q: string) => call<{ q: string; creators: CreatorHit[]; videos: FeedItem[]; tag: string | null }>(`/api/search?q=${encodeURIComponent(q)}`),
+  tag: (tag: string) => call<{ tag: string; items: FeedItem[] }>(`/api/tags/${encodeURIComponent(tag)}`),
+  trending: () => call<{ videos: (FeedItem & { week_likes: number })[]; tags: { tag: string; videos: number }[] }>('/api/trending'),
 };
 
 export type NotificationKind = 'follow' | 'like' | 'comment' | 'post';

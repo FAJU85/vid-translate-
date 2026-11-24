@@ -213,6 +213,30 @@ export async function setLike(env: Env, shareId: string, accountId: string, on: 
   ).run();
 }
 
+/** Likes each video got since a time (for "Trending"). */
+export async function likesSince(env: Env, shareIds: string[], since: number): Promise<Map<string, number>> {
+  const rows = await inParts(shareIds, async (part, marks) =>
+    (await env.DB.prepare(`SELECT share_id, COUNT(*) AS n FROM likes WHERE share_id IN (${marks}) AND created_at >= ? GROUP BY share_id`)
+      .bind(...part, since)
+      .all<{ share_id: string; n: number }>()).results,
+  );
+  return new Map(rows.map((r) => [r.share_id, r.n]));
+}
+
+/** Creators whose @handle starts with, or whose name contains, a text; blocked ones left out. */
+export async function searchProfiles(env: Env, text: string, limit: number): Promise<(Profile & { followers: number })[]> {
+  const esc = text.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { results } = await env.DB.prepare(
+    `SELECT p.*, (SELECT COUNT(*) FROM follows f WHERE f.followee_id = p.account_id) AS followers FROM profiles p
+     WHERE (p.handle LIKE ?1 ESCAPE '\\' OR p.display_name LIKE ?2 ESCAPE '\\')
+       AND NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = p.account_id)
+     ORDER BY (p.handle = ?3) DESC, followers DESC, p.handle LIMIT ?4`,
+  )
+    .bind(`${esc}%`, `%${esc}%`, text.toLowerCase(), limit)
+    .all<Profile & { followers: number }>();
+  return results;
+}
+
 /** Likes of each video, and which of them someone liked. */
 export async function likesOf(env: Env, shareIds: string[], viewer: string | null): Promise<{ counts: Map<string, number>; liked: Set<string> }> {
   const [counts, mine] = await Promise.all([

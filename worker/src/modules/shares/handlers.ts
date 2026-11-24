@@ -2,7 +2,10 @@ import { apiError, json } from '../../shared/http';
 import type { Env } from '../../shared/env';
 import { publicOrigin } from '../settings';
 import { announcePost, deleteShare } from './service';
-import { getShare, listShares, setVisibility, type ShareRow } from './store';
+import { getShare, listShares, setTitle, setVisibility, type ShareRow } from './store';
+
+/** A caption's longest length (titles from the source video are cut to it when edited). */
+const MAX_TITLE = 150;
 
 /** What the website shows of a share. */
 export const publicShare = (s: ShareRow, origin: string) => ({
@@ -31,7 +34,7 @@ export interface ShareViewer {
   signedIn?: boolean;
 }
 
-/** GET /api/shares (yours), DELETE /api/shares/<id>, and POST /api/shares/<id> {visibility}. */
+/** GET /api/shares (yours), DELETE /api/shares/<id>, and POST /api/shares/<id> {visibility} or {title}. */
 export async function handleShares(request: Request, env: Env, path: string, origin: string, viewer: ShareViewer): Promise<Response | null> {
   if (path === '/api/shares' && request.method === 'GET') {
     const base = await publicOrigin(env, origin);
@@ -47,7 +50,15 @@ export async function handleShares(request: Request, env: Env, path: string, ori
     await deleteShare(env, share.id);
     return json({ ok: true });
   }
-  const body = (await request.json().catch(() => null)) as { visibility?: string } | null;
+  const body = (await request.json().catch(() => null)) as { visibility?: string; title?: unknown } | null;
+  // The caption: what the video is called on its page, the profile and the feed (#hashtags work).
+  if (body && 'title' in body && !('visibility' in body)) {
+    if (typeof body.title !== 'string') return apiError(400, 'E_BAD_REQUEST', 'title is text.');
+    const title = body.title.replace(/\s+/g, ' ').trim();
+    if (title.length > MAX_TITLE) return apiError(400, 'E_BAD_REQUEST', `A caption has at most ${MAX_TITLE} characters.`);
+    await setTitle(env, share.id, title || null);
+    return json(publicShare({ ...share, title: title || null }, await publicOrigin(env, origin)));
+  }
   if (body?.visibility !== 'link' && body?.visibility !== 'public') return apiError(400, 'E_BAD_REQUEST', 'visibility is link or public.');
   // Posting puts the video on its account's profile: only that account, signed in, may do it (the
   // browser that made the video is not enough). Taking it back to link-only stays open to both.

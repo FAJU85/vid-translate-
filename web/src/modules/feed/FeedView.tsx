@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Flag, Heart, Link2, Loader2, MessageCircle, Plus, Volume2, VolumeX } from 'lucide-react';
+import { Check, Flag, Heart, Link2, Loader2, MessageCircle, Plus, Search, Volume2, VolumeX } from 'lucide-react';
 import { ApiError, socialApi, type AppConfig, type FeedItem, type FeedTab, type ReportKind } from '../../shared/api';
 import { CommentsSheet, ReportSheet } from './Sheets';
+import { Discover, TagText } from './Discover';
 
 /** One video, full height: it plays while on screen, with its creator and actions on top. */
-function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn }: {
+function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onTag }: {
   item: FeedItem;
   muted: boolean;
   onMute: () => void;
@@ -12,6 +13,7 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn }: {
   onChange: (patch: Partial<FeedItem>) => void;
   onSignIn: () => void;
   signedIn: boolean;
+  onTag: (tag: string) => void;
 }) {
   const box = useRef<HTMLDivElement | null>(null);
   const video = useRef<HTMLVideoElement | null>(null);
@@ -99,7 +101,11 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn }: {
         <a href={`/@${item.creator.handle}`} className="font-bold drop-shadow hover:underline">
           @{item.creator.handle}
         </a>
-        {item.title && <p className="text-sm leading-snug line-clamp-2 drop-shadow">{item.title}</p>}
+        {item.title && (
+          <p className="text-sm leading-snug line-clamp-2 drop-shadow pointer-events-auto">
+            <TagText text={item.title} onTag={onTag} />
+          </p>
+        )}
         <p className="text-xs text-slate-200 drop-shadow">
           {item.mode === 'dub' ? 'Dubbed' : 'Subtitled'} · {from}
           {lang(item.tgt_lang)}
@@ -162,6 +168,19 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn }: {
  */
 export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | null; signedIn: boolean; onSignIn: () => void }) {
   const [tab, setTab] = useState<FeedTab>('foryou');
+  // A hashtag link (/?tab=feed&tag=cats, from a video page) opens Discover on that hashtag.
+  const [tag, setTag] = useState<string | null>(() => new URLSearchParams(window.location.search).get('tag'));
+  const [discover, setDiscover] = useState(Boolean(tag));
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('tag')) return;
+    url.searchParams.delete('tag');
+    window.history.replaceState(null, '', url);
+  }, []);
+  const openTag = useCallback((t: string | null) => {
+    setTag(t);
+    if (t) setDiscover(true);
+  }, []);
   const [items, setItems] = useState<FeedItem[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -228,15 +247,26 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
         {(['foryou', 'following'] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
-            aria-pressed={tab === t}
-            className={`px-3 py-1.5 rounded-lg ${tab === t ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
+            onClick={() => {
+              setTab(t);
+              setDiscover(false);
+            }}
+            aria-pressed={!discover && tab === t}
+            className={`px-3 py-1.5 rounded-lg ${!discover && tab === t ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
           >
             {t === 'foryou' ? 'For you' : 'Following'}
           </button>
         ))}
+        <button
+          onClick={() => setDiscover(true)}
+          aria-pressed={discover}
+          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg ${discover ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
+        >
+          <Search className="w-3.5 h-3.5" /> Discover
+        </button>
       </div>
-      <div className="mx-auto w-full sm:max-w-md h-[calc(100dvh-8.5rem)] overflow-y-auto snap-y snap-mandatory [overflow-anchor:none] sm:rounded-2xl bg-black">
+      {discover && <Discover tag={tag} onTag={openTag} />}
+      <div className={`${discover ? 'hidden' : ''} mx-auto w-full sm:max-w-md h-[calc(100dvh-8.5rem)] overflow-y-auto snap-y snap-mandatory [overflow-anchor:none] sm:rounded-2xl bg-black`}>
         {items.map((item) => (
           <FeedCard
             key={item.id}
@@ -247,6 +277,7 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
             onChange={patch(item.id)}
             onSignIn={onSignIn}
             signedIn={signedIn}
+            onTag={openTag}
           />
         ))}
         {/* Not a snap point: the scroll would stay pinned to it as videos load above it (jumping to the end). */}

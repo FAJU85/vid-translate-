@@ -158,6 +158,25 @@ export async function publicTotals(env: Env, accountId: string): Promise<{ video
   return { videos: row?.videos ?? 0, views: row?.views ?? 0 };
 }
 
+/** `%`, `_` and `\` matched as themselves in a LIKE pattern (with ESCAPE '\'). */
+export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/** Posted, live videos whose title contains a text (case-insensitive for Latin letters), newest first. */
+export async function searchPostedVideos(env: Env, text: string, limit: number): Promise<ShareRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM shares WHERE visibility = 'public' AND account_id IS NOT NULL AND ${LIVE} AND title LIKE ? ESCAPE '\\'
+     ORDER BY created_at DESC, id DESC LIMIT ?`,
+  )
+    .bind(now(), `%${likeEscape(text)}%`, limit)
+    .all<ShareRow>();
+  return results;
+}
+
+/** A video's title (its caption on the profile and in the feed). */
+export async function setTitle(env: Env, id: string, title: string | null): Promise<void> {
+  await env.DB.prepare('UPDATE shares SET title = ? WHERE id = ?').bind(title, id).run();
+}
+
 export async function setVisibility(env: Env, id: string, visibility: Visibility): Promise<void> {
   await env.DB.prepare('UPDATE shares SET visibility = ? WHERE id = ?').bind(visibility, id).run();
 }

@@ -8,6 +8,10 @@ import { countView, getShare, type ShareRow } from './store';
 
 const langName = (code: string, _ui: 'en') => LANGUAGES.find((l) => l.code === code)?.en ?? code;
 
+/** #hashtags in (escaped) text as links to their videos on the site. */
+const tagLinks = (html: string) =>
+  html.replace(/(?<!&)#([\p{L}\p{N}_]{1,50})/gu, (m, t: string) => `<a class="tag" href="/?tab=feed&amp;tag=${encodeURIComponent(t.toLowerCase())}">${m}</a>`);
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /** The public page of a shared video: the player, what it is, and a download. */
@@ -72,6 +76,7 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
   #comment-list .who button { background: none; border: 0; color: #64748b; font: inherit; cursor: pointer; padding: 0; }
   #comment-list p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .note { font-size: 13px; color: #94a3b8; }
+  h1 .tag { color: var(--accent); text-decoration: none; }
   footer { color: #64748b; font-size: 13px; }
   footer a { color: var(--accent); }
 </style>
@@ -81,7 +86,7 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
 <main>
   <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
   ${creator ? `<a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span>@${esc(creator.handle)}</span></a>` : ''}
-  <h1>${esc(title)}</h1>
+  <h1>${tagLinks(esc(title))}</h1>
   <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${share.views + 1} view${share.views ? 's' : ''}</span></div>
   <div class="actions">
     <button class="btn" id="like" type="button" hidden aria-pressed="false">♡ <span id="likes">0</span></button>

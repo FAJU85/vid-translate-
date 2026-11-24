@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Play, RefreshCw, Trash2, Video } from 'lucide-react';
+import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Pencil, Play, RefreshCw, Trash2, Video } from 'lucide-react';
 import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, type DashboardVideo, type Me } from '../../shared/api';
 import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
 import { DayBars } from './DayBars';
@@ -40,6 +40,22 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
   // A refresh (or another tab) may have changed it: the latest data wins.
   useEffect(() => setVisibility(share?.visibility ?? 'link'), [share?.id, share?.visibility]);
   const [posting, setPosting] = useState(false);
+  // The caption (#hashtags in it make the video findable in Discover).
+  const [caption, setCaption] = useState<string | null>(share?.title ?? v.title);
+  useEffect(() => setCaption(share?.title ?? v.title), [share?.id, share?.title, v.title]);
+  const [editing, setEditing] = useState<string | null>(null);
+  async function saveCaption() {
+    if (!share || editing === null) return;
+    setPosting(true);
+    try {
+      setCaption((await dashboardApi.setTitle(share.id, editing)).title);
+      setEditing(null);
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : 'The caption could not be saved.');
+    } finally {
+      setPosting(false);
+    }
+  }
   /** Post the video to your profile, or take it back to "only people with the link". */
   async function togglePost() {
     if (!share) return;
@@ -92,7 +108,39 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
         )}
       </div>
       <div className="min-w-0 flex-1 space-y-1">
-        <div className="font-semibold text-white truncate">{v.title || 'Untitled video'}</div>
+        {editing === null ? (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-semibold text-white truncate">{caption || 'Untitled video'}</span>
+            {share && (
+              <button onClick={() => setEditing(caption ?? '')} aria-label="Edit caption" title="Edit the caption (add #hashtags)" className="shrink-0 text-slate-500 hover:text-white">
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveCaption();
+            }}
+            className="flex gap-1.5"
+          >
+            <input
+              autoFocus
+              value={editing}
+              onChange={(e) => setEditing(e.target.value)}
+              maxLength={150}
+              placeholder="Caption, e.g. Funny cat #cats #arabic"
+              className="min-w-0 flex-1 px-2 py-1 rounded-md bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-amber-400/60"
+            />
+            <button disabled={posting} className="px-2 rounded-md bg-amber-400 text-xs font-semibold text-slate-950 disabled:opacity-50">
+              Save
+            </button>
+            <button type="button" onClick={() => setEditing(null)} className="px-1.5 text-xs text-slate-400 hover:text-white">
+              Cancel
+            </button>
+          </form>
+        )}
         <div className="text-xs text-slate-400 flex flex-wrap gap-x-2">
           <span>{new Date(v.created_at * 1000).toLocaleDateString()}</span>
           <span>{MODE_LABEL[v.mode] ?? v.mode}{v.rerender ? ' (edited)' : ''}</span>

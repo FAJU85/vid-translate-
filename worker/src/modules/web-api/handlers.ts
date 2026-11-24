@@ -28,7 +28,7 @@ import { handleAdminJobs } from './admin';
 import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
-import { handleComments, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
+import { handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
   SECONDS_PER_CREDIT,
@@ -264,6 +264,10 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/feed' || path.startsWith('/api/likes/') || path.startsWith('/api/follows/')) {
     const feed = await handleFeed(request, env, path, api.origin);
     if (feed) return feed;
+  }
+  if (path === '/api/search' || path === '/api/trending' || path.startsWith('/api/tags/')) {
+    const found = await handleDiscover(request, env, path, api.origin);
+    if (found) return found;
   }
   if (path.startsWith('/api/notifications')) {
     const inbox = await handleNotifications(request, env, path, api.origin);
