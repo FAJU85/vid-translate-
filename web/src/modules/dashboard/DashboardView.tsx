@@ -4,6 +4,7 @@ import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, typ
 import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
 import { DayBars } from './DayBars';
 import { ProfileCard } from './ProfileCard';
+import { AnalyticsCard } from './AnalyticsCard';
 
 const MODE_LABEL: Record<string, string> = { soft: 'Subtitle files', hard: 'Burned-in subtitles', dub: 'Dubbed' };
 
@@ -270,6 +271,7 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
       {error && <p className="p-3 rounded-lg border border-rose-800 bg-rose-950/60 text-sm text-rose-200">{error}</p>}
 
       {me?.account && <ProfileCard key={me.account.id} />}
+      {me?.account && <AnalyticsCard key={`a-${me.account.id}`} />}
 
       {balance && (
         <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-4">

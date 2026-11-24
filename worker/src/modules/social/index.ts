@@ -10,6 +10,7 @@ export { HANDLE, checkHandle } from './handles';
 export { creatorFor, handleSocial } from './handlers';
 export { handleFeed, rank } from './feed';
 export { handleDiscover, tagsOf } from './discover';
+export { handleAnalytics } from './analytics';
 export { handleComments, handleModeration } from './moderation';
 export { handleNotifications, notifyPost, sweepNotifications } from './notifications';
 export { PROFILE_PATH, handleProfilePage } from './page';

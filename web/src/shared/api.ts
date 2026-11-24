@@ -302,6 +302,8 @@ export type FeedTab = 'foryou' | 'following';
 export const socialApi = {
   feed: (tab: FeedTab, cursor: string | null) =>
     call<{ items: FeedItem[]; next: string | null; sign_in?: boolean }>(`/api/feed?tab=${tab}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  /** A video watched in the feed (counted once per card). */
+  view: (id: string) => call<{ ok: true }>(`/api/views/${id}`, { method: 'POST' }),
   like: (id: string, liked: boolean) => call<{ likes: number; liked: boolean }>(`/api/likes/${id}`, { method: 'POST', body: JSON.stringify({ liked }) }),
   follow: (handle: string, following: boolean) =>
     call<{ followers: number; following: boolean }>(`/api/follows/${encodeURIComponent(handle)}`, { method: 'POST', body: JSON.stringify({ following }) }),
@@ -316,6 +318,30 @@ export const socialApi = {
   deleteComment: (id: number) => call<{ ok: true }>(`/api/comments/${id}`, { method: 'DELETE' }),
   report: (r: { kind: ReportKind; target: string; reason: ReportReason; details: string }) =>
     call<{ ok: true }>('/api/reports', { method: 'POST', body: JSON.stringify(r) }),
+};
+
+export type Metric = 'views' | 'likes' | 'comments' | 'followers';
+export interface Analytics {
+  days: number;
+  totals: { videos: number; posted: number; views: number; likes: number; comments: number; followers: number };
+  period: Record<Metric, number>;
+  series: ({ day: string } & Record<Metric, number>)[];
+  videos: {
+    id: string;
+    title: string | null;
+    url: string;
+    thumb_url: string | null;
+    visibility: 'link' | 'public';
+    created_at: number;
+    views: number;
+    period_views: number;
+    likes: number;
+    comments: number;
+  }[];
+  languages: { code: string; name: string; views: number; share: number }[];
+}
+export const analyticsApi = {
+  get: (days: number) => call<Analytics>(`/api/analytics?days=${days}`),
 };
 
 export interface CreatorHit {

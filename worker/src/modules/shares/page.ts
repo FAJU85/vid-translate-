@@ -4,7 +4,7 @@ import { reportDialog } from '../../shared/report-dialog';
 import { fileLink } from '../jobs';
 import { publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
-import { countView, getShare, type ShareRow } from './store';
+import { countView, getShare, viewerLang, type ShareRow } from './store';
 
 const langName = (code: string, _ui: 'en') => LANGUAGES.find((l) => l.code === code)?.en ?? code;
 
@@ -234,7 +234,7 @@ export async function handleSharePage(request: Request, env: Env, path: string, 
     return new Response('This video is not available any more.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
   if (!m[2]) {
-    await countView(env, share.id);
+    await countView(env, share.id, viewerLang(request));
     return page(env, share, base);
   }
   const isVideo = m[2] === '/video.mp4';

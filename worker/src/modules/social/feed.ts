@@ -2,7 +2,7 @@ import { now, type Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
-import { getPostedVideo, listPostedVideos, publicShare, type ShareRow } from '../shares';
+import { countView, getPostedVideo, listPostedVideos, publicShare, viewerLang, type ShareRow } from '../shares';
 import { notify } from './notifications';
 import {
   blockedAmong,
@@ -63,7 +63,7 @@ export async function items(env: Env, videos: ShareRow[], viewer: string | null,
 }
 
 /**
- * GET /api/feed?tab=foryou|following&cursor=, POST /api/likes/<id> {liked}, and
+ * GET /api/feed?tab=foryou|following&cursor=, POST /api/views/<id>, POST /api/likes/<id> {liked}, and
  * POST /api/follows/<handle> {following}. Liking and following need a signed-in account.
  */
 export async function handleFeed(request: Request, env: Env, path: string, origin: string): Promise<Response | null> {
@@ -93,6 +93,14 @@ export async function handleFeed(request: Request, env: Env, path: string, origi
       .map((r) => r.v);
     const page = ranked.slice(offset, offset + PAGE);
     return json({ items: await items(env, page, viewer, base), next: offset + PAGE < ranked.length ? String(offset + PAGE) : null });
+  }
+
+  // A video watched in the feed (its page counts its own views): told once per card by the site.
+  const view = path.match(/^\/api\/views\/([A-Za-z0-9]{10})$/);
+  if (view && request.method === 'POST') {
+    const video = await getPostedVideo(env, view[1]);
+    if (video) await countView(env, video.id, viewerLang(request));
+    return json({ ok: true });
   }
 
   const like = path.match(/^\/api\/likes\/([A-Za-z0-9]{10})$/);

@@ -28,7 +28,7 @@ import { handleAdminJobs } from './admin';
 import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
-import { handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
+import { handleAnalytics, handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
   SECONDS_PER_CREDIT,
@@ -261,9 +261,13 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const social = await handleSocial(request, env, path, api.origin);
     if (social) return social;
   }
-  if (path === '/api/feed' || path.startsWith('/api/likes/') || path.startsWith('/api/follows/')) {
+  if (path === '/api/feed' || path.startsWith('/api/views/') || path.startsWith('/api/likes/') || path.startsWith('/api/follows/')) {
     const feed = await handleFeed(request, env, path, api.origin);
     if (feed) return feed;
+  }
+  if (path === '/api/analytics') {
+    const numbers = await handleAnalytics(request, env, path, api.origin);
+    if (numbers) return numbers;
   }
   if (path === '/api/search' || path === '/api/trending' || path.startsWith('/api/tags/')) {
     const found = await handleDiscover(request, env, path, api.origin);
