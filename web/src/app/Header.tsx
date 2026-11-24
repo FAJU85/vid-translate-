@@ -20,15 +20,15 @@ export function Header({ tab, onTab, account, showPricing = false }: {
   showPricing?: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur border-b border-slate-800">
+    <header className="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
-        <button onClick={() => onTab('translate')} className="flex items-center gap-2 text-lg font-bold text-white shrink-0">
+        <button onClick={() => onTab('translate')} aria-label={`${SITE.brand.name}: home`} className="flex items-center gap-2.5 shrink-0">
           {SITE.brand.logo ? (
-            <img src={SITE.brand.logo} alt={SITE.brand.name} className="h-8 w-auto max-w-[9rem] object-contain" />
+            <img src={SITE.brand.logo} alt="" className="h-9 w-9 object-contain" />
           ) : (
-            SITE.brand.mark && <span className="text-amber-400">{SITE.brand.mark}</span>
+            <span className="h-9 w-9 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center">{(SITE.brand.mark || SITE.brand.name).slice(0, 1)}</span>
           )}
-          <span className="hidden sm:inline">{SITE.brand.name}</span>
+          <span className="hidden sm:inline text-lg font-extrabold tracking-[0.14em] text-slate-100">{SITE.brand.name}</span>
         </button>
         <nav className="flex items-center gap-0.5 sm:gap-1 text-sm min-w-0">
           {TABS.filter((t) => t.id !== 'pricing' || showPricing).map(({ id, label, icon: Icon }) => (

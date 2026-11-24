@@ -111,7 +111,7 @@ export function SettingsPanel({ password }: { password: string }) {
               {logoPreview ? (
                 <img src={logoPreview} alt="Logo" className="max-w-full max-h-full object-contain" />
               ) : (
-                <span className="text-amber-400 font-bold">{SITE.brand.mark}</span>
+                <span className="text-amber-400 font-bold">{(SITE.brand.mark || SITE.brand.name).slice(0, 1)}</span>
               )}
             </div>
             <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800">

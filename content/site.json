@@ -1,14 +1,14 @@
 {
   "brand": {
-    "name": "TarjimVideo",
-    "mark": "ترجم",
-    "logo": "",
-    "accent": "#fbbf24",
-    "footer": "TarjimVideo · Whisper speech recognition · neural machine translation"
+    "name": "KAVOX",
+    "mark": "",
+    "logo": "/assets/kavox-logo.svg",
+    "accent": "#2AB8A1",
+    "footer": "KAVOX · Translated and dubbed videos, in your language"
   },
   "seo": {
-    "title": "TarjimVideo — Video subtitle translation",
-    "description": "Translate the speech of any video into subtitles in Arabic and other languages. Works from the browser or the Telegram bot."
+    "title": "KAVOX — Translate and dub any video",
+    "description": "Turn any video into subtitles or a dubbed voice in your language, then share it with the world. Works in the browser and in Telegram."
   },
   "translate": {
     "title": "Translate a video's speech into subtitles",

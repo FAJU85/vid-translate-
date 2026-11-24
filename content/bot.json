@@ -1,6 +1,6 @@
 {
   "en": {
-    "welcome": "👋 <b>TarjimVideo</b>\n\nSend me a video or audio file (or a public video link from Facebook, Instagram, TikTok and many other sites; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in, or dubbed with a translated voice.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/style — subtitle design: font, size, position and colour\n/status — your recent jobs\n/cancel — stop the running job",
+    "welcome": "👋 <b>KAVOX</b>\n\nSend me a video or audio file (or a public video link from Facebook, Instagram, TikTok and many other sites; YouTube links are not supported), and I will send back translated subtitles — or the video with the subtitles burned in, or dubbed with a translated voice.\n\nTranslating into: <b>{lang}</b>\n\n/lang — change the target language\n/style — subtitle design: font, size, position and colour\n/status — your recent jobs\n/cancel — stop the running job",
     "not_allowed": "⛔ This bot is private. Your chat id is <code>{id}</code>.",
     "hint": "Send me a video/audio file (or a public video link) to translate. /help",
     "bad_url": "⚠️ That does not look like a usable video link.",
@@ -117,7 +117,7 @@
     "paid_ok": "✅ Thank you! Your balance is now <b>{credits} credits</b>."
   },
   "ar": {
-    "welcome": "👋 <b>ترجم فيديو</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
+    "welcome": "👋 <b>KAVOX</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
     "not_allowed": "⛔ هذا البوت خاص. معرّف محادثتك: <code>{id}</code>.",
     "hint": "أرسل ملف فيديو/صوت (أو رابط فيديو عام) لترجمته. /help",
     "bad_url": "⚠️ هذا الرابط غير صالح للترجمة.",

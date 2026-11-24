@@ -4,9 +4,9 @@
  * button calls window.kavoxReport('comment', id) itself.
  */
 export function reportDialog(kind: 'video' | 'profile', target: string): string {
-  return `<dialog id="report" style="max-width:420px;width:calc(100% - 32px);border:1px solid #334155;border-radius:14px;background:#0f172a;color:#e2e8f0;padding:18px">
+  return `<dialog id="report" style="max-width:420px;width:calc(100% - 32px);border:1px solid #2E3D63;border-radius:14px;background:#19243E;color:#E2D6C6;padding:18px">
   <form method="dialog" id="report-form">
-    <h3 style="margin:0 0 10px;color:#fff;font-size:17px" id="report-title">Report</h3>
+    <h3 style="margin:0 0 10px;color:#F9EBD6;font-size:17px" id="report-title">Report</h3>
     ${[
       ['copyright', 'It uses my work (copyright)'],
       ['abuse', 'Harassment, threats or hate'],
@@ -17,8 +17,8 @@ export function reportDialog(kind: 'video' | 'profile', target: string): string 
     ]
       .map(([v, label], i) => `<label style="display:block;padding:4px 0"><input type="radio" name="reason" value="${v}"${i === 0 ? ' required' : ''}> ${label}</label>`)
       .join('')}
-    <textarea name="details" rows="3" maxlength="1000" placeholder="Details (optional; for copyright: what you own and how to reach you)" style="width:100%;margin-top:8px;box-sizing:border-box;background:#020617;color:#fff;border:1px solid #334155;border-radius:8px;padding:8px;font:inherit"></textarea>
-    <p id="report-note" style="font-size:13px;color:#94a3b8;margin:8px 0 0"></p>
+    <textarea name="details" rows="3" maxlength="1000" placeholder="Details (optional; for copyright: what you own and how to reach you)" style="width:100%;margin-top:8px;box-sizing:border-box;background:#0E1525;color:#F9EBD6;border:1px solid #2E3D63;border-radius:8px;padding:8px;font:inherit"></textarea>
+    <p id="report-note" style="font-size:13px;color:#ABA59E;margin:8px 0 0"></p>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button value="cancel" class="btn" type="submit" formnovalidate>Cancel</button>
       <button value="send" class="btn primary" type="submit">Send report</button>

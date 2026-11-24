@@ -116,8 +116,12 @@ export function AdminView() {
         aria-label="Workspaces"
         className="shrink-0 flex md:flex-col items-center gap-1 px-2 py-2 md:py-3 md:w-16 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950"
       >
-        <a href="/" title={`${SITE.brand.name}: open the website`} className="w-9 h-9 md:mb-3 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center">
-          {SITE.brand.mark}
+        <a href="/" title={`${SITE.brand.name}: open the website`} className="w-9 h-9 md:mb-3 rounded-xl flex items-center justify-center overflow-hidden">
+          {SITE.brand.logo ? (
+            <img src={SITE.brand.logo} alt={SITE.brand.name} className="w-full h-full object-contain" />
+          ) : (
+            <span className="w-full h-full rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center">{(SITE.brand.mark || SITE.brand.name).slice(0, 1)}</span>
+          )}
         </a>
         {WORKSPACES.map((w) => (
           <button
