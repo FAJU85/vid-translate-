@@ -27,6 +27,8 @@ export const publicShare = (s: ShareRow, origin: string) => ({
 export interface ShareViewer {
   accountId: string | null;
   owner: string | null;
+  /** accountId is a signed-in account (not this browser's guest account). */
+  signedIn?: boolean;
 }
 
 /** GET /api/shares (yours), DELETE /api/shares/<id>, and POST /api/shares/<id> {visibility}. */
@@ -47,9 +49,10 @@ export async function handleShares(request: Request, env: Env, path: string, ori
   }
   const body = (await request.json().catch(() => null)) as { visibility?: string } | null;
   if (body?.visibility !== 'link' && body?.visibility !== 'public') return apiError(400, 'E_BAD_REQUEST', 'visibility is link or public.');
-  // A profile needs an account: a video made without one stays link-only.
-  if (body.visibility === 'public' && !share.account_id) {
-    return apiError(400, 'E_NO_ACCOUNT', 'Sign in to post videos to your profile.');
+  // Posting puts the video on its account's profile: only that account, signed in, may do it (the
+  // browser that made the video is not enough). Taking it back to link-only stays open to both.
+  if (body.visibility === 'public' && (!share.account_id || viewer.accountId !== share.account_id || !viewer.signedIn)) {
+    return apiError(403, 'E_NO_ACCOUNT', share.account_id ? 'Sign in with the account that made this video to post it.' : 'Sign in to post videos to your profile.');
   }
   await setVisibility(env, share.id, body.visibility);
   return json(publicShare({ ...share, visibility: body.visibility }, await publicOrigin(env, origin)));

@@ -250,8 +250,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const owner = UUID.test(clientId) ? `web:${clientId}` : null;
     // The signed-in account whether or not credits are on (as the dashboard shows it), else this
     // browser's guest account when credits are on (its links are charged to it).
-    const account = (await signedInAccount(env, request)) ?? (creditsEnabled(env) && owner ? await accountForWeb(env, request, clientId) : null);
-    const shares = await handleShares(request, env, path, api.origin, { accountId: account?.id ?? null, owner });
+    const signedIn = await signedInAccount(env, request);
+    const account = signedIn ?? (creditsEnabled(env) && owner ? await accountForWeb(env, request, clientId) : null);
+    const shares = await handleShares(request, env, path, api.origin, { accountId: account?.id ?? null, owner, signedIn: Boolean(signedIn) });
     if (shares) return shares;
   }
 
