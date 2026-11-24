@@ -28,7 +28,7 @@ import { handleAdminJobs } from './admin';
 import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
-import { handleFeed, handleSocial } from '../social';
+import { handleComments, handleFeed, handleModeration, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
   SECONDS_PER_CREDIT,
@@ -264,6 +264,16 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/feed' || path.startsWith('/api/likes/') || path.startsWith('/api/follows/')) {
     const feed = await handleFeed(request, env, path, api.origin);
     if (feed) return feed;
+  }
+  if (path.startsWith('/api/comments/') || path === '/api/reports') {
+    const comments = await handleComments(request, env, path);
+    if (comments) return comments;
+  }
+  // Reports, hidden comments, removed videos and blocked accounts (admin).
+  if (path === '/api/admin/moderation') {
+    if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    const moderation = await handleModeration(request, env, path, api.origin);
+    if (moderation) return moderation;
   }
   // Which KAVOX an address reaches (the admin's public-domain check).
   if (path === '/api/instance' && method === 'GET') return serveInstance(env);

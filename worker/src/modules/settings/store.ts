@@ -15,6 +15,8 @@ export interface Settings {
   logo: string;
   /** The public address links are made with (e.g. "kavox.to"), or empty for the Worker's own. */
   public_domain: string;
+  /** Where copyright owners and others send takedown requests (shown on the Terms page). */
+  takedown_email: string;
 }
 
 export const TEXT_FIELDS = ['name', 'accent', 'translate_title', 'translate_intro', 'welcome_en', 'welcome_ar'] as const;
@@ -27,7 +29,7 @@ export const SETTINGS_SCHEMA = [
    )`,
 ];
 
-const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '' };
+const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '', takedown_email: '' };
 
 export async function readSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
   const res = await env.DB.prepare('SELECT key, value, updated_at FROM settings').all<{ key: string; value: string; updated_at: number }>();

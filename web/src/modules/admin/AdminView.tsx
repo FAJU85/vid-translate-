@@ -1,19 +1,21 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings, Users } from 'lucide-react';
+import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, Settings, ShieldAlert, Users } from 'lucide-react';
 import { ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
 import { AccountsPanel } from './AccountsPanel';
 import { InsightsPanel } from './InsightsPanel';
 import { LearningPanel } from './LearningPanel';
+import { ModerationPanel } from './ModerationPanel';
 import { SettingsPanel } from './SettingsPanel';
 
 const PASSWORD_KEY = 'tarjim_admin_password';
 
-type Workspace = 'jobs' | 'accounts' | 'insights' | 'learning' | 'settings';
+type Workspace = 'jobs' | 'accounts' | 'moderation' | 'insights' | 'learning' | 'settings';
 const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
   { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
   { id: 'accounts', label: 'Accounts', icon: Users },
+  { id: 'moderation', label: 'Reports', icon: ShieldAlert },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
   { id: 'learning', label: 'Learning', icon: BookOpenCheck },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -146,6 +148,10 @@ export function AdminView() {
         ) : workspace === 'accounts' ? (
           <div className="h-full overflow-y-auto">
             <AccountsPanel password={password} />
+          </div>
+        ) : workspace === 'moderation' ? (
+          <div className="h-full overflow-y-auto">
+            <ModerationPanel password={password} />
           </div>
         ) : workspace === 'learning' ? (
           <div className="h-full overflow-y-auto">

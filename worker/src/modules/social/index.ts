@@ -8,4 +8,5 @@ export { SOCIAL_SCHEMA } from './store';
 export { HANDLE, checkHandle } from './handles';
 export { creatorFor, handleSocial } from './handlers';
 export { handleFeed, rank } from './feed';
+export { handleComments, handleModeration } from './moderation';
 export { PROFILE_PATH, handleProfilePage } from './page';

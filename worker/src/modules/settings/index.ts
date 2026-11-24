@@ -4,4 +4,5 @@
  * This file is the brick's only public interface.
  */
 export { SETTINGS_SCHEMA, type Settings } from './store';
+export { handleTermsPage } from './terms';
 export { handleAdminLogin, handleAdminSettings, instanceId, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo, welcomeOverride } from './handlers';

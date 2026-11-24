@@ -85,6 +85,11 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
   if (patch.accent && !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(patch.accent)) {
     return apiError(400, 'E_BAD_REQUEST', 'The colour must look like #fbbf24.');
   }
+  if ('takedown_email' in body) {
+    const email = String(body.takedown_email ?? '').trim();
+    if (email && !/^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}\.[a-z]{2,63}$/i.test(email)) return apiError(400, 'E_BAD_REQUEST', 'The takedown address must be an email address.');
+    patch.takedown_email = email;
+  }
   if ('public_domain' in body) {
     // Accept "https://kavox.to/" as well as "kavox.to".
     const domain = String(body.public_domain ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
