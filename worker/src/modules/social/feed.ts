@@ -3,6 +3,7 @@ import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { getPostedVideo, listPostedVideos, publicShare, type ShareRow } from '../shares';
+import { notify } from './notifications';
 import {
   blockedAmong,
   commentCounts,
@@ -112,6 +113,7 @@ export async function handleFeed(request: Request, env: Env, path: string, origi
     const body = (await request.json().catch(() => null)) as { liked?: unknown } | null;
     if (typeof body?.liked !== 'boolean') return apiError(400, 'E_BAD_REQUEST', 'liked is true or false.');
     await setLike(env, video.id, viewer.id, body.liked);
+    if (body.liked) await notify(env, { to: video.account_id, kind: 'like', actor: viewer.id, shareId: video.id });
     const { counts, liked } = await likesOf(env, [video.id], viewer.id);
     return json({ likes: counts.get(video.id) ?? 0, liked: liked.has(video.id) });
   }
@@ -139,6 +141,7 @@ export async function handleFeed(request: Request, env: Env, path: string, origi
     const body = (await request.json().catch(() => null)) as { following?: unknown } | null;
     if (typeof body?.following !== 'boolean') return apiError(400, 'E_BAD_REQUEST', 'following is true or false.');
     await setFollow(env, viewer.id, profile.account_id, body.following);
+    if (body.following) await notify(env, { to: profile.account_id, kind: 'follow', actor: viewer.id });
     return json({ ...(await followCounts(env, profile.account_id)), following: await isFollowing(env, viewer.id, profile.account_id) });
   }
   return null;

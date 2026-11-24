@@ -315,6 +315,32 @@ export const socialApi = {
     call<{ ok: true }>('/api/reports', { method: 'POST', body: JSON.stringify(r) }),
 };
 
+export type NotificationKind = 'follow' | 'like' | 'comment' | 'post';
+export interface Notification {
+  id: number;
+  kind: NotificationKind;
+  created_at: number;
+  actor: { handle: string; display_name: string | null };
+  video: { id: string; title: string | null; url: string; thumb: string | null } | null;
+  /** The comment, for kind "comment". */
+  text: string | null;
+}
+export interface Inbox {
+  items: Notification[];
+  next: string | null;
+  /** Notifications newer than this one are new. */
+  seen_id: number;
+  unread: number;
+  telegram: { linked: boolean; on: boolean };
+}
+
+export const notificationsApi = {
+  unread: () => call<{ count: number }>('/api/notifications/unread'),
+  list: (before: string | null) => call<Inbox>(`/api/notifications${before ? `?before=${encodeURIComponent(before)}` : ''}`),
+  read: () => call<{ ok: true }>('/api/notifications/read', { method: 'POST' }),
+  telegram: (on: boolean) => call<{ telegram: Inbox['telegram'] }>('/api/notifications/settings', { method: 'POST', body: JSON.stringify({ telegram: on }) }),
+};
+
 /** Open reports about one thing, for the admin's moderation queue. */
 export interface ReportGroup {
   kind: ReportKind;

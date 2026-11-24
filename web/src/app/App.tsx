@@ -5,6 +5,7 @@ import { PricingView } from '../modules/pricing';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
 import { AccountButton, AccountDialog } from '../modules/account';
+import { NotificationBell } from '../modules/notifications';
 import { accountApi, api, type AppConfig, type Me } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
@@ -115,6 +116,8 @@ function Site() {
   return (
     <div className="min-h-screen flex flex-col selection:bg-amber-400 selection:text-slate-950">
       <Header tab={tab} onTab={setTab} showPricing={Boolean(me?.credits_enabled)} account={
+          <>
+          {me?.account && <NotificationBell key={me.account.id} />}
           <AccountButton
             me={me}
             onOpen={() => {
@@ -122,6 +125,7 @@ function Site() {
               setAccountOpen(true);
             }}
           />
+          </>
         } />
       {accountOpen && me && (
         <AccountDialog

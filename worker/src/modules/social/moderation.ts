@@ -4,6 +4,7 @@ import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { deleteShare, getPostedVideo, getShare } from '../shares';
+import { notify } from './notifications';
 import {
   REPORT_KINDS,
   REPORT_REASONS,
@@ -86,6 +87,7 @@ export async function handleComments(request: Request, env: Env, path: string): 
       return apiError(429, 'E_SLOW_DOWN', 'You are commenting very fast. Wait a few minutes.');
     }
     const id = await addComment(env, video.id, account.id, text);
+    await notify(env, { to: video.account_id, kind: 'comment', actor: account.id, shareId: video.id, commentId: id });
     return json({ id }, 201);
   }
 

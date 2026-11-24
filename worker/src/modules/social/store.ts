@@ -60,6 +60,27 @@ export const SOCIAL_SCHEMA = [
     reason TEXT,
     created_at INTEGER NOT NULL
   )`,
+  // Someone's inbox: kind follow | like | comment | post (a creator they follow posted a video).
+  // tg_sent: 1 once sent to Telegram, or when it will never be.
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    share_id TEXT,
+    comment_id INTEGER,
+    created_at INTEGER NOT NULL,
+    tg_sent INTEGER NOT NULL DEFAULT 0
+  )`,
+  `CREATE INDEX IF NOT EXISTS notifications_account ON notifications (account_id, id)`,
+  `CREATE INDEX IF NOT EXISTS notifications_tg ON notifications (tg_sent, created_at)`,
+  // Per account: the newest notification seen (unread = newer ones) and Telegram messages on/off.
+  `CREATE TABLE IF NOT EXISTS notify_prefs (
+    account_id TEXT PRIMARY KEY,
+    seen_id INTEGER NOT NULL DEFAULT 0,
+    telegram INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL
+  )`,
 ];
 
 export interface Profile {
