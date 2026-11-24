@@ -28,7 +28,7 @@ import {
   setupBot,
   telegramJobListener,
 } from './modules/telegram';
-import { SETTINGS_SCHEMA } from './modules/settings';
+import { SETTINGS_SCHEMA, handleTermsPage } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, sharesJobListener, sweepShares } from './modules/shares';
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage } from './modules/social';
@@ -83,6 +83,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path.startsWith('/v/') || SHORT_PATH.test(path)) {
     return (await handleSharePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   }
+  // The terms of use, with the takedown address (/terms).
+  if (path === '/terms') return (await handleTermsPage(request, env, path)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // A creator's profile (/@handle).
   if (PROFILE_PATH.test(path)) return (await handleProfilePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
 

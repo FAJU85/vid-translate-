@@ -353,6 +353,29 @@ page has a **Like** button. Only videos posted to a profile can be liked or appe
 API: `GET /api/feed?tab=foryou|following&cursor=`, `GET/POST /api/likes/<id>` `{"liked": bool}`,
 `GET/POST /api/follows/<handle>` `{"following": bool}`.
 
+### Comments, reports and moderation
+
+- **Comments**: on a posted video's page and in the feed (the speech-bubble button). Anyone reads
+  them; writing needs a signed-in account with an @handle (at most 500 characters, at most 10
+  comments in 10 minutes). The author, or the video's creator, can delete a comment.
+- **Report**: on every video (feed and page), comment and profile, with a reason (copyright,
+  harassment, sexual content, violence, spam, other) and optional details. Signed out works too;
+  the reporter is kept as a keyed hash, never the address. A repeated report counts once; at most
+  20 reports an hour.
+- **Admin → Reports**: open reports grouped by what was reported, the most reported first, with a
+  preview and the actions **Dismiss**, **Hide comment**, **Remove video/comment** (copyright
+  takedowns: the video, its picture and its page go) and **Block account**. A blocked account
+  disappears from the feed, its profile and comments, and cannot comment, like or follow; the
+  list of blocked accounts has **Unblock**.
+- **Terms** (`/terms`, linked from the site footer and every video and profile page): what may be
+  posted, how reports and takedowns work. Set the **Takedown email** in Admin → Settings → Terms
+  and takedowns; it is shown there for copyright notices.
+
+API: `GET/POST /api/comments/<video>` (`?before=` for older), `DELETE /api/comments/<id>`,
+`POST /api/reports` `{kind: video|comment|profile, target, reason, details}`, and (admin)
+`GET/POST /api/admin/moderation` `{action: dismiss|hide|remove|block, kind, target}` or
+`{action: "unblock", account_id}`.
+
 ### Dashboard
 
 The website's **Dashboard** tab (`/?tab=dashboard`) shows, for a signed-in account, everything it

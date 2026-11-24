@@ -1,5 +1,6 @@
 import { LANGUAGES } from '../../shared/languages';
 import type { Env } from '../../shared/env';
+import { reportDialog } from '../../shared/report-dialog';
 import { fileLink } from '../jobs';
 import { publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
@@ -43,6 +44,7 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
 <style>
   :root { color-scheme: dark; --accent: ${accent}; }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: #020617; color: #e2e8f0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
   header, main, footer { max-width: 960px; margin: 0 auto; padding: 16px; }
   header a { color: #fff; font-weight: 800; letter-spacing: .04em; text-decoration: none; font-size: 18px; }
@@ -59,6 +61,17 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
   .primary { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: 700; }
   .primary:hover { filter: brightness(1.1); background: var(--accent); }
   #like[aria-pressed="true"] { border-color: #f43f5e; color: #fda4af; }
+  #comments { margin-top: 24px; }
+  #comments h2 { font-size: 17px; color: #fff; margin: 0 0 10px; }
+  #comment-form { display: flex; gap: 8px; align-items: flex-start; }
+  #comment-form textarea { flex: 1; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 10px; padding: 8px; font: inherit; resize: vertical; }
+  #comment-list { list-style: none; padding: 0; margin: 12px 0 0; }
+  #comment-list li { padding: 10px 0; border-top: 1px solid #1e293b; }
+  #comment-list .who { font-size: 13px; color: #94a3b8; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #comment-list .who a { color: #e2e8f0; font-weight: 600; text-decoration: none; }
+  #comment-list .who button { background: none; border: 0; color: #64748b; font: inherit; cursor: pointer; padding: 0; }
+  #comment-list p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { font-size: 13px; color: #94a3b8; }
   footer { color: #64748b; font-size: 13px; }
   footer a { color: var(--accent); }
 </style>
@@ -74,9 +87,18 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
     <button class="btn" id="like" type="button" hidden aria-pressed="false">♡ <span id="likes">0</span></button>
     <button class="btn primary" id="copy" type="button">Copy link</button>
     <a class="btn" href="/v/${share.id}/video.mp4?download=1">Download</a>
+    <button class="btn" type="button" onclick="kavoxReport('video', ${esc(JSON.stringify(share.id))})">Report</button>
   </div>
+  <section id="comments" hidden>
+    <h2>Comments <span id="comment-count"></span></h2>
+    <form id="comment-form" hidden><textarea id="comment-text" rows="2" maxlength="500" placeholder="Add a comment"></textarea><button class="btn primary" type="submit">Post</button></form>
+    <p id="comment-note" class="note"></p>
+    <ul id="comment-list"></ul>
+    <button class="btn" id="comment-more" type="button" hidden>More comments</button>
+  </section>
 </main>
-<footer>Translated with <a href="/">${esc(brand)}</a>: subtitles and dubbing for any video, in minutes.</footer>
+<footer>Translated with <a href="/">${esc(brand)}</a>: subtitles and dubbing for any video, in minutes. · <a href="/terms">Terms</a></footer>
+${reportDialog('video', share.id)}
 <script>
   // Likes (a posted video only): shown once we know who is looking; signing in happens on the site.
   (() => {
@@ -89,7 +111,7 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
       btn.firstChild.textContent = s.liked ? '♥ ' : '♡ ';
       document.getElementById('likes').textContent = s.likes;
     };
-    fetch(api, { credentials: 'same-origin' }).then((r) => r.json()).then((s) => { state = s; show(s); }).catch(() => {});
+    fetch(api, { credentials: 'same-origin' }).then((r) => r.json()).then((s) => { state = s; show(s); if (s.posted) comments(s.signed_in); }).catch(() => {});
     btn.addEventListener('click', async () => {
       if (!state) return;
       if (!state.signed_in) { location.href = '/?tab=feed'; return; }
@@ -100,6 +122,60 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
       } finally { btn.disabled = false; }
     });
   })();
+  // Comments (a posted video only): anyone reads them; writing needs an account with an @handle.
+  function comments(signedIn) {
+    const api = ${JSON.stringify(`/api/comments/${share.id}`)};
+    const $ = (id) => document.getElementById(id);
+    const list = $('comment-list'), more = $('comment-more'), note = $('comment-note');
+    let next = null;
+    $('comments').hidden = false;
+    $('comment-form').hidden = !signedIn;
+    if (!signedIn) note.innerHTML = '<a href="/?tab=dashboard" style="color:var(--accent)">Sign in</a> to comment.';
+    const when = (t) => new Date(t * 1000).toLocaleDateString();
+    const row = (c) => {
+      const li = document.createElement('li');
+      const who = document.createElement('div'); who.className = 'who';
+      const a = document.createElement('a'); a.href = '/@' + c.author.handle; a.textContent = '@' + c.author.handle;
+      const d = document.createElement('span'); d.textContent = when(c.created_at);
+      const rep = document.createElement('button'); rep.type = 'button'; rep.textContent = 'Report'; rep.onclick = () => kavoxReport('comment', c.id);
+      who.append(a, d, rep);
+      if (c.can_delete) {
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
+        del.onclick = async () => {
+          if (!confirm('Delete this comment?')) return;
+          const r = await fetch('/api/comments/' + c.id, { method: 'DELETE', credentials: 'same-origin' }).catch(() => null);
+          if (r && r.ok) li.remove();
+        };
+        who.append(del);
+      }
+      const p = document.createElement('p'); p.textContent = c.text;
+      li.append(who, p);
+      return li;
+    };
+    const load = async (reset) => {
+      const r = await fetch(api + (next && !reset ? '?before=' + next : ''), { credentials: 'same-origin' }).catch(() => null);
+      if (!r || !r.ok) return;
+      const page = await r.json();
+      if (reset) list.textContent = '';
+      page.items.forEach((c) => list.append(row(c)));
+      next = page.next;
+      more.hidden = !next;
+      if (!list.children.length && !signedIn) note.innerHTML = 'No comments yet. <a href="/?tab=dashboard" style="color:var(--accent)">Sign in</a> to write the first.';
+    };
+    more.onclick = () => load(false);
+    $('comment-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = $('comment-text').value.trim();
+      if (!text) return;
+      const btn = e.target.querySelector('button'); btn.disabled = true;
+      try {
+        const r = await fetch(api, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+        if (r.ok) { $('comment-text').value = ''; note.textContent = ''; next = null; await load(true); }
+        else note.textContent = ((await r.json().catch(() => null)) || {}).message || 'Could not post the comment.';
+      } finally { btn.disabled = false; }
+    });
+    load(true);
+  }
   document.getElementById('copy').addEventListener('click', async (e) => {
     try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = 'Copied'; }
     catch { prompt('Copy this link', ${JSON.stringify(url)}); }

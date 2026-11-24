@@ -97,6 +97,8 @@ export interface AdminSettings {
   welcome_ar: string;
   /** The address links are made with (e.g. kavox.to); empty: the Worker's own address. */
   public_domain: string;
+  /** Where copyright owners send takedown notices (shown on the Terms page); empty: not set. */
+  takedown_email: string;
   has_logo?: boolean;
   logo?: string;
 }
@@ -267,10 +269,30 @@ export interface FeedItem extends Share {
   mode: string;
   creator: { handle: string; display_name: string | null };
   likes: number;
+  comments: number;
   liked: boolean;
   following: boolean;
   mine: boolean;
 }
+
+export interface Comment {
+  id: number;
+  text: string;
+  created_at: number;
+  author: { handle: string; display_name: string | null };
+  can_delete: boolean;
+}
+
+export type ReportKind = 'video' | 'comment' | 'profile';
+export type ReportReason = 'copyright' | 'spam' | 'abuse' | 'sexual' | 'violence' | 'other';
+export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: 'copyright', label: 'It uses my work (copyright)' },
+  { value: 'abuse', label: 'Harassment, threats or hate' },
+  { value: 'sexual', label: 'Sexual content' },
+  { value: 'violence', label: 'Violence or dangerous acts' },
+  { value: 'spam', label: 'Spam, scam or impersonation' },
+  { value: 'other', label: 'Something else' },
+];
 
 export type FeedTab = 'foryou' | 'following';
 
@@ -285,7 +307,43 @@ export const socialApi = {
     call<{ profile: Profile; url: string }>('/api/profile/me', { method: 'POST', body: JSON.stringify(p) }),
   handle: (h: string) =>
     call<{ handle?: string; available: boolean; reason: 'invalid' | 'reserved' | 'taken' | null }>(`/api/handles/${encodeURIComponent(h)}`),
+  comments: (id: string, before: string | null) =>
+    call<{ items: Comment[]; next: string | null }>(`/api/comments/${id}${before ? `?before=${encodeURIComponent(before)}` : ''}`),
+  comment: (id: string, text: string) => call<{ id: number }>(`/api/comments/${id}`, { method: 'POST', body: JSON.stringify({ text }) }),
+  deleteComment: (id: number) => call<{ ok: true }>(`/api/comments/${id}`, { method: 'DELETE' }),
+  report: (r: { kind: ReportKind; target: string; reason: ReportReason; details: string }) =>
+    call<{ ok: true }>('/api/reports', { method: 'POST', body: JSON.stringify(r) }),
 };
+
+/** Open reports about one thing, for the admin's moderation queue. */
+export interface ReportGroup {
+  kind: ReportKind;
+  target: string;
+  reports: number;
+  reasons: string;
+  details: string | null;
+  first_at: number;
+  last_at: number;
+  preview: {
+    gone?: boolean;
+    title?: string | null;
+    text?: string;
+    status?: string;
+    name?: string | null;
+    bio?: string | null;
+    url?: string;
+    thumb?: string | null;
+    owner?: string | null;
+    account_id?: string | null;
+  };
+}
+export interface BlockedAccount {
+  account_id: string;
+  reason: string | null;
+  created_at: number;
+  handle: string | null;
+}
+export type ModerationAction = 'dismiss' | 'hide' | 'remove' | 'block';
 
 export const accountApi = {
   me: () => call<Me>(`/api/me?client_id=${clientId()}`),
@@ -422,6 +480,9 @@ export const adminApi = {
   sites: (password: string) => call<{ sites: SiteMethod[] }>('/api/admin/sites', { headers: auth(password) }),
   deleteMemory: (password: string, id: number) =>
     call<{ ok: true }>(`/api/admin/memory/${id}`, { method: 'DELETE', headers: auth(password) }),
+  moderation: (password: string) => call<{ reports: ReportGroup[]; blocked: BlockedAccount[] }>('/api/admin/moderation', { headers: auth(password) }),
+  moderate: (password: string, body: { action: ModerationAction; kind: ReportKind; target: string; reason?: string } | { action: 'unblock'; account_id: string }) =>
+    call<{ ok: true }>('/api/admin/moderation', { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
   act: (password: string, action: AdminAction, ids: string[]) =>
     call<{ results: AdminActionResult[] }>('/api/admin/jobs', {
       method: 'POST',

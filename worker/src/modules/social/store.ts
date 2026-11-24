@@ -30,6 +30,36 @@ export const SOCIAL_SCHEMA = [
     PRIMARY KEY (share_id, account_id)
   )`,
   `CREATE INDEX IF NOT EXISTS likes_account ON likes (account_id, created_at)`,
+  // Comments on posted videos. hidden: by an admin (still shown to its author's own moderation).
+  `CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    share_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'visible',
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS comments_share ON comments (share_id, status, created_at)`,
+  `CREATE INDEX IF NOT EXISTS comments_account ON comments (account_id, created_at)`,
+  // Reports of a video, a comment or a profile; one per reporter and target.
+  `CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    target TEXT NOT NULL,
+    reporter TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    details TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at INTEGER NOT NULL,
+    UNIQUE (kind, target, reporter)
+  )`,
+  `CREATE INDEX IF NOT EXISTS reports_status ON reports (status, kind, target)`,
+  // Accounts an admin blocked: hidden from everyone, and they cannot comment, like or follow.
+  `CREATE TABLE IF NOT EXISTS blocked_accounts (
+    account_id TEXT PRIMARY KEY,
+    reason TEXT,
+    created_at INTEGER NOT NULL
+  )`,
 ];
 
 export interface Profile {
@@ -179,4 +209,139 @@ export async function likesOf(env: Env, shareIds: string[], viewer: string | nul
       : Promise.resolve([] as { share_id: string }[]),
   ]);
   return { counts: new Map(counts.map((r) => [r.share_id, r.n])), liked: new Set(mine.map((r) => r.share_id)) };
+}
+
+// --- comments ------------------------------------------------------------------------------
+
+export interface CommentRow {
+  id: number;
+  share_id: string;
+  account_id: string;
+  text: string;
+  status: 'visible' | 'hidden';
+  created_at: number;
+}
+
+export async function addComment(env: Env, shareId: string, accountId: string, text: string): Promise<number> {
+  const row = await env.DB.prepare('INSERT INTO comments (share_id, account_id, text, created_at) VALUES (?, ?, ?, ?) RETURNING id')
+    .bind(shareId, accountId, text, now())
+    .first<{ id: number }>();
+  return row!.id;
+}
+
+export const getComment = (env: Env, id: number) => env.DB.prepare('SELECT * FROM comments WHERE id = ?').bind(id).first<CommentRow>();
+
+/** A video's visible comments by accounts that are not blocked, newest first, before a comment id. */
+export async function listComments(env: Env, shareId: string, beforeId: number | null, limit: number): Promise<CommentRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT c.* FROM comments c WHERE c.share_id = ?1 AND c.status = 'visible' AND (?2 IS NULL OR c.id < ?2)
+       AND NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = c.account_id)
+     ORDER BY c.id DESC LIMIT ?3`,
+  )
+    .bind(shareId, beforeId, limit)
+    .all<CommentRow>();
+  return results;
+}
+
+export const deleteComment = (env: Env, id: number) => env.DB.prepare('DELETE FROM comments WHERE id = ?').bind(id).run();
+export const setCommentStatus = (env: Env, id: number, status: CommentRow['status']) =>
+  env.DB.prepare('UPDATE comments SET status = ? WHERE id = ?').bind(status, id).run();
+
+/** Comments someone wrote recently (the rate limit). */
+export async function recentComments(env: Env, accountId: string, seconds: number): Promise<number> {
+  const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM comments WHERE account_id = ? AND created_at > ?')
+    .bind(accountId, now() - seconds)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/** Visible comments of each video. */
+export async function commentCounts(env: Env, shareIds: string[]): Promise<Map<string, number>> {
+  const rows = await inParts(shareIds, async (part, marks) =>
+    (await env.DB.prepare(
+      `SELECT share_id, COUNT(*) AS n FROM comments c WHERE share_id IN (${marks}) AND status = 'visible'
+         AND NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = c.account_id) GROUP BY share_id`,
+    )
+      .bind(...part)
+      .all<{ share_id: string; n: number }>()).results,
+  );
+  return new Map(rows.map((r) => [r.share_id, r.n]));
+}
+
+// --- reports and blocks --------------------------------------------------------------------
+
+export type ReportKind = 'video' | 'comment' | 'profile';
+export const REPORT_KINDS: readonly ReportKind[] = ['video', 'comment', 'profile'];
+export const REPORT_REASONS = ['copyright', 'spam', 'abuse', 'sexual', 'violence', 'other'] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+/** File a report; false when this reporter already reported this target. */
+export async function addReport(
+  env: Env,
+  r: { kind: ReportKind; target: string; reporter: string; reason: ReportReason; details: string | null },
+): Promise<boolean> {
+  const res = await env.DB.prepare(
+    `INSERT INTO reports (kind, target, reporter, reason, details, created_at) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (kind, target, reporter) DO NOTHING`,
+  )
+    .bind(r.kind, r.target, r.reporter, r.reason, r.details, now())
+    .run();
+  return Boolean(res.meta.changes);
+}
+
+/** Reports filed by one reporter recently (the rate limit). */
+export async function recentReports(env: Env, reporter: string, seconds: number): Promise<number> {
+  const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM reports WHERE reporter = ? AND created_at > ?')
+    .bind(reporter, now() - seconds)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export interface ReportGroup {
+  kind: ReportKind;
+  target: string;
+  reports: number;
+  reasons: string;
+  first_at: number;
+  last_at: number;
+  details: string | null;
+}
+
+/** Open reports grouped by what they are about, the most reported first. */
+export async function openReports(env: Env, limit = 100): Promise<ReportGroup[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT kind, target, COUNT(*) AS reports, GROUP_CONCAT(DISTINCT reason) AS reasons, MIN(created_at) AS first_at,
+       MAX(created_at) AS last_at, (SELECT details FROM reports r2 WHERE r2.kind = r.kind AND r2.target = r.target AND details IS NOT NULL ORDER BY id DESC LIMIT 1) AS details
+     FROM reports r WHERE status = 'open' GROUP BY kind, target ORDER BY reports DESC, last_at DESC LIMIT ?`,
+  )
+    .bind(limit)
+    .all<ReportGroup>();
+  return results;
+}
+
+/** Close every open report about a target. */
+export const closeReports = (env: Env, kind: ReportKind, target: string, status: 'actioned' | 'dismissed') =>
+  env.DB.prepare("UPDATE reports SET status = ? WHERE kind = ? AND target = ? AND status = 'open'").bind(status, kind, target).run();
+
+export const blockAccount = (env: Env, accountId: string, reason: string | null) =>
+  env.DB.prepare('INSERT INTO blocked_accounts (account_id, reason, created_at) VALUES (?, ?, ?) ON CONFLICT (account_id) DO NOTHING')
+    .bind(accountId, reason, now())
+    .run();
+export const unblockAccount = (env: Env, accountId: string) => env.DB.prepare('DELETE FROM blocked_accounts WHERE account_id = ?').bind(accountId).run();
+export const isBlocked = async (env: Env, accountId: string) =>
+  Boolean(await env.DB.prepare('SELECT 1 FROM blocked_accounts WHERE account_id = ?').bind(accountId).first());
+
+/** Of these accounts, the blocked ones. */
+export async function blockedAmong(env: Env, ids: string[]): Promise<Set<string>> {
+  const rows = await inParts(ids, async (part, marks) =>
+    (await env.DB.prepare(`SELECT account_id FROM blocked_accounts WHERE account_id IN (${marks})`).bind(...part).all<{ account_id: string }>()).results,
+  );
+  return new Set(rows.map((r) => r.account_id));
+}
+
+export async function listBlocked(env: Env): Promise<{ account_id: string; reason: string | null; created_at: number; handle: string | null }[]> {
+  const { results } = await env.DB.prepare(
+    'SELECT b.account_id, b.reason, b.created_at, p.handle FROM blocked_accounts b LEFT JOIN profiles p ON p.account_id = b.account_id ORDER BY b.created_at DESC LIMIT 200',
+  ).all<{ account_id: string; reason: string | null; created_at: number; handle: string | null }>();
+  return results;
 }

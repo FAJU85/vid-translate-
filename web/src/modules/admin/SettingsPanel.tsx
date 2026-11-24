@@ -8,7 +8,7 @@ const MAX_LOGO_KB = 256;
 const inputClass =
   'w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400';
 
-const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', public_domain: '' };
+const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', public_domain: '', takedown_email: '' };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -162,6 +162,19 @@ export function SettingsPanel({ password }: { password: string }) {
             className={inputClass}
           />
         </Field>
+      </section>
+
+      <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
+        <h2 className="font-semibold text-white">Terms and takedowns</h2>
+        <Field
+          label="Takedown email"
+          hint="Shown on the Terms page (/terms, linked from every video and profile page) for copyright owners to send takedown notices. Reports from the site arrive in Reports."
+        >
+          <input type="email" value={values.takedown_email} onChange={set('takedown_email')} placeholder="copyright@yourdomain.com" spellCheck={false} autoCapitalize="off" className={inputClass} />
+        </Field>
+        <a href="/terms" target="_blank" rel="noreferrer" className="inline-block text-xs text-amber-300 hover:underline">
+          Open the Terms page
+        </a>
       </section>
 
       <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">

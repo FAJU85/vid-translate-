@@ -119,7 +119,13 @@ export function ProfileCard() {
           <div className="text-white font-medium">{profile.display_name || `@${profile.handle}`}</div>
           <div className="text-slate-400">@{profile.handle}</div>
           {profile.bio && <p className="mt-1 text-slate-300 whitespace-pre-wrap break-words">{profile.bio}</p>}
-          <p className="mt-2 text-xs text-slate-500">Videos you post ("Post to profile" on a video below) appear on your profile.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Videos you post ("Post to profile" on a video below) appear on your profile, in the feed, and can get likes and comments. By posting you agree to the{' '}
+            <a href="/terms" target="_blank" rel="noreferrer" className="underline hover:text-slate-300">
+              Terms
+            </a>
+            : post only videos you have the right to share.
+          </p>
         </div>
       )}
 

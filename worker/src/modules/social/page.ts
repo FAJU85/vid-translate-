@@ -1,8 +1,9 @@
 import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
+import { reportDialog } from '../../shared/report-dialog';
 import { publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
-import { followCounts, profileByHandle } from './store';
+import { followCounts, isBlocked, profileByHandle } from './store';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const langName = (code: string) => LANGUAGES.find((l) => l.code === code)?.en ?? code;
@@ -22,7 +23,8 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   const site = await publicSettings(env).catch(() => null);
   const brand = site?.name || 'KAVOX';
   const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#fbbf24';
-  const profile = await profileByHandle(env, handle);
+  const found = await profileByHandle(env, handle);
+  const profile = found && !(await isBlocked(env, found.account_id)) ? found : null;
   if (!profile) {
     return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not found · ${esc(brand)}</title><body style="background:#020617;color:#e2e8f0;font:16px system-ui;padding:40px;text-align:center"><p>No one is called @${esc(handle)} on ${esc(brand)}.</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
       status: 404,
@@ -58,6 +60,7 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
 <style>
   :root { color-scheme: dark; --accent: ${accent}; }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: #020617; color: #e2e8f0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
   header, main { max-width: 960px; margin: 0 auto; padding: 16px; }
   header a { color: #fff; font-weight: 800; letter-spacing: .04em; text-decoration: none; font-size: 18px; }
@@ -79,6 +82,8 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
   .badge, .views { position: absolute; left: 6px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
   .badge { top: 6px; background: rgba(2, 6, 23, .6); padding: 1px 6px; border-radius: 6px; }
   .views { bottom: 6px; font-weight: 700; }
+  footer { max-width: 960px; margin: 0 auto; padding: 16px; color: #64748b; font-size: 13px; }
+  footer a { color: var(--accent); }
   .empty { color: #94a3b8; text-align: center; padding: 48px 0; }
 </style>
 </head>
@@ -94,9 +99,11 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
     </div>
   </div>
   ${profile.bio ? `<p class="bio">${esc(profile.bio)}</p>` : ''}
-  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>Follow</button> <button class="btn" id="copy" type="button">Copy profile link</button></div>
+  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>Follow</button> <button class="btn" id="copy" type="button">Copy profile link</button> <button class="btn" type="button" onclick="kavoxReport('profile', ${esc(JSON.stringify(profile.handle))})">Report</button></div>
   ${videos.length ? `<div class="grid">${tiles}</div>` : '<p class="empty">No videos posted yet.</p>'}
 </main>
+<footer>Made with <a href="/">${esc(brand)}</a> · <a href="/terms">Terms</a></footer>
+${reportDialog('profile', profile.handle)}
 <script>
   // Follow: shown once we know who is looking (not on your own profile); signing in happens on the site.
   const followBtn = document.getElementById('follow');

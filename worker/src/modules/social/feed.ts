@@ -4,9 +4,12 @@ import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { getPostedVideo, listPostedVideos, publicShare, type ShareRow } from '../shares';
 import {
+  blockedAmong,
+  commentCounts,
   followCounts,
   followees,
   followingAmong,
+  isBlocked,
   isFollowing,
   likesOf,
   profileByHandle,
@@ -33,13 +36,16 @@ export function rank(v: { likes: number; views: number; created_at: number }, at
 async function items(env: Env, videos: ShareRow[], viewer: string | null, base: string) {
   const ids = videos.map((v) => v.id);
   const accounts = [...new Set(videos.map((v) => v.account_id!).filter(Boolean))];
-  const [profiles, likes, following] = await Promise.all([
+  const [profiles, likes, following, blocked, comments] = await Promise.all([
     profilesByAccounts(env, accounts),
     likesOf(env, ids, viewer),
     viewer ? followingAmong(env, viewer, accounts) : Promise.resolve(new Set<string>()),
+    blockedAmong(env, accounts),
+    commentCounts(env, ids),
   ]);
   return videos
-    .filter((v) => v.account_id && profiles.has(v.account_id)) // only creators with a profile
+    // only creators with a profile, and none an admin blocked
+    .filter((v) => v.account_id && profiles.has(v.account_id) && !blocked.has(v.account_id))
     .map((v) => {
       const p = profiles.get(v.account_id!)!;
       return {
@@ -47,6 +53,7 @@ async function items(env: Env, videos: ShareRow[], viewer: string | null, base: 
         video_url: `${base}/v/${v.id}/video.mp4`,
         creator: { handle: p.handle, display_name: p.display_name },
         likes: likes.counts.get(v.id) ?? 0,
+        comments: comments.get(v.id) ?? 0,
         liked: likes.liked.has(v.id),
         following: following.has(v.account_id!),
         mine: viewer === v.account_id,
@@ -99,8 +106,9 @@ export async function handleFeed(request: Request, env: Env, path: string, origi
   if (like && request.method === 'POST') {
     const viewer = await signedInAccount(env, request);
     if (!viewer) return apiError(401, 'E_SIGN_IN', 'Sign in to like videos.');
+    if (await isBlocked(env, viewer.id)) return apiError(403, 'E_BLOCKED', 'Your account cannot like videos.');
     const video = await getPostedVideo(env, like[1]);
-    if (!video) return apiError(404, 'E_NOT_FOUND', 'This video is not posted.');
+    if (!video || (video.account_id && (await isBlocked(env, video.account_id)))) return apiError(404, 'E_NOT_FOUND', 'This video is not posted.');
     const body = (await request.json().catch(() => null)) as { liked?: unknown } | null;
     if (typeof body?.liked !== 'boolean') return apiError(400, 'E_BAD_REQUEST', 'liked is true or false.');
     await setLike(env, video.id, viewer.id, body.liked);
@@ -124,8 +132,9 @@ export async function handleFeed(request: Request, env: Env, path: string, origi
   if (follow && request.method === 'POST') {
     const viewer = await signedInAccount(env, request);
     if (!viewer) return apiError(401, 'E_SIGN_IN', 'Sign in to follow creators.');
+    if (await isBlocked(env, viewer.id)) return apiError(403, 'E_BLOCKED', 'Your account cannot follow creators.');
     const profile = await profileByHandle(env, follow[1]);
-    if (!profile) return apiError(404, 'E_NOT_FOUND', 'No such profile.');
+    if (!profile || (await isBlocked(env, profile.account_id))) return apiError(404, 'E_NOT_FOUND', 'No such profile.');
     if (profile.account_id === viewer.id) return apiError(400, 'E_BAD_REQUEST', 'You cannot follow yourself.');
     const body = (await request.json().catch(() => null)) as { following?: unknown } | null;
     if (typeof body?.following !== 'boolean') return apiError(400, 'E_BAD_REQUEST', 'following is true or false.');

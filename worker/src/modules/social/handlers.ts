@@ -4,7 +4,7 @@ import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { listPublicShares, publicShare } from '../shares';
 import { HANDLE_CHANGE_DAYS, checkHandle } from './handles';
-import { followCounts, profileByAccount, profileByHandle, saveProfile, type Profile } from './store';
+import { followCounts, isBlocked, profileByAccount, profileByHandle, saveProfile, type Profile } from './store';
 
 const MAX_NAME = 40;
 const MAX_BIO = 160;
@@ -20,7 +20,7 @@ const clean = (value: unknown, max: number): { text: string | null; tooLong: boo
 /** The @handle and name of an account with a profile (shares brick's creator port). */
 export async function creatorFor(env: Env, accountId: string) {
   const p = await profileByAccount(env, accountId);
-  return p ? { handle: p.handle, name: p.display_name } : null;
+  return p && !(await isBlocked(env, accountId)) ? { handle: p.handle, name: p.display_name } : null;
 }
 
 /**
@@ -76,7 +76,7 @@ export async function handleSocial(request: Request, env: Env, path: string, ori
   const profileQuery = path.match(/^\/api\/profiles\/([^/]{1,40})$/);
   if (profileQuery && method === 'GET') {
     const profile = await profileByHandle(env, decodeURIComponent(profileQuery[1]).replace(/^@/, ''));
-    if (!profile) return apiError(404, 'E_NOT_FOUND', 'No such profile.');
+    if (!profile || (await isBlocked(env, profile.account_id))) return apiError(404, 'E_NOT_FOUND', 'No such profile.');
     const base = await publicOrigin(env, origin);
     const videos = await listPublicShares(env, profile.account_id);
     return json({

@@ -190,7 +190,10 @@ function Site() {
         )}
       </main>
       <footer className="border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500">
-        {SITE.brand.footer}
+        {SITE.brand.footer} ·{' '}
+        <a href="/terms" className="hover:text-slate-300 underline-offset-2 hover:underline">
+          Terms
+        </a>
       </footer>
     </div>
   );
