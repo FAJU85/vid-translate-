@@ -28,6 +28,14 @@ export const SHARES_SCHEMA = [
   `CREATE INDEX IF NOT EXISTS shares_owner ON shares (owner, created_at)`,
   `CREATE INDEX IF NOT EXISTS shares_account ON shares (account_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS shares_status ON shares (status)`,
+  // Views per video, per day (UTC) and per viewer language (the browser's, e.g. "ar"): numbers only.
+  `CREATE TABLE IF NOT EXISTS share_views (
+    share_id TEXT NOT NULL,
+    day TEXT NOT NULL,
+    lang TEXT NOT NULL,
+    views INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (share_id, day, lang)
+  )`,
 ];
 
 /** Columns added after the table first shipped. */
@@ -85,7 +93,37 @@ export const updateShare = (env: Env, id: string, patch: Partial<ShareRow>) => {
     .run();
 };
 
-export const countView = (env: Env, id: string) => env.DB.prepare('UPDATE shares SET views = views + 1 WHERE id = ?').bind(id).run();
+/** The viewer's language from Accept-Language ("ar-SA,ar;q=0.9" → "ar"); "und" when unknown. */
+export function viewerLang(request: Request): string {
+  const first = (request.headers.get('Accept-Language') ?? '').split(',')[0].trim().split(/[-_;]/)[0].toLowerCase();
+  return /^[a-z]{2,3}$/.test(first) ? first : 'und';
+}
+
+/** One more view: the total, and the day's count for the viewer's language. */
+export async function countView(env: Env, id: string, lang = 'und'): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare('UPDATE shares SET views = views + 1 WHERE id = ?').bind(id),
+    env.DB.prepare(
+      `INSERT INTO share_views (share_id, day, lang, views) VALUES (?, date('now'), ?, 1)
+       ON CONFLICT (share_id, day, lang) DO UPDATE SET views = views + 1`,
+    ).bind(id, lang),
+  ]);
+}
+
+/** Views of some videos since a day ("YYYY-MM-DD"), by day, by video and by language (for analytics). */
+export async function viewsSince(env: Env, shareIds: string[], sinceDay: string): Promise<{ share_id: string; day: string; lang: string; views: number }[]> {
+  const out: { share_id: string; day: string; lang: string; views: number }[] = [];
+  for (let i = 0; i < shareIds.length; i += 90) {
+    const part = shareIds.slice(i, i + 90);
+    const { results } = await env.DB.prepare(
+      `SELECT share_id, day, lang, views FROM share_views WHERE share_id IN (${part.map(() => '?').join(', ')}) AND day >= ?`,
+    )
+      .bind(...part, sinceDay)
+      .all<{ share_id: string; day: string; lang: string; views: number }>();
+    out.push(...results);
+  }
+  return out;
+}
 
 /** A person's shares, newest first: by their account, or (no account) by the owner of the jobs. */
 export async function listShares(env: Env, who: { accountId?: string | null; owner?: string | null }, limit = 100): Promise<ShareRow[]> {
@@ -182,5 +220,5 @@ export async function setVisibility(env: Env, id: string, visibility: Visibility
 }
 
 export async function deleteShareRow(env: Env, id: string): Promise<void> {
-  await env.DB.prepare('DELETE FROM shares WHERE id = ?').bind(id).run();
+  await env.DB.batch([env.DB.prepare('DELETE FROM shares WHERE id = ?').bind(id), env.DB.prepare('DELETE FROM share_views WHERE share_id = ?').bind(id)]);
 }

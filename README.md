@@ -393,6 +393,19 @@ The Feed tab has a third tab, **Discover**:
 API: `GET /api/search?q=`, `GET /api/tags/<tag>`, `GET /api/trending`, and
 `POST /api/shares/<id>` `{"title": "..."}` (the video's owner).
 
+### Creator analytics
+
+The Dashboard shows a signed-in creator's numbers for 7, 30 or 90 days: **views**, **likes**,
+**comments** and **new followers** (a tile each, with the all-time total; the chosen one as a
+daily chart), each video's views in the period and all time with likes and comments, and **your
+viewers' languages** (from each viewer's browser language, e.g. Arabic 50%, English 17%).
+
+Views are counted on a video's page and, for posted videos, in the feed after 2 seconds of play
+(once per card). Daily counts are kept per video, day and browser language only: no viewer is
+identified. Views from before daily counting began appear only in the totals.
+
+API: `GET /api/analytics?days=7|30|90`, `POST /api/views/<id>` (a feed view).
+
 ### Notifications
 
 Signed in, the header has a **bell** with the unread count (checked every minute while the page is

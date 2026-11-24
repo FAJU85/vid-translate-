@@ -41,6 +41,13 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
   useEffect(() => {
     if (video.current) video.current.muted = muted;
   }, [muted]);
+  // A view counts once the video has played 2 seconds on this card (once per card).
+  const counted = useRef(false);
+  const onTime = (e: { currentTarget: HTMLVideoElement }) => {
+    if (counted.current || e.currentTarget.currentTime < 2) return;
+    counted.current = true;
+    socialApi.view(item.id).catch(() => {});
+  };
 
   async function like() {
     if (!signedIn) return onSignIn();
@@ -93,6 +100,7 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
         playsInline
         muted={muted}
         preload="metadata"
+        onTimeUpdate={onTime}
         onClick={(e) => (e.currentTarget.paused ? e.currentTarget.play().catch(() => {}) : e.currentTarget.pause())}
         className="absolute inset-0 w-full h-full object-contain"
       />
