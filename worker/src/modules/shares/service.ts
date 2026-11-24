@@ -1,6 +1,7 @@
 import { now, type Env } from '../../shared/env';
 import { hasPlan, jobAccount } from '../accounts';
 import { fileLink, type JobListener, type JobRow } from '../jobs';
+import { publicOrigin } from '../settings';
 import { deleteShareRow, insertShare, shareForJob, updateShare, type ShareRow } from './store';
 
 /** Free accounts' links last this long; monthly plans keep theirs until they delete them. */
@@ -51,6 +52,21 @@ async function createShare(env: Env, job: JobRow): Promise<void> {
     created_at: ts,
     expires_at: keep ? null : ts + FREE_SHARE_SECONDS,
   });
+}
+
+/**
+ * Port through which another brick (social) says who made a video: their @handle and name, for
+ * the video's page. Registered by the base; without it a page shows no creator.
+ */
+export type CreatorLookup = (env: Env, accountId: string) => Promise<{ handle: string; name: string | null } | null>;
+let creatorLookup: CreatorLookup | null = null;
+export function registerCreatorLookup(lookup: CreatorLookup): void {
+  creatorLookup = lookup;
+}
+export async function creatorOf(env: Env, share: Pick<ShareRow, 'account_id' | 'visibility'>) {
+  // A link-only video does not say who made it: only one posted to a profile does.
+  if (!creatorLookup || !share.account_id || share.visibility !== 'public') return null;
+  return creatorLookup(env, share.account_id).catch(() => null);
 }
 
 /** Plugs shares into the jobs brick. Registered before Telegram, whose message carries the link. */
@@ -118,5 +134,5 @@ export async function deleteShare(env: Env, id: string): Promise<void> {
 /** A job's public link, once it has one. */
 export async function shareUrl(env: Env, job: Pick<JobRow, 'id' | 'origin'>): Promise<string | null> {
   const share = await shareForJob(env, job.id);
-  return share ? `${job.origin.replace(/\/$/, '')}/v/${share.id}` : null;
+  return share ? `${await publicOrigin(env, job.origin)}/${share.id}` : null;
 }

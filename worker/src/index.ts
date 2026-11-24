@@ -30,7 +30,8 @@ import {
 } from './modules/telegram';
 import { SETTINGS_SCHEMA } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
-import { SHARES_SCHEMA, handleSharePage, sharesJobListener, sweepShares } from './modules/shares';
+import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, sharesJobListener, sweepShares } from './modules/shares';
+import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage } from './modules/social';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
 
@@ -43,14 +44,16 @@ registerJobListener(telegramJobListener);
 registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
+// A video's page names its creator's @handle (social brick).
+registerCreatorLookup(creatorFor);
 // The translation memory (learning brick) goes with every job.
 registerMemoryProvider(memoryFor);
 // ...and the download methods that work best for a link's site, learned from every download.
 registerDownloadPlanner(downloadPlanFor);
 registerJobListener(sitesJobListener);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA];
-const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA];
+const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -59,7 +62,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   const method = request.method;
 
   // The website is served from ./web/dist by the assets binding; this is only reached without it.
-  if (path === '/') return json({ service: 'tarjimvideo-worker', status: 'ok' });
+  if (path === '/' && !env.ASSETS) return json({ service: 'tarjimvideo-worker', status: 'ok' });
 
   if (path === '/telegram/webhook' && method === 'POST') return handleWebhook(request, env, ctx, origin);
 
@@ -76,11 +79,17 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return json({ ...(await setupBot(env, origin)), backend: await backendHealth(env) });
   }
 
-  // A shared video's public page and its files.
-  if (path.startsWith('/v/')) return (await handleSharePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
+  // A shared video's public page (/<id>) and its files (/v/<id>/...).
+  if (path.startsWith('/v/') || SHORT_PATH.test(path)) {
+    return (await handleSharePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
+  }
+  // A creator's profile (/@handle).
+  if (PROFILE_PATH.test(path)) return (await handleProfilePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
 
   if (path.startsWith('/api/')) return handleApi(request, env, ctx, { origin, botUsername: () => getBotUsername(env) });
 
+  // Every other page is the website (its files are served before the Worker runs; see wrangler.toml).
+  if (env.ASSETS) return env.ASSETS.fetch(request);
   return apiError(404, 'E_NOT_FOUND', 'Not found.');
 }
 

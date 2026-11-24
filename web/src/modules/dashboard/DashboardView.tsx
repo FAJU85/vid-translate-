@@ -3,6 +3,7 @@ import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Play
 import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, type DashboardVideo, type Me } from '../../shared/api';
 import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
 import { DayBars } from './DayBars';
+import { ProfileCard } from './ProfileCard';
 
 const MODE_LABEL: Record<string, string> = { soft: 'Subtitle files', hard: 'Burned-in subtitles', dub: 'Dubbed' };
 
@@ -25,15 +26,33 @@ function Stat({ icon: Icon, label, value, note }: { icon: typeof Video; label: s
 }
 
 /** One translated video: its picture, what it is, its link and what can be done with it. */
-function VideoCard({ v, lang, onOpen, onDeleted }: {
+function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
   v: DashboardVideo;
   lang: (code: string | null) => string;
   onOpen: (jobId: string) => void;
   onDeleted: () => void;
+  signedIn: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const share = v.share;
+  const [visibility, setVisibility] = useState(share?.visibility ?? 'link');
+  // A refresh (or another tab) may have changed it: the latest data wins.
+  useEffect(() => setVisibility(share?.visibility ?? 'link'), [share?.id, share?.visibility]);
+  const [posting, setPosting] = useState(false);
+  /** Post the video to your profile, or take it back to "only people with the link". */
+  async function togglePost() {
+    if (!share) return;
+    const next = visibility === 'public' ? 'link' : 'public';
+    setPosting(true);
+    try {
+      setVisibility((await dashboardApi.setVisibility(share.id, next)).visibility);
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : 'That did not work.');
+    } finally {
+      setPosting(false);
+    }
+  }
   async function copy() {
     if (!share) return;
     try {
@@ -105,6 +124,17 @@ function VideoCard({ v, lang, onOpen, onDeleted }: {
                 <ExternalLink className="w-3.5 h-3.5" /> Page
               </a>
             </>
+          )}
+          {share && signedIn && (
+            <button
+              onClick={togglePost}
+              disabled={posting}
+              aria-pressed={visibility === 'public'}
+              title={visibility === 'public' ? 'On your profile: tap to show it to people with the link only' : 'Only people with the link see it: tap to post it to your profile'}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs disabled:opacity-50 ${visibility === 'public' ? 'border-amber-400 bg-amber-400/15 text-amber-300' : 'border-slate-700 text-slate-200 hover:bg-slate-800'}`}
+            >
+              {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe2 className="w-3.5 h-3.5" />} {visibility === 'public' ? 'On profile' : 'Post to profile'}
+            </button>
           )}
           {v.can_open && (
             <button onClick={() => onOpen(v.job_id)} className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-700 text-xs text-slate-200 hover:bg-slate-800">
@@ -191,6 +221,8 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
 
       {error && <p className="p-3 rounded-lg border border-rose-800 bg-rose-950/60 text-sm text-rose-200">{error}</p>}
 
+      {me?.account && <ProfileCard key={me.account.id} />}
+
       {balance && (
         <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -257,7 +289,7 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         {data && data.videos.length === 0 && <p className="text-sm text-slate-400">Nothing yet. Translate a video and it shows up here, with its link.</p>}
         <ul className="space-y-2">
           {data?.videos.map((v) => (
-            <VideoCard key={v.job_id} v={v} lang={lang} onOpen={onOpenJob} onDeleted={load} />
+            <VideoCard key={v.job_id} v={v} lang={lang} onOpen={onOpenJob} onDeleted={load} signedIn={Boolean(me?.account)} />
           ))}
         </ul>
         {data && data.videos.length > 0 && (

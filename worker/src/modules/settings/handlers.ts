@@ -1,4 +1,4 @@
-import { safeEqual } from '../../shared/crypto';
+import { hmacHex, safeEqual } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { TEXT_FIELDS, readSettings, writeSettings, type Settings } from './store';
@@ -6,6 +6,37 @@ import { TEXT_FIELDS, readSettings, writeSettings, type Settings } from './store
 const MAX_LOGO_BYTES = 256 * 1024;
 const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
 const MAX_TEXT = 2000;
+
+/** A host name such as kavox.to or links.kavox.app (no scheme, path or port). */
+const DOMAIN = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+/** This KAVOX's fingerprint: the same for every address that reaches this Worker, secret-derived. */
+export const instanceId = async (env: Env) => (await hmacHex(env.SHARED_SECRET || 'kavox', 'public-domain-check')).slice(0, 24);
+
+/** GET /api/instance: lets the admin page (and a domain check) see which KAVOX an address reaches. */
+export async function serveInstance(env: Env): Promise<Response> {
+  return json({ service: 'kavox', instance: await instanceId(env) });
+}
+
+/** Does https://<domain> reach this very Worker? (A domain saved before it does would break every link.) */
+async function reachesThisWorker(env: Env, domain: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://${domain}/api/instance`, { signal: AbortSignal.timeout(8000), redirect: 'manual' });
+    const body = (await res.json().catch(() => null)) as { instance?: string } | null;
+    return res.ok && body?.instance === (await instanceId(env));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The address links are made with: https://<public domain> when the admin set one, else the
+ * address the request came in on (the Worker's own workers.dev address).
+ */
+export async function publicOrigin(env: Env, fallback: string): Promise<string> {
+  const { settings } = await readSettings(env).catch(() => ({ settings: { public_domain: '' } }));
+  return settings.public_domain ? `https://${settings.public_domain}` : fallback.replace(/\/$/, '');
+}
 
 /** True when the request carries the admin password (Authorization: Bearer <ADMIN_PASSWORD>). */
 export function isAdmin(request: Request, env: Env): boolean {
@@ -53,6 +84,20 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
   }
   if (patch.accent && !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(patch.accent)) {
     return apiError(400, 'E_BAD_REQUEST', 'The colour must look like #fbbf24.');
+  }
+  if ('public_domain' in body) {
+    // Accept "https://kavox.to/" as well as "kavox.to".
+    const domain = String(body.public_domain ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    if (domain && !DOMAIN.test(domain)) return apiError(400, 'E_BAD_REQUEST', 'The address must look like kavox.to (no https://, no path).');
+    const saved = (await readSettings(env)).settings.public_domain;
+    if (domain && domain !== saved && !(await reachesThisWorker(env, domain))) {
+      return apiError(
+        400,
+        'E_DOMAIN_NOT_READY',
+        `${domain} does not reach this KAVOX yet. In Cloudflare, add it to the Worker as a Custom Domain, wait until it opens, then save again.`,
+      );
+    }
+    patch.public_domain = domain;
   }
   if ('logo' in body) {
     const logo = String(body.logo ?? '');

@@ -27,7 +27,8 @@ import {
 import { handleAdminJobs } from './admin';
 import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
-import { handleAdminLogin, handleAdminSettings, isAdmin, publicSettings, serveLogo } from '../settings';
+import { handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
+import { handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
   SECONDS_PER_CREDIT,
@@ -219,7 +220,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       listShares(env, who, 200),
       shareTotals(env, who),
     ]);
-    const byJob = new Map(shares.map((s) => [s.job_id, publicShare(s, api.origin)]));
+    const base = await publicOrigin(env, api.origin);
+    const byJob = new Map(shares.map((s) => [s.job_id, publicShare(s, base)]));
     const fresh = (j: JobRow) => j.status === 'done' && Date.now() / 1000 - j.created_at < 24 * 3600;
     return json({
       signed_in: Boolean(account),
@@ -248,10 +250,19 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const owner = UUID.test(clientId) ? `web:${clientId}` : null;
     // The signed-in account whether or not credits are on (as the dashboard shows it), else this
     // browser's guest account when credits are on (its links are charged to it).
-    const account = (await signedInAccount(env, request)) ?? (creditsEnabled(env) && owner ? await accountForWeb(env, request, clientId) : null);
-    const shares = await handleShares(request, env, path, api.origin, { accountId: account?.id ?? null, owner });
+    const signedIn = await signedInAccount(env, request);
+    const account = signedIn ?? (creditsEnabled(env) && owner ? await accountForWeb(env, request, clientId) : null);
+    const shares = await handleShares(request, env, path, api.origin, { accountId: account?.id ?? null, owner, signedIn: Boolean(signedIn) });
     if (shares) return shares;
   }
+
+  // Profiles and @handles (social brick).
+  if (path === '/api/profile/me' || path.startsWith('/api/handles/') || path.startsWith('/api/profiles/')) {
+    const social = await handleSocial(request, env, path, api.origin);
+    if (social) return social;
+  }
+  // Which KAVOX an address reaches (the admin's public-domain check).
+  if (path === '/api/instance' && method === 'GET') return serveInstance(env);
 
   if (path === '/api/health' && method === 'GET') {
     return json({ status: 'ok', backend: await backendHealth(env) });

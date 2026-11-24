@@ -1,3 +1,4 @@
+import type { AddedColumn } from '../../shared/db';
 import { now, type Env } from '../../shared/env';
 
 /**
@@ -29,6 +30,14 @@ export const SHARES_SCHEMA = [
   `CREATE INDEX IF NOT EXISTS shares_status ON shares (status)`,
 ];
 
+/** Columns added after the table first shipped. */
+export const SHARES_COLUMNS: AddedColumn[] = [
+  // link: only people with the link see it; public: also on the creator's profile (and the feed).
+  { table: 'shares', column: 'visibility', definition: "TEXT NOT NULL DEFAULT 'link'" },
+];
+
+export type Visibility = 'link' | 'public';
+
 /** pending: still on the Space only; ready: copied to R2; failed: the files were gone. */
 export type ShareStatus = 'pending' | 'ready' | 'failed';
 
@@ -49,6 +58,7 @@ export interface ShareRow {
   views: number;
   created_at: number;
   expires_at: number | null;
+  visibility?: Visibility;
 }
 
 /** Still visible: not expired, and its files not lost. */
@@ -95,6 +105,30 @@ export async function shareTotals(env: Env, who: { accountId?: string | null; ow
     .bind(who.accountId ?? '', who.owner ?? '', now())
     .first<{ shared: number; views: number }>();
   return { shared: row?.shared ?? 0, views: row?.views ?? 0 };
+}
+
+/** An account's videos posted to its profile, newest first. */
+export async function listPublicShares(env: Env, accountId: string, limit = 60): Promise<ShareRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM shares WHERE account_id = ?1 AND visibility = 'public' AND ${LIVE.replace('?', '?2')} ORDER BY created_at DESC LIMIT ?3`,
+  )
+    .bind(accountId, now(), limit)
+    .all<ShareRow>();
+  return results;
+}
+
+/** How many videos an account posted, and how often they were watched (all of them). */
+export async function publicTotals(env: Env, accountId: string): Promise<{ videos: number; views: number }> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS videos, COALESCE(SUM(views), 0) AS views FROM shares WHERE account_id = ?1 AND visibility = 'public' AND ${LIVE.replace('?', '?2')}`,
+  )
+    .bind(accountId, now())
+    .first<{ videos: number; views: number }>();
+  return { videos: row?.videos ?? 0, views: row?.views ?? 0 };
+}
+
+export async function setVisibility(env: Env, id: string, visibility: Visibility): Promise<void> {
+  await env.DB.prepare('UPDATE shares SET visibility = ? WHERE id = ?').bind(visibility, id).run();
 }
 
 export async function deleteShareRow(env: Env, id: string): Promise<void> {

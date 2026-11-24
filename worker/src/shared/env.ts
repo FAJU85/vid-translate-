@@ -35,6 +35,8 @@ export interface Env {
   STARS_PER_USD?: string;
   /** Cloudflare R2: subscribers' own video endings (and, later, shared videos). Optional. */
   MEDIA?: R2Bucket;
+  /** The website's files (web/dist), for every page the Worker does not answer itself. */
+  ASSETS?: Fetcher;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);

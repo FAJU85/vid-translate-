@@ -95,6 +95,8 @@ export interface AdminSettings {
   translate_intro: string;
   welcome_en: string;
   welcome_ar: string;
+  /** The address links are made with (e.g. kavox.to); empty: the Worker's own address. */
+  public_domain: string;
   has_logo?: boolean;
   logo?: string;
 }
@@ -210,6 +212,8 @@ export interface Share {
   created_at: number;
   /** null: kept until deleted (monthly plans). */
   expires_at: number | null;
+  /** link: only people with the link; public: also on your profile. */
+  visibility: 'link' | 'public';
 }
 export interface DashboardVideo {
   job_id: string;
@@ -242,6 +246,25 @@ export interface Dashboard {
 export const dashboardApi = {
   get: () => call<Dashboard>(`/api/dashboard?client_id=${clientId()}`),
   deleteShare: (id: string) => call<{ ok: true }>(`/api/shares/${id}?client_id=${clientId()}`, { method: 'DELETE' }),
+  /** Post a video to your profile (public) or keep it for people with the link only. */
+  setVisibility: (id: string, visibility: 'link' | 'public') =>
+    call<Share>(`/api/shares/${id}?client_id=${clientId()}`, { method: 'POST', body: JSON.stringify({ visibility }) }),
+};
+
+/** Your public profile: a unique @handle, a name and a short bio. */
+export interface Profile {
+  handle: string;
+  display_name: string | null;
+  bio: string | null;
+  created_at: number;
+}
+
+export const socialApi = {
+  myProfile: () => call<{ profile: Profile | null; change_days: number }>('/api/profile/me'),
+  saveProfile: (p: { handle: string; display_name: string; bio: string }) =>
+    call<{ profile: Profile; url: string }>('/api/profile/me', { method: 'POST', body: JSON.stringify(p) }),
+  handle: (h: string) =>
+    call<{ handle?: string; available: boolean; reason: 'invalid' | 'reserved' | 'taken' | null }>(`/api/handles/${encodeURIComponent(h)}`),
 };
 
 export const accountApi = {
