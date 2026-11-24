@@ -376,6 +376,23 @@ API: `GET/POST /api/comments/<video>` (`?before=` for older), `DELETE /api/comme
 `GET/POST /api/admin/moderation` `{action: dismiss|hide|remove|block, kind, target}` or
 `{action: "unblock", account_id}`.
 
+### Discover: search, hashtags and trending
+
+The Feed tab has a third tab, **Discover**:
+
+- **Search** creators by @handle (starts with) or name, and videos by caption. Start with `@` for
+  creators only, or with `#` to open a hashtag.
+- **#Hashtags** in a caption are links everywhere (feed cards, video pages); each opens the videos
+  with that hashtag, newest first. Hashtags can use any script (`#عربي`) and match whole words
+  (`#cat` is not `#cats`). Links from video pages are `/?tab=feed&tag=<tag>`.
+- **Trending**: the most liked videos this week (from those posted in the last 30 days), and the
+  hashtags used most lately.
+- **Captions**: on the Dashboard, the pencil next to a video edits its caption (up to 150
+  characters), which is how creators add hashtags.
+
+API: `GET /api/search?q=`, `GET /api/tags/<tag>`, `GET /api/trending`, and
+`POST /api/shares/<id>` `{"title": "..."}` (the video's owner).
+
 ### Notifications
 
 Signed in, the header has a **bell** with the unread count (checked every minute while the page is

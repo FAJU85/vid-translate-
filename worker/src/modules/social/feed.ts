@@ -34,7 +34,7 @@ export function rank(v: { likes: number; views: number; created_at: number }, at
 }
 
 /** Videos as the feed shows them: the video, its creator, likes, and the viewer's own state. */
-async function items(env: Env, videos: ShareRow[], viewer: string | null, base: string) {
+export async function items(env: Env, videos: ShareRow[], viewer: string | null, base: string) {
   const ids = videos.map((v) => v.id);
   const accounts = [...new Set(videos.map((v) => v.account_id!).filter(Boolean))];
   const [profiles, likes, following, blocked, comments] = await Promise.all([
