@@ -63,8 +63,9 @@ let creatorLookup: CreatorLookup | null = null;
 export function registerCreatorLookup(lookup: CreatorLookup): void {
   creatorLookup = lookup;
 }
-export async function creatorOf(env: Env, share: Pick<ShareRow, 'account_id'>) {
-  if (!creatorLookup || !share.account_id) return null;
+export async function creatorOf(env: Env, share: Pick<ShareRow, 'account_id' | 'visibility'>) {
+  // A link-only video does not say who made it: only one posted to a profile does.
+  if (!creatorLookup || !share.account_id || share.visibility !== 'public') return null;
   return creatorLookup(env, share.account_id).catch(() => null);
 }
 

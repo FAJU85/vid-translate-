@@ -319,8 +319,9 @@ Links are made with the Worker's own address (`*.workers.dev`) until an admin se
 in Cloudflare (Workers → `vid-translate` → Settings → Domains & Routes → Add → Custom domain) and
 wait until it opens: KAVOX refuses to save a domain that does not reach it yet (it asks
 `https://<domain>/api/instance` and compares a fingerprint derived from `SHARED_SECRET`). From then
-on every new link uses the domain, and pages opened on the old address redirect to it (video and
-picture files are served on both). Clearing the field goes back to the Worker's address.
+on every new link uses the domain, and video pages and profiles opened on the old address redirect
+to it (the rest of the website still opens on both addresses, and video and picture files are
+served on both). Clearing the field goes back to the Worker's address.
 
 The Worker runs first for every address except the home page and the website's files
 (`run_worker_first` in `wrangler.toml`), so short links `/<id>` and profiles `/@handle` work; any
@@ -332,8 +333,8 @@ A signed-in account claims a unique **@handle** on the Dashboard (3–24 letters
 `.`; words such as `admin` or `kavox` are reserved), with an optional name and bio; a handle can be
 changed once every 7 days. Its public page `https://<public address>/@handle` lists the videos it
 posted, with their views. Each video starts as **link only** (only people with the link see it);
-**Post to profile** on the Dashboard adds it to the profile, and the video's page then shows the
-creator's @handle. API: `GET/POST /api/profile/me`, `GET /api/handles/<handle>` (is it free?),
+**Post to profile** on the Dashboard adds it to the profile, and only then does the video's page
+show the creator's @handle (a link-only video does not say who made it). API: `GET/POST /api/profile/me`, `GET /api/handles/<handle>` (is it free?),
 `GET /api/profiles/<handle>`, `POST /api/shares/<id>` `{"visibility": "public" | "link"}`.
 
 ### Dashboard

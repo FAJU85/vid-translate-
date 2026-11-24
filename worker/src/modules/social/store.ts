@@ -32,30 +32,50 @@ export const profileByAccount = (env: Env, accountId: string) =>
 export const profileByHandle = (env: Env, handle: string) =>
   env.DB.prepare('SELECT * FROM profiles WHERE handle = ?').bind(handle.toLowerCase()).first<Profile>();
 
+/** ok; taken: someone else has the handle; changed: the profile changed since it was read. */
+export type SaveResult = 'ok' | 'taken' | 'changed';
+
+const uniqueClash = (err: unknown) => /UNIQUE/i.test(String((err as Error).message));
+
 /**
- * Create or change an account's profile. Returns false when the handle is taken (the unique index
- * decides, so two people claiming one handle at once cannot both get it).
+ * Write a profile, guarded against requests running at the same time: a new profile only if the
+ * account still has none; a new handle only if the handle and its change time are still the ones
+ * read (so two quick changes cannot both pass the once-a-week rule, and an older request never
+ * puts back an older handle); name and bio alone never touch the handle. The unique index decides
+ * between two people claiming one handle at once.
  */
 export async function saveProfile(
   env: Env,
   accountId: string,
+  read: Profile | null,
   fields: { handle: string; display_name: string | null; bio: string | null },
-  handleChanged: boolean,
-): Promise<boolean> {
+): Promise<SaveResult> {
   const ts = now();
   try {
-    await env.DB.prepare(
-      `INSERT INTO profiles (account_id, handle, display_name, bio, handle_changed_at, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5)
-       ON CONFLICT (account_id) DO UPDATE SET handle = excluded.handle, display_name = excluded.display_name, bio = excluded.bio,
-         handle_changed_at = CASE WHEN ?6 THEN excluded.handle_changed_at ELSE profiles.handle_changed_at END,
-         updated_at = excluded.updated_at`,
-    )
-      .bind(accountId, fields.handle, fields.display_name, fields.bio, ts, handleChanged ? 1 : 0)
+    if (!read) {
+      const res = await env.DB.prepare(
+        `INSERT INTO profiles (account_id, handle, display_name, bio, handle_changed_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5) ON CONFLICT (account_id) DO NOTHING`,
+      )
+        .bind(accountId, fields.handle, fields.display_name, fields.bio, ts)
+        .run();
+      return res.meta.changes ? 'ok' : 'changed';
+    }
+    if (read.handle !== fields.handle) {
+      const res = await env.DB.prepare(
+        `UPDATE profiles SET handle = ?1, display_name = ?2, bio = ?3, handle_changed_at = ?4, updated_at = ?4
+         WHERE account_id = ?5 AND handle = ?6 AND handle_changed_at = ?7`,
+      )
+        .bind(fields.handle, fields.display_name, fields.bio, ts, accountId, read.handle, read.handle_changed_at)
+        .run();
+      return res.meta.changes ? 'ok' : 'changed';
+    }
+    await env.DB.prepare('UPDATE profiles SET display_name = ?1, bio = ?2, updated_at = ?3 WHERE account_id = ?4')
+      .bind(fields.display_name, fields.bio, ts, accountId)
       .run();
-    return true;
+    return 'ok';
   } catch (err) {
-    if (/UNIQUE/i.test(String((err as Error).message))) return false;
+    if (uniqueClash(err)) return 'taken';
     throw err;
   }
 }

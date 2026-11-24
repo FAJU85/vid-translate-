@@ -37,6 +37,8 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
   const [busy, setBusy] = useState(false);
   const share = v.share;
   const [visibility, setVisibility] = useState(share?.visibility ?? 'link');
+  // A refresh (or another tab) may have changed it: the latest data wins.
+  useEffect(() => setVisibility(share?.visibility ?? 'link'), [share?.id, share?.visibility]);
   const [posting, setPosting] = useState(false);
   /** Post the video to your profile, or take it back to "only people with the link". */
   async function togglePost() {

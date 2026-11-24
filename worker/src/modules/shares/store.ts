@@ -117,6 +117,16 @@ export async function listPublicShares(env: Env, accountId: string, limit = 60):
   return results;
 }
 
+/** How many videos an account posted, and how often they were watched (all of them). */
+export async function publicTotals(env: Env, accountId: string): Promise<{ videos: number; views: number }> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS videos, COALESCE(SUM(views), 0) AS views FROM shares WHERE account_id = ?1 AND visibility = 'public' AND ${LIVE.replace('?', '?2')}`,
+  )
+    .bind(accountId, now())
+    .first<{ videos: number; views: number }>();
+  return { videos: row?.videos ?? 0, views: row?.views ?? 0 };
+}
+
 export async function setVisibility(env: Env, id: string, visibility: Visibility): Promise<void> {
   await env.DB.prepare('UPDATE shares SET visibility = ? WHERE id = ?').bind(visibility, id).run();
 }

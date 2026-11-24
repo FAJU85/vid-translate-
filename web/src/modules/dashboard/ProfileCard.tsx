@@ -21,8 +21,11 @@ export function ProfileCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [changeDays, setChangeDays] = useState(7);
+  // Loading failed: different from "no profile yet" (that opens the form to create one).
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoadError(false);
     socialApi
       .myProfile()
       .then((r) => {
@@ -30,8 +33,9 @@ export function ProfileCard() {
         setChangeDays(r.change_days);
         if (!r.profile) setEditing(true);
       })
-      .catch(() => setProfile(null));
-  }, []);
+      .catch(() => setLoadError(true));
+  };
+  useEffect(load, []);
 
   const startEdit = () => {
     setForm({ handle: profile?.handle ?? '', display_name: profile?.display_name ?? '', bio: profile?.bio ?? '' });
@@ -74,6 +78,16 @@ export function ProfileCard() {
     }
   }
 
+  if (loadError) {
+    return (
+      <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span className="text-rose-300">Your profile could not be loaded.</span>
+        <button onClick={load} className="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800">
+          Try again
+        </button>
+      </section>
+    );
+  }
   if (profile === undefined) return null;
   const input = 'w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-amber-400/60';
 

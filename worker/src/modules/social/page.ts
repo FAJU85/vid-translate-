@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
 import { publicOrigin, publicSettings } from '../settings';
-import { listPublicShares } from '../shares';
+import { listPublicShares, publicTotals } from '../shares';
 import { profileByHandle } from './store';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -30,7 +30,8 @@ export async function handleProfilePage(request: Request, env: Env, path: string
     });
   }
   const videos = await listPublicShares(env, profile.account_id);
-  const views = videos.reduce((n, v) => n + v.views, 0);
+  const totals = await publicTotals(env, profile.account_id); // every posted video, not just the ones listed
+  const views = totals.views;
   const name = profile.display_name || `@${profile.handle}`;
   const url = `${base}/@${profile.handle}`;
   const tiles = videos
@@ -86,7 +87,7 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
     <div>
       <h1>${esc(name)}</h1>
       <div class="handle">@${esc(profile.handle)}</div>
-      <div class="stats"><span><b>${videos.length}</b> video${videos.length === 1 ? '' : 's'}</span><span><b>${views}</b> view${views === 1 ? '' : 's'}</span></div>
+      <div class="stats"><span><b>${totals.videos}</b> video${totals.videos === 1 ? '' : 's'}</span><span><b>${views}</b> view${views === 1 ? '' : 's'}</span></div>
     </div>
   </div>
   ${profile.bio ? `<p class="bio">${esc(profile.bio)}</p>` : ''}
