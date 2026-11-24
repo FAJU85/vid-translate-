@@ -376,6 +376,22 @@ API: `GET/POST /api/comments/<video>` (`?before=` for older), `DELETE /api/comme
 `GET/POST /api/admin/moderation` `{action: dismiss|hide|remove|block, kind, target}` or
 `{action: "unblock", account_id}`.
 
+### Notifications
+
+Signed in, the header has a **bell** with the unread count (checked every minute while the page is
+open). It opens the inbox: new followers, likes and comments on your videos, and new videos from
+creators you follow, newest first; opening it marks them as seen. Nothing is sent for your own
+actions; a follow or like undone and done again is told once, and a video posted again reaches
+followers once. Notifications are kept 90 days, and those from blocked accounts are hidden.
+
+**Telegram:** an account that signs in with Telegram can tick "Also send them to me on Telegram"
+in the inbox; @Kavoxbot then sends each new notification (at most 60 a minute, by the Worker's
+cron). Only what happens after turning it on is sent. Links in these messages need the public
+domain (Admin → Settings) or the `PUBLIC_URL` variable.
+
+API: `GET /api/notifications?before=`, `GET /api/notifications/unread`,
+`POST /api/notifications/read`, `POST /api/notifications/settings` `{"telegram": bool}`.
+
 ### Dashboard
 
 The website's **Dashboard** tab (`/?tab=dashboard`) shows, for a signed-in account, everything it

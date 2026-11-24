@@ -1,7 +1,7 @@
 import { apiError, json } from '../../shared/http';
 import type { Env } from '../../shared/env';
 import { publicOrigin } from '../settings';
-import { deleteShare } from './service';
+import { announcePost, deleteShare } from './service';
 import { getShare, listShares, setVisibility, type ShareRow } from './store';
 
 /** What the website shows of a share. */
@@ -55,5 +55,6 @@ export async function handleShares(request: Request, env: Env, path: string, ori
     return apiError(403, 'E_NO_ACCOUNT', share.account_id ? 'Sign in with the account that made this video to post it.' : 'Sign in to post videos to your profile.');
   }
   await setVisibility(env, share.id, body.visibility);
+  if (body.visibility === 'public' && share.visibility !== 'public') await announcePost(env, share);
   return json(publicShare({ ...share, visibility: body.visibility }, await publicOrigin(env, origin)));
 }

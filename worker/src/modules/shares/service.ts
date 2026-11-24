@@ -69,6 +69,19 @@ export async function creatorOf(env: Env, share: Pick<ShareRow, 'account_id' | '
   return creatorLookup(env, share.account_id).catch(() => null);
 }
 
+/**
+ * Port through which another brick (social) hears that a video was posted to a profile (to tell
+ * the creator's followers). Registered by the base.
+ */
+export type PostListener = (env: Env, share: { id: string; account_id: string | null }) => Promise<void>;
+let postListener: PostListener | null = null;
+export function registerPostListener(listener: PostListener): void {
+  postListener = listener;
+}
+export async function announcePost(env: Env, share: { id: string; account_id: string | null }): Promise<void> {
+  await postListener?.(env, share).catch((err) => console.warn(`post listener: ${(err as Error).message}`));
+}
+
 /** Plugs shares into the jobs brick. Registered before Telegram, whose message carries the link. */
 export const sharesJobListener: JobListener = {
   changed: async () => {},

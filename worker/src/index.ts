@@ -30,8 +30,8 @@ import {
 } from './modules/telegram';
 import { SETTINGS_SCHEMA, handleTermsPage } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
-import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, sharesJobListener, sweepShares } from './modules/shares';
-import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage } from './modules/social';
+import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
+import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, notifyPost, sweepNotifications } from './modules/social';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
 
@@ -46,6 +46,7 @@ registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
 // A video's page names its creator's @handle (social brick).
 registerCreatorLookup(creatorFor);
+registerPostListener(notifyPost);
 // The translation memory (learning brick) goes with every job.
 registerMemoryProvider(memoryFor);
 // ...and the download methods that work best for a link's site, learned from every download.
@@ -111,5 +112,6 @@ export default {
     ctx.waitUntil(sweep(env));
     ctx.waitUntil(ensureWebhookUpdates(env));
     ctx.waitUntil(sweepShares(env));
+    ctx.waitUntil(sweepNotifications(env));
   },
 } satisfies ExportedHandler<Env>;
