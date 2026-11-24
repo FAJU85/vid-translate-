@@ -303,14 +303,38 @@ cannot be used is replaced by the KAVOX one, and never fails a translation.
 
 ### Share links
 
-Every finished video with burned-in subtitles or dubbing gets its own public page,
-`https://YOUR-WORKER/v/<id>`: a player, the title and languages, **Copy link** and **Download**,
+Every finished video with burned-in subtitles or dubbing gets its own public page at a short
+address, `https://<public address>/<id>` (old `/v/<id>` links redirect there): a player, the title and languages, **Copy link** and **Download**,
 with a preview picture for Telegram, WhatsApp and other apps. The website shows the link under the
 result and the bot sends it after the video. The Worker copies the video and a still from the
 Space to the R2 bucket `kavox-media` within a minute or two (the Space only keeps files a day);
 until then the page plays it from the Space. Links from free accounts last 30 days; monthly plans
 keep theirs until they delete them (`DELETE /api/shares/<id>`). Expired links are removed by the
 scheduled task.
+
+### Public address (your own domain)
+
+Links are made with the Worker's own address (`*.workers.dev`) until an admin sets a domain on
+**/admin → Settings → Public address** (for example `kavox.to`). First add the domain to the Worker
+in Cloudflare (Workers → `vid-translate` → Settings → Domains & Routes → Add → Custom domain) and
+wait until it opens: KAVOX refuses to save a domain that does not reach it yet (it asks
+`https://<domain>/api/instance` and compares a fingerprint derived from `SHARED_SECRET`). From then
+on every new link uses the domain, and pages opened on the old address redirect to it (video and
+picture files are served on both). Clearing the field goes back to the Worker's address.
+
+The Worker runs first for every address except the home page and the website's files
+(`run_worker_first` in `wrangler.toml`), so short links `/<id>` and profiles `/@handle` work; any
+other page is handed to the website (`ASSETS` binding).
+
+### Profiles and @handles
+
+A signed-in account claims a unique **@handle** on the Dashboard (3–24 letters, digits, `_` or
+`.`; words such as `admin` or `kavox` are reserved), with an optional name and bio; a handle can be
+changed once every 7 days. Its public page `https://<public address>/@handle` lists the videos it
+posted, with their views. Each video starts as **link only** (only people with the link see it);
+**Post to profile** on the Dashboard adds it to the profile, and the video's page then shows the
+creator's @handle. API: `GET/POST /api/profile/me`, `GET /api/handles/<handle>` (is it free?),
+`GET /api/profiles/<handle>`, `POST /api/shares/<id>` `{"visibility": "public" | "link"}`.
 
 ### Dashboard
 

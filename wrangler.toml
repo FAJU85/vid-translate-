@@ -9,14 +9,17 @@ workers_dev = true
 enabled = true
 
 # The website (web/) is built on every deploy and served by this same Worker, so the site and
-# its API share one URL. Requests for the API, the bot and admin routes always reach the code.
+# its API share one URL. Every address reaches the code first (short video links /<id>, profiles
+# /@handle, the API, the bot), except the home page and the website's own files, which are served
+# directly (free, and they do not count as Worker requests); other pages are passed on to ASSETS.
 [build]
 command = "npm ci --prefix web && npm run build --prefix web"
 
 [assets]
 directory = "web/dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/telegram/*", "/admin/*", "/v/*"]
+run_worker_first = ["/*", "!/", "!/index.html", "!/assets/*"]
 
 [vars]
 # URL of your Hugging Face Space: https://<user>-<space-name>.hf.space

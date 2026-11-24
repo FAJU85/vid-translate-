@@ -8,7 +8,7 @@ const MAX_LOGO_KB = 256;
 const inputClass =
   'w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400';
 
-const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '' };
+const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', public_domain: '' };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -144,6 +144,23 @@ export function SettingsPanel({ password }: { password: string }) {
               </button>
             )}
           </div>
+        </Field>
+      </section>
+
+      <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
+        <h2 className="font-semibold text-white">Public address</h2>
+        <Field
+          label="Domain for links"
+          hint="Video links become https://<domain>/<id> and profiles https://<domain>/@handle. First add the domain to the Worker in Cloudflare (Workers → vid-translate → Settings → Domains & Routes → Add → Custom domain), wait until it opens, then save it here: KAVOX checks that it reaches this site before saving. Empty: the Worker's own address."
+        >
+          <input
+            value={values.public_domain}
+            onChange={set('public_domain')}
+            placeholder="kavox.to"
+            spellCheck={false}
+            autoCapitalize="off"
+            className={inputClass}
+          />
         </Field>
       </section>
 
