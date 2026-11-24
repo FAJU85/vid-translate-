@@ -259,7 +259,27 @@ export interface Profile {
   created_at: number;
 }
 
+/** A video in the feed: the posted video, its creator, its likes and your own state. */
+export interface FeedItem extends Share {
+  video_url: string;
+  src_lang: string | null;
+  tgt_lang: string;
+  mode: string;
+  creator: { handle: string; display_name: string | null };
+  likes: number;
+  liked: boolean;
+  following: boolean;
+  mine: boolean;
+}
+
+export type FeedTab = 'foryou' | 'following';
+
 export const socialApi = {
+  feed: (tab: FeedTab, cursor: string | null) =>
+    call<{ items: FeedItem[]; next: string | null; sign_in?: boolean }>(`/api/feed?tab=${tab}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  like: (id: string, liked: boolean) => call<{ likes: number; liked: boolean }>(`/api/likes/${id}`, { method: 'POST', body: JSON.stringify({ liked }) }),
+  follow: (handle: string, following: boolean) =>
+    call<{ followers: number; following: boolean }>(`/api/follows/${encodeURIComponent(handle)}`, { method: 'POST', body: JSON.stringify({ following }) }),
   myProfile: () => call<{ profile: Profile | null; change_days: number }>('/api/profile/me'),
   saveProfile: (p: { handle: string; display_name: string; bio: string }) =>
     call<{ profile: Profile; url: string }>('/api/profile/me', { method: 'POST', body: JSON.stringify(p) }),

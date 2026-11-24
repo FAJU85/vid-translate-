@@ -2,7 +2,7 @@ import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
 import { publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
-import { profileByHandle } from './store';
+import { followCounts, profileByHandle } from './store';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const langName = (code: string) => LANGUAGES.find((l) => l.code === code)?.en ?? code;
@@ -31,6 +31,7 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   }
   const videos = await listPublicShares(env, profile.account_id);
   const totals = await publicTotals(env, profile.account_id); // every posted video, not just the ones listed
+  const follows = await followCounts(env, profile.account_id);
   const views = totals.views;
   const name = profile.display_name || `@${profile.handle}`;
   const url = `${base}/@${profile.handle}`;
@@ -69,6 +70,8 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
   .stats b { color: #fff; }
   .actions { margin-top: 14px; }
   .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid #334155; color: #f1f5f9; background: transparent; font: inherit; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: 700; }
+  .btn.primary.on { background: transparent; color: #f1f5f9; border-color: #334155; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 20px; }
   @media (min-width: 720px) { .grid { grid-template-columns: repeat(4, 1fr); } }
   .tile { position: relative; aspect-ratio: 9 / 16; background: #0f172a; border-radius: 6px; overflow: hidden; display: block; }
@@ -87,14 +90,34 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
     <div>
       <h1>${esc(name)}</h1>
       <div class="handle">@${esc(profile.handle)}</div>
-      <div class="stats"><span><b>${totals.videos}</b> video${totals.videos === 1 ? '' : 's'}</span><span><b>${views}</b> view${views === 1 ? '' : 's'}</span></div>
+      <div class="stats"><span><b>${totals.videos}</b> video${totals.videos === 1 ? '' : 's'}</span><span><b id="followers">${follows.followers}</b> follower${follows.followers === 1 ? '' : 's'}</span><span><b>${follows.following}</b> following</span><span><b>${views}</b> view${views === 1 ? '' : 's'}</span></div>
     </div>
   </div>
   ${profile.bio ? `<p class="bio">${esc(profile.bio)}</p>` : ''}
-  <div class="actions"><button class="btn" id="copy" type="button">Copy profile link</button></div>
+  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>Follow</button> <button class="btn" id="copy" type="button">Copy profile link</button></div>
   ${videos.length ? `<div class="grid">${tiles}</div>` : '<p class="empty">No videos posted yet.</p>'}
 </main>
 <script>
+  // Follow: shown once we know who is looking (not on your own profile); signing in happens on the site.
+  const followBtn = document.getElementById('follow');
+  const api = ${JSON.stringify(`/api/follows/${profile.handle}`)};
+  const show = (s) => {
+    followBtn.hidden = s.self;
+    followBtn.textContent = s.following ? 'Following' : 'Follow';
+    followBtn.classList.toggle('on', s.following);
+    document.getElementById('followers').textContent = s.followers;
+  };
+  let state = null;
+  fetch(api, { credentials: 'same-origin' }).then((r) => r.json()).then((s) => { state = s; show(s); }).catch(() => {});
+  followBtn.addEventListener('click', async () => {
+    if (!state) return;
+    if (!state.signed_in) { location.href = '/?tab=dashboard'; return; }
+    followBtn.disabled = true;
+    try {
+      const r = await fetch(api, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ following: !state.following }) });
+      if (r.ok) { state = { ...state, ...(await r.json()) }; show(state); }
+    } finally { followBtn.disabled = false; }
+  });
   document.getElementById('copy').addEventListener('click', async (e) => {
     try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = 'Copied'; }
     catch { prompt('Copy this link', ${JSON.stringify(url)}); }

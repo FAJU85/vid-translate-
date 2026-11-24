@@ -337,6 +337,22 @@ posted, with their views. Each video starts as **link only** (only people with t
 show the creator's @handle (a link-only video does not say who made it). API: `GET/POST /api/profile/me`, `GET /api/handles/<handle>` (is it free?),
 `GET /api/profiles/<handle>`, `POST /api/shares/<id>` `{"visibility": "public" | "link"}`.
 
+### Feed, likes and follows
+
+The website's **Feed** tab (`/?tab=feed`) shows posted videos one screen at a time, playing while on
+screen (muted until a tap turns sound on) with the creator's @handle, the title and languages, and
+**Follow**, **Like**, **Share** and sound buttons. Two tabs:
+
+- **For you**: videos posted in the last 30 days (at most 300), ranked by plain arithmetic, with no
+  personal profiling: `(1 + 3 × likes + 0.5 × views) / (hours since posting + 2)^1.3`.
+- **Following**: the newest videos of the creators you follow (signed in).
+
+Likes and follows need a signed-in account (one like per video and account; you cannot follow
+yourself). Profiles show followers and following and have a **Follow** button; a posted video's
+page has a **Like** button. Only videos posted to a profile can be liked or appear in the feed.
+API: `GET /api/feed?tab=foryou|following&cursor=`, `GET/POST /api/likes/<id>` `{"liked": bool}`,
+`GET/POST /api/follows/<handle>` `{"following": bool}`.
+
 ### Dashboard
 
 The website's **Dashboard** tab (`/?tab=dashboard`) shows, for a signed-in account, everything it

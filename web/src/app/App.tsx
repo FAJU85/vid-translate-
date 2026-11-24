@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { DashboardView } from '../modules/dashboard';
+import { FeedView } from '../modules/feed';
 import { PricingView } from '../modules/pricing';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
@@ -40,7 +41,7 @@ function Site() {
   // ?tab=pricing opens the prices (links from the bot).
   const [tab, setTab] = useState<NavTab>(() => {
     const asked = new URLSearchParams(window.location.search).get('tab');
-    return asked === 'pricing' || asked === 'dashboard' ? asked : 'translate';
+    return asked === 'pricing' || asked === 'dashboard' || asked === 'feed' ? asked : 'translate';
   });
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -182,6 +183,7 @@ function Site() {
             onPricing={() => setTab('pricing')}
           />
         )}
+        {tab === 'feed' && <FeedView config={config} signedIn={Boolean(me?.account)} onSignIn={() => setAccountOpen(true)} />}
         {tab === 'telegram' && <TelegramView config={config} />}
         {tab === 'pricing' && (
           <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} onPaymentStarted={() => setAwaitingSince(Date.now())} />

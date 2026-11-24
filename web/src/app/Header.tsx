@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { Bot, Languages, LayoutDashboard, Tag } from 'lucide-react';
+import { Bot, Clapperboard, Languages, LayoutDashboard, Tag } from 'lucide-react';
 import { SITE } from '../shared/content';
 
-export type NavTab = 'translate' | 'dashboard' | 'telegram' | 'pricing';
+export type NavTab = 'translate' | 'feed' | 'dashboard' | 'telegram' | 'pricing';
 
 const TABS: { id: NavTab; label: string; icon: typeof Bot }[] = [
   { id: 'translate', label: 'Translate', icon: Languages },
+  { id: 'feed', label: 'Feed', icon: Clapperboard },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'telegram', label: 'Telegram bot', icon: Bot },
   { id: 'pricing', label: 'Pricing', icon: Tag },

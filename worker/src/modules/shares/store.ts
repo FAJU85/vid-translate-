@@ -117,6 +117,37 @@ export async function listPublicShares(env: Env, accountId: string, limit = 60):
   return results;
 }
 
+/**
+ * Posted videos for a feed, newest first: from the given accounts only (null: everyone), after
+ * `before` (the last video of the previous page) and created since `since`.
+ */
+export async function listPostedVideos(
+  env: Env,
+  f: { accountIds?: string[] | null; before?: { at: number; id: string } | null; since?: number | null; limit: number },
+): Promise<ShareRow[]> {
+  if (f.accountIds && !f.accountIds.length) return [];
+  // D1 takes at most 100 values per query: many accounts are asked in parts, then merged.
+  if (f.accountIds && f.accountIds.length > 90) {
+    const parts: ShareRow[][] = [];
+    for (let i = 0; i < f.accountIds.length; i += 90) parts.push(await listPostedVideos(env, { ...f, accountIds: f.accountIds.slice(i, i + 90) }));
+    return parts.flat().sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? 1 : -1)).slice(0, f.limit);
+  }
+  const where = [`visibility = 'public'`, `account_id IS NOT NULL`, LIVE];
+  const binds: unknown[] = [now()];
+  if (f.accountIds) (where.push(`account_id IN (${f.accountIds.map(() => '?').join(', ')})`), binds.push(...f.accountIds));
+  // After the last one of the previous page (same second: by id, so none is skipped or repeated).
+  if (f.before) (where.push('(created_at < ? OR (created_at = ? AND id < ?))'), binds.push(f.before.at, f.before.at, f.before.id));
+  if (f.since) (where.push('created_at >= ?'), binds.push(f.since));
+  const { results } = await env.DB.prepare(`SELECT * FROM shares WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT ?`)
+    .bind(...binds, f.limit)
+    .all<ShareRow>();
+  return results;
+}
+
+/** A posted, live video by its id (what a like is allowed on). */
+export const getPostedVideo = (env: Env, id: string) =>
+  env.DB.prepare(`SELECT * FROM shares WHERE id = ? AND visibility = 'public' AND ${LIVE}`).bind(id, now()).first<ShareRow>();
+
 /** How many videos an account posted, and how often they were watched (all of them). */
 export async function publicTotals(env: Env, accountId: string): Promise<{ videos: number; views: number }> {
   const row = await env.DB.prepare(

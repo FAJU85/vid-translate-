@@ -58,6 +58,7 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
   .btn:hover { background: #1e293b; }
   .primary { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: 700; }
   .primary:hover { filter: brightness(1.1); background: var(--accent); }
+  #like[aria-pressed="true"] { border-color: #f43f5e; color: #fda4af; }
   footer { color: #64748b; font-size: 13px; }
   footer a { color: var(--accent); }
 </style>
@@ -70,12 +71,35 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
   <h1>${esc(title)}</h1>
   <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${share.views + 1} view${share.views ? 's' : ''}</span></div>
   <div class="actions">
+    <button class="btn" id="like" type="button" hidden aria-pressed="false">♡ <span id="likes">0</span></button>
     <button class="btn primary" id="copy" type="button">Copy link</button>
     <a class="btn" href="/v/${share.id}/video.mp4?download=1">Download</a>
   </div>
 </main>
 <footer>Translated with <a href="/">${esc(brand)}</a>: subtitles and dubbing for any video, in minutes.</footer>
 <script>
+  // Likes (a posted video only): shown once we know who is looking; signing in happens on the site.
+  (() => {
+    const btn = document.getElementById('like');
+    const api = ${JSON.stringify(`/api/likes/${share.id}`)};
+    let state = null;
+    const show = (s) => {
+      btn.hidden = !s.posted;
+      btn.setAttribute('aria-pressed', String(s.liked));
+      btn.firstChild.textContent = s.liked ? '♥ ' : '♡ ';
+      document.getElementById('likes').textContent = s.likes;
+    };
+    fetch(api, { credentials: 'same-origin' }).then((r) => r.json()).then((s) => { state = s; show(s); }).catch(() => {});
+    btn.addEventListener('click', async () => {
+      if (!state) return;
+      if (!state.signed_in) { location.href = '/?tab=feed'; return; }
+      btn.disabled = true;
+      try {
+        const r = await fetch(api, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ liked: !state.liked }) });
+        if (r.ok) { state = { ...state, ...(await r.json()) }; show(state); }
+      } finally { btn.disabled = false; }
+    });
+  })();
   document.getElementById('copy').addEventListener('click', async (e) => {
     try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = 'Copied'; }
     catch { prompt('Copy this link', ${JSON.stringify(url)}); }

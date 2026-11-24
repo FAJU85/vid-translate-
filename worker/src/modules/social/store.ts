@@ -14,6 +14,22 @@ export const SOCIAL_SCHEMA = [
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )`,
+  // Who follows whom (account ids).
+  `CREATE TABLE IF NOT EXISTS follows (
+    follower_id TEXT NOT NULL,
+    followee_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (follower_id, followee_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS follows_followee ON follows (followee_id)`,
+  // Likes on posted videos (share ids), one per account.
+  `CREATE TABLE IF NOT EXISTS likes (
+    share_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (share_id, account_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS likes_account ON likes (account_id, created_at)`,
 ];
 
 export interface Profile {
@@ -78,4 +94,89 @@ export async function saveProfile(
     if (uniqueClash(err)) return 'taken';
     throw err;
   }
+}
+
+/** D1 takes at most 100 values per query: lists are looked up in parts of this size. */
+const PART = 90;
+async function inParts<T>(ids: string[], run: (part: string[], marks: string) => Promise<T[]>): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += PART) {
+    const part = ids.slice(i, i + PART);
+    out.push(...(await run(part, part.map(() => '?').join(', '))));
+  }
+  return out;
+}
+
+export async function profilesByAccounts(env: Env, ids: string[]): Promise<Map<string, Profile>> {
+  const rows = await inParts(ids, async (part, marks) =>
+    (await env.DB.prepare(`SELECT * FROM profiles WHERE account_id IN (${marks})`).bind(...part).all<Profile>()).results,
+  );
+  return new Map(rows.map((p) => [p.account_id, p]));
+}
+
+// --- follows -------------------------------------------------------------------------------
+
+export async function setFollow(env: Env, follower: string, followee: string, on: boolean): Promise<void> {
+  await (on
+    ? env.DB.prepare('INSERT OR IGNORE INTO follows (follower_id, followee_id, created_at) VALUES (?, ?, ?)').bind(follower, followee, now())
+    : env.DB.prepare('DELETE FROM follows WHERE follower_id = ? AND followee_id = ?').bind(follower, followee)
+  ).run();
+}
+
+export async function followCounts(env: Env, accountId: string): Promise<{ followers: number; following: number }> {
+  const row = await env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM follows WHERE followee_id = ?1) AS followers, (SELECT COUNT(*) FROM follows WHERE follower_id = ?1) AS following`,
+  )
+    .bind(accountId)
+    .first<{ followers: number; following: number }>();
+  return { followers: row?.followers ?? 0, following: row?.following ?? 0 };
+}
+
+export const isFollowing = async (env: Env, follower: string, followee: string) =>
+  Boolean(await env.DB.prepare('SELECT 1 FROM follows WHERE follower_id = ? AND followee_id = ?').bind(follower, followee).first());
+
+/** The accounts someone follows (for the Following feed). */
+export async function followees(env: Env, follower: string, limit = 500): Promise<string[]> {
+  const { results } = await env.DB.prepare('SELECT followee_id FROM follows WHERE follower_id = ? ORDER BY created_at DESC LIMIT ?')
+    .bind(follower, limit)
+    .all<{ followee_id: string }>();
+  return results.map((r) => r.followee_id);
+}
+
+/** Of these accounts, the ones someone follows. */
+export async function followingAmong(env: Env, follower: string, ids: string[]): Promise<Set<string>> {
+  const rows = await inParts(ids, async (part, marks) =>
+    (await env.DB.prepare(`SELECT followee_id FROM follows WHERE follower_id = ? AND followee_id IN (${marks})`)
+      .bind(follower, ...part)
+      .all<{ followee_id: string }>()).results,
+  );
+  return new Set(rows.map((r) => r.followee_id));
+}
+
+// --- likes ---------------------------------------------------------------------------------
+
+export async function setLike(env: Env, shareId: string, accountId: string, on: boolean): Promise<void> {
+  await (on
+    ? env.DB.prepare('INSERT OR IGNORE INTO likes (share_id, account_id, created_at) VALUES (?, ?, ?)').bind(shareId, accountId, now())
+    : env.DB.prepare('DELETE FROM likes WHERE share_id = ? AND account_id = ?').bind(shareId, accountId)
+  ).run();
+}
+
+/** Likes of each video, and which of them someone liked. */
+export async function likesOf(env: Env, shareIds: string[], viewer: string | null): Promise<{ counts: Map<string, number>; liked: Set<string> }> {
+  const [counts, mine] = await Promise.all([
+    inParts(shareIds, async (part, marks) =>
+      (await env.DB.prepare(`SELECT share_id, COUNT(*) AS n FROM likes WHERE share_id IN (${marks}) GROUP BY share_id`)
+        .bind(...part)
+        .all<{ share_id: string; n: number }>()).results,
+    ),
+    viewer
+      ? inParts(shareIds, async (part, marks) =>
+          (await env.DB.prepare(`SELECT share_id FROM likes WHERE account_id = ? AND share_id IN (${marks})`)
+            .bind(viewer, ...part)
+            .all<{ share_id: string }>()).results,
+        )
+      : Promise.resolve([] as { share_id: string }[]),
+  ]);
+  return { counts: new Map(counts.map((r) => [r.share_id, r.n])), liked: new Set(mine.map((r) => r.share_id)) };
 }

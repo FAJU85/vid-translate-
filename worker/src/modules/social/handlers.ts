@@ -4,7 +4,7 @@ import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { listPublicShares, publicShare } from '../shares';
 import { HANDLE_CHANGE_DAYS, checkHandle } from './handles';
-import { profileByAccount, profileByHandle, saveProfile, type Profile } from './store';
+import { followCounts, profileByAccount, profileByHandle, saveProfile, type Profile } from './store';
 
 const MAX_NAME = 40;
 const MAX_BIO = 160;
@@ -79,7 +79,12 @@ export async function handleSocial(request: Request, env: Env, path: string, ori
     if (!profile) return apiError(404, 'E_NOT_FOUND', 'No such profile.');
     const base = await publicOrigin(env, origin);
     const videos = await listPublicShares(env, profile.account_id);
-    return json({ ...publicProfile(profile), url: `${base}/@${profile.handle}`, videos: videos.map((s) => publicShare(s, base)) });
+    return json({
+      ...publicProfile(profile),
+      ...(await followCounts(env, profile.account_id)),
+      url: `${base}/@${profile.handle}`,
+      videos: videos.map((s) => publicShare(s, base)),
+    });
   }
   return null;
 }
