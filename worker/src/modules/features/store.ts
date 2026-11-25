@@ -1,4 +1,5 @@
 import { now, type Env } from '../../shared/env';
+import { TOTP_UNREADABLE as UNREADABLE } from '../settings';
 
 /**
  * Features switched on from the /admin page instead of the command line. Each value fills the
@@ -29,6 +30,8 @@ export const FIELDS = {
   ADMIN_TOTP_SECRET: { secret: true },
   /** A two-step secret being set up: it becomes ADMIN_TOTP_SECRET once a code from it is confirmed. */
   ADMIN_TOTP_PENDING: { secret: true },
+  /** Bumped on every two-step change: part of the admin sign-in key, so every earlier sign-in ends. */
+  ADMIN_TOKEN_EPOCH: { secret: false },
 } as const;
 export type FieldName = keyof typeof FIELDS;
 
@@ -61,14 +64,21 @@ async function open(env: Env, sealed: string): Promise<string | null> {
 
 // --- Reading and writing --------------------------------------------------------------------------
 
-/** Every saved value, decrypted (in the Worker only). */
-export async function readFeatures(env: Env): Promise<Partial<Record<FieldName, string>>> {
+export interface Saved {
+  values: Partial<Record<FieldName, string>>;
+  /** Saved but cannot be decrypted any more (SHARED_SECRET changed): to paste again. */
+  unreadable: FieldName[];
+}
+
+/** Every saved value, decrypted (in the Worker only), and which could not be. */
+export async function readFeatures(env: Env): Promise<Saved> {
   const { results } = await env.DB.prepare('SELECT name, value, secret FROM feature_settings').all<{ name: FieldName; value: string; secret: number }>();
-  const out: Partial<Record<FieldName, string>> = {};
+  const out: Saved = { values: {}, unreadable: [] };
   for (const r of results) {
     if (!(r.name in FIELDS)) continue;
     const v = r.secret ? await open(env, r.value) : r.value;
-    if (v !== null && v !== '') out[r.name] = v;
+    if (v === null) out.unreadable.push(r.name);
+    else if (v !== '') out.values[r.name] = v;
   }
   return out;
 }
@@ -90,29 +100,41 @@ export async function writeFeature(env: Env, name: FieldName, value: string): Pr
 
 // --- The settings every request runs with ----------------------------------------------------------
 
-let cache: { at: number; values: Partial<Record<FieldName, string>> } | null = null;
+let cache: { at: number; saved: Saved } | null = null;
+/** Bumped by forgetFeatures: a read that started before a change never refills the cache. */
+let generation = 0;
 const CACHE_MS = 15_000;
 
 /** Forget the cached values (after a change on the admin page). */
 export const forgetFeatures = () => {
   cache = null;
+  generation++;
 };
+
+
 
 /**
  * The Worker's settings with the panel's values filled in where the server has none. Read at
  * most every 15 seconds per Worker instance; a change shows everywhere within that time.
  */
 export async function withFeatures(env: Env): Promise<Env> {
-  if (!cache || Date.now() - cache.at > CACHE_MS) {
-    const values = await readFeatures(env).catch(() => null);
-    if (!values) return env; // table not made yet, or the database is down: the server's settings alone
-    cache = { at: Date.now(), values };
+  let current = cache;
+  if (!current || Date.now() - current.at > CACHE_MS) {
+    const started = generation;
+    const saved = await readFeatures(env).catch(() => null);
+    // Cannot read them (database down): run, but never with weaker admin sign-in than was set.
+    if (!saved) return { ...env, SERVER_ENV: env, FEATURES_UNAVAILABLE: '1' };
+    current = { at: Date.now(), saved };
+    if (started === generation) cache = current;
   }
   const live: Env = { ...env, SERVER_ENV: env };
-  for (const [name, value] of Object.entries(cache.values) as [FieldName, string][]) {
-    if (name === 'ADMIN_TOTP_PENDING') continue;
-    const k = name as keyof Env;
-    if (live[k] === undefined || live[k] === '') (live as unknown as Record<string, string>)[k] = value;
+  const fill = (k: keyof Env, value: string) => {
+    if (live[k] === undefined || live[k] === '') (live as unknown as Record<string, string>)[k as string] = value;
+  };
+  for (const [name, value] of Object.entries(current.saved.values) as [FieldName, string][]) {
+    if (name !== 'ADMIN_TOTP_PENDING') fill(name as keyof Env, value);
   }
+  // A two-step secret that cannot be decrypted keeps two-step sign-in on (and refuses sign-in), never off.
+  if (current.saved.unreadable.includes('ADMIN_TOTP_SECRET')) fill('ADMIN_TOTP_SECRET', UNREADABLE);
   return live;
 }

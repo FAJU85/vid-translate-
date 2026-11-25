@@ -33,14 +33,18 @@ function newTotpSecret(): string {
 export async function handleFeatures(request: Request, env: Env, path: string, origin: string): Promise<Response | null> {
   if (path !== '/api/admin/features') return null;
   const server = env.SERVER_ENV ?? env;
-  const saved = await readFeatures(server);
+  const { values: saved, unreadable } = await readFeatures(server);
   const live = await withFeatures(server);
-  const source = (name: FieldName): Source => (server[name as keyof Env] ? 'server' : saved[name] ? 'panel' : null);
+  const source = (name: FieldName): Source => (server[name as keyof Env] ? 'server' : saved[name] || unreadable.includes(name) ? 'panel' : null);
   const base = await publicOrigin(server, origin);
 
   if (request.method === 'GET') {
     const site = await publicSettings(server).catch(() => null);
+    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'];
     return json({
+      // Per setting: set on the server (locked here), saved here, or not set; and which saved keys cannot be read.
+      sources: Object.fromEntries(fields.map((n) => [n, source(n)])),
+      unreadable: unreadable.filter((n) => n !== 'ADMIN_TOTP_PENDING'),
       two_step: { on: Boolean(live.ADMIN_TOTP_SECRET), source: source('ADMIN_TOTP_SECRET') },
       credits: { on: ['1', 'true', 'yes'].includes(String(live.CREDITS_ENABLED ?? '').toLowerCase()), source: source('CREDITS_ENABLED') },
       limits: {
@@ -99,6 +103,7 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
     }
     await writeFeature(server, 'ADMIN_TOTP_SECRET', pending);
     await writeFeature(server, 'ADMIN_TOTP_PENDING', '');
+    await writeFeature(server, 'ADMIN_TOKEN_EPOCH', String(Date.now())); // every earlier sign-in ends
     forgetFeatures();
     // Turning it on ends every earlier sign-in, this one too: here is a new one.
     const { token } = await issueAdminToken(await withFeatures(server));
@@ -107,11 +112,14 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
   if (action === '2fa_off') {
     if (server.ADMIN_TOTP_SECRET) return apiError(409, 'E_SET_ON_SERVER', 'Two-step sign-in is set on the server; remove it there.');
     const active = saved.ADMIN_TOTP_SECRET;
+    if (!active && unreadable.includes('ADMIN_TOTP_SECRET')) return apiError(409, 'E_2FA_UNREADABLE', 'The saved two-step secret cannot be read; see the README to reset it.');
     if (!active) return apiError(400, 'E_BAD_REQUEST', 'Two-step sign-in is already off.');
     if (!(await totpOk(active, String(body?.code ?? '').replace(/\s/g, '')))) {
       return apiError(400, 'E_2FA_WRONG', 'Enter the current code from your app to turn it off.');
     }
     await writeFeature(server, 'ADMIN_TOTP_SECRET', '');
+    // Turning it off must not bring back sign-ins from before it was on: a new epoch ends them all.
+    await writeFeature(server, 'ADMIN_TOKEN_EPOCH', String(Date.now()));
     forgetFeatures();
     const { token } = await issueAdminToken(await withFeatures(server));
     return done('two_step:off', { token });

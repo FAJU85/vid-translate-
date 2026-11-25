@@ -31,7 +31,7 @@ function Card({ icon: Icon, title, status, children }: { icon: typeof Bot; title
 const ServerNote = () => <p className="text-xs text-slate-400">Set on the server (Worker settings), which always wins. Change it there.</p>;
 
 /** A saved key: shown as its last 4 characters only; a new one replaces it, Remove clears it. */
-function KeyField({ label, saved, onSave, disabled, placeholder }: { label: string; saved: string | null; onSave: (v: string) => Promise<void>; disabled: boolean; placeholder?: string }) {
+function KeyField({ label, saved, onSave, disabled, placeholder }: { label: string; saved: string | null; onSave: (v: string) => Promise<boolean>; disabled: boolean; placeholder?: string }) {
   const [value, setValue] = useState('');
   return (
     <div className="space-y-1">
@@ -40,7 +40,7 @@ function KeyField({ label, saved, onSave, disabled, placeholder }: { label: stri
       </span>
       <div className="flex gap-2">
         <input type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder ?? (saved ? 'Paste a new one to replace it' : 'Paste it here')} className={input} disabled={disabled} />
-        <button className={quiet} disabled={disabled || !value.trim()} onClick={() => onSave(value).then(() => setValue(''))}>
+        <button className={quiet} disabled={disabled || !value.trim()} onClick={() => onSave(value).then((ok) => ok && setValue(''))}>
           Save
         </button>
         {saved && (
@@ -103,9 +103,10 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
     setNote(null);
     try {
       const r = await adminApi.feature(password, body);
-      if (r.token) onToken(r.token, body.action === '2fa_confirm');
       if (done) setNote(done);
-      await load();
+      // A new sign-in token (two-step turned on or off): the page reloads with it, never with the old one.
+      if (r.token) onToken(r.token, body.action === '2fa_confirm');
+      else await load();
       return r;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'That did not work.');
@@ -114,7 +115,10 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
       setBusy(null);
     }
   }
-  const set = (name: string, value: string, done = 'Saved.') => run(name, { action: 'set', name, value }, done).then(() => undefined);
+  /** Save one setting; true when it was saved (the field keeps what was typed otherwise). */
+  const set = (name: string, value: string, done = 'Saved.') => run(name, { action: 'set', name, value }, done).then((r) => r !== null);
+  /** Set on the server: shown, but changed there, not here. */
+  const locked = (name: string) => f?.sources[name] === 'server';
 
   if (!f) {
     return <div className="p-6 text-sm text-slate-400">{error ?? <Loader2 className="w-5 h-5 animate-spin" />}</div>;
@@ -134,12 +138,17 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
         <h1 className="text-lg font-bold text-white">Features</h1>
         <p className="text-sm text-slate-400">Everything is ready: switch a feature on when you want it. Keys pasted here are stored encrypted and never shown again.</p>
       </div>
+      {f.unreadable.length > 0 && (
+        <p className="p-3 text-sm rounded-xl border border-amber-700 bg-amber-950/50 text-amber-100">
+          These saved keys cannot be read any more (the server's SHARED_SECRET changed): {f.unreadable.join(', ')}. Paste them again below.
+        </p>
+      )}
       {error && <p className="p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">{error}</p>}
       {note && <p className="p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">{note}</p>}
 
       <Card icon={ShieldCheck} title="Two-step sign-in for this page" status={<Chip on={f.two_step.on} label={f.two_step.on ? 'On' : 'Off'} />}>
         <p className="text-sm text-slate-400">Signing in here also needs a 6-digit code from an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password…).</p>
-        {f.two_step.source === 'server' ? (
+        {locked('ADMIN_TOTP_SECRET') ? (
           <ServerNote />
         ) : f.two_step.on ? (
           <div className="flex flex-wrap items-end gap-2">
@@ -185,7 +194,7 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
         <p className="text-sm text-slate-400">
           Off: translating is free and unlimited (within the limits below). On: each minute of video uses a credit; everyone gets free credits every day, and more when they sign in.
         </p>
-        {f.credits.source === 'server' ? (
+        {locked('CREDITS_ENABLED') ? (
           <ServerNote />
         ) : (
           <button
@@ -202,24 +211,24 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
       </Card>
 
       <Card icon={Gauge} title="Limits" status={<Chip on label={`${f.limits.max_jobs_per_hour}/hour · ${f.limits.max_upload_mb} MB`} />}>
-        {f.limits.source === 'server' ? (
+        {locked('MAX_JOBS_PER_HOUR') && locked('MAX_UPLOAD_MB') ? (
           <ServerNote />
         ) : (
           <div className="flex flex-wrap items-end gap-3">
             <label className="space-y-1">
               <span className="block text-xs text-slate-400">Videos per person per hour</span>
-              <input type="number" min={1} max={1000} value={limits.jobs} onChange={(e) => setLimits({ ...limits, jobs: e.target.value })} className={`${input} w-32`} />
+              <input type="number" min={1} max={1000} disabled={locked('MAX_JOBS_PER_HOUR')} value={limits.jobs} onChange={(e) => setLimits({ ...limits, jobs: e.target.value })} className={`${input} w-32`} />
             </label>
             <label className="space-y-1">
               <span className="block text-xs text-slate-400">Largest upload (MB)</span>
-              <input type="number" min={1} max={2000} value={limits.mb} onChange={(e) => setLimits({ ...limits, mb: e.target.value })} className={`${input} w-32`} />
+              <input type="number" min={1} max={2000} disabled={locked('MAX_UPLOAD_MB')} value={limits.mb} onChange={(e) => setLimits({ ...limits, mb: e.target.value })} className={`${input} w-32`} />
             </label>
             <button
               className={quiet}
               disabled={busy !== null}
               onClick={async () => {
-                await set('MAX_JOBS_PER_HOUR', limits.jobs, '');
-                await set('MAX_UPLOAD_MB', limits.mb, 'Limits saved.');
+                if (!locked('MAX_JOBS_PER_HOUR') && !(await set('MAX_JOBS_PER_HOUR', limits.jobs, ''))) return;
+                if (!locked('MAX_UPLOAD_MB')) await set('MAX_UPLOAD_MB', limits.mb, 'Limits saved.');
               }}
             >
               Save
@@ -236,17 +245,17 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
           </a>{' '}
           account: verify your domain there, create an API key, and paste it below.
         </p>
-        {f.email.source === 'server' ? (
+        {locked('RESEND_API_KEY') && locked('EMAIL_FROM') ? (
           <ServerNote />
         ) : (
           <>
-            <KeyField label="Resend API key" saved={f.email.key} disabled={busy !== null} onSave={(v) => set('RESEND_API_KEY', v)} placeholder="re_…" />
-            <div className="flex gap-2">
+            {locked('RESEND_API_KEY') ? <ServerNote /> : <KeyField label="Resend API key" saved={f.email.key} disabled={busy !== null} onSave={(v) => set('RESEND_API_KEY', v)} placeholder="re_…" />}
+            {!locked('EMAIL_FROM') && <div className="flex gap-2">
               <input value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} placeholder="KAVOX <hello@your-domain.com>" className={input} />
               <button className={quiet} disabled={busy !== null || emailFrom === f.email.from} onClick={() => set('EMAIL_FROM', emailFrom)}>
                 Save
               </button>
-            </div>
+            </div>}
           </>
         )}
       </Card>
@@ -260,17 +269,17 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
           , create an OAuth client (Web application) with this redirect address, then paste its ID and secret:
         </p>
         <Copyable value={f.google.redirect_uri} />
-        {f.google.source === 'server' ? (
+        {locked('GOOGLE_CLIENT_ID') && locked('GOOGLE_CLIENT_SECRET') ? (
           <ServerNote />
         ) : (
           <>
-            <div className="flex gap-2">
+            {!locked('GOOGLE_CLIENT_ID') && <div className="flex gap-2">
               <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Client ID (….apps.googleusercontent.com)" className={input} />
               <button className={quiet} disabled={busy !== null || clientId === f.google.client_id} onClick={() => set('GOOGLE_CLIENT_ID', clientId)}>
                 Save
               </button>
-            </div>
-            <KeyField label="Client secret" saved={f.google.secret} disabled={busy !== null} onSave={(v) => set('GOOGLE_CLIENT_SECRET', v)} placeholder="GOCSPX-…" />
+            </div>}
+            {locked('GOOGLE_CLIENT_SECRET') ? <ServerNote /> : <KeyField label="Client secret" saved={f.google.secret} disabled={busy !== null} onSave={(v) => set('GOOGLE_CLIENT_SECRET', v)} placeholder="GOCSPX-…" />}
           </>
         )}
       </Card>
@@ -284,14 +293,8 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
           , copy the secret key, and add a webhook to this address (events: checkout.session.completed, checkout.session.async_payment_succeeded, invoice.paid), then paste its signing secret:
         </p>
         <Copyable value={f.stripe.webhook_url} />
-        {f.stripe.source === 'server' ? (
-          <ServerNote />
-        ) : (
-          <>
-            <KeyField label="Secret key" saved={f.stripe.key} disabled={busy !== null} onSave={(v) => set('STRIPE_SECRET_KEY', v)} placeholder="sk_live_…" />
-            <KeyField label="Webhook signing secret" saved={f.stripe.webhook_secret} disabled={busy !== null} onSave={(v) => set('STRIPE_WEBHOOK_SECRET', v)} placeholder="whsec_…" />
-          </>
-        )}
+        {locked('STRIPE_SECRET_KEY') ? <ServerNote /> : <KeyField label="Secret key" saved={f.stripe.key} disabled={busy !== null} onSave={(v) => set('STRIPE_SECRET_KEY', v)} placeholder="sk_live_…" />}
+        {locked('STRIPE_WEBHOOK_SECRET') ? <ServerNote /> : <KeyField label="Webhook signing secret" saved={f.stripe.webhook_secret} disabled={busy !== null} onSave={(v) => set('STRIPE_WEBHOOK_SECRET', v)} placeholder="whsec_…" />}
       </Card>
 
       <Card icon={Bot} title="Telegram bot" status={<Chip on={Boolean(f.telegram.bot)} label={f.telegram.bot ? `@${f.telegram.bot}` : 'Not connected'} />}>

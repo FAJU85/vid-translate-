@@ -45,6 +45,10 @@ export interface Env {
   ASSETS?: Fetcher;
   /** The server's own settings, before the admin page's values were filled in (features brick). */
   SERVER_ENV?: Env;
+  /** "1" when the admin page's saved settings could not be read: admin sign-in is refused, not weakened. */
+  FEATURES_UNAVAILABLE?: string;
+  /** Changes every time two-step sign-in is turned on or off from the admin page: ends every earlier sign-in. */
+  ADMIN_TOKEN_EPOCH?: string;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);

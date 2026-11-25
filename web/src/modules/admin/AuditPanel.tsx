@@ -55,7 +55,12 @@ export function AuditPanel({ password }: { password: string }) {
         if (id === latest.current) setLoading(false);
       });
   };
-  useEffect(() => load(null), [password, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A new filter (or sign-in) starts from its first page: nothing from the previous one stays.
+  useEffect(() => {
+    setItems([]);
+    setNext(null);
+    load(null);
+  }, [password, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">

@@ -45,7 +45,11 @@ const passwordOk = (env: Env, given: string) => {
  * Tokens are signed with the password, the shared secret and the two-step secret: changing any of
  * them (turning two-step sign-in on included) signs everyone out.
  */
-const tokenKey = (env: Env) => `admin|${env.ADMIN_PASSWORD ?? ''}|${env.SHARED_SECRET ?? ''}|${env.ADMIN_TOTP_SECRET ?? ''}`;
+const tokenKey = (env: Env) =>
+  `admin|${env.ADMIN_PASSWORD ?? ''}|${env.SHARED_SECRET ?? ''}|${env.ADMIN_TOTP_SECRET ?? ''}|${env.ADMIN_TOKEN_EPOCH ?? ''}`;
+
+/** A two-step secret saved on the admin page that cannot be decrypted (SHARED_SECRET changed). */
+export const TOTP_UNREADABLE = '!unreadable';
 
 /** A fresh admin sign-in token (for example after two-step sign-in was turned on, which ends the old ones). */
 export async function makeToken(env: Env): Promise<{ token: string; expires_at: number }> {
@@ -106,6 +110,7 @@ export async function totpOk(secretBase32: string, code: string): Promise<boolea
  * /api/admin/login). Without two-step sign-in set up, the password itself is still accepted.
  */
 export async function isAdmin(request: Request, env: Env): Promise<boolean> {
+  if (env.FEATURES_UNAVAILABLE) return false; // cannot tell whether two-step sign-in is on: refuse
   const given = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   if (!given) return false;
   if (given.startsWith('adm.')) return tokenOk(env, given);
@@ -119,6 +124,14 @@ export async function isAdmin(request: Request, env: Env): Promise<boolean> {
  */
 export async function handleAdminLogin(request: Request, env: Env): Promise<Response> {
   if (!env.ADMIN_PASSWORD) return apiError(503, 'E_ADMIN_DISABLED', 'Set the ADMIN_PASSWORD secret to enable this page.');
+  if (env.FEATURES_UNAVAILABLE) return apiError(503, 'E_TRY_LATER', 'The sign-in settings cannot be read right now. Try again in a minute.');
+  if (env.ADMIN_TOTP_SECRET === TOTP_UNREADABLE) {
+    return apiError(
+      503,
+      'E_2FA_UNREADABLE',
+      'The two-step secret saved on the Features page cannot be read (SHARED_SECRET changed). Set ADMIN_TOTP_SECRET on the server, or remove the saved one: npx wrangler d1 execute DB --remote --command "DELETE FROM feature_settings WHERE name = \'ADMIN_TOTP_SECRET\'"',
+    );
+  }
   const conn = (await connectionKey(env.SHARED_SECRET, request)) ?? 'unknown';
   if ((await countTry(env, conn)) > MAX_TRIES) {
     return apiError(429, 'E_SLOW_DOWN', 'Too many failed sign-ins. Try again in 15 minutes.');

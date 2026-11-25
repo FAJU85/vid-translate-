@@ -402,6 +402,10 @@ export const feedbackApi = {
 
 type FeatureSource = 'server' | 'panel' | null;
 export interface AdminFeatures {
+  /** Per setting: 'server' (locked here), 'panel' (saved here) or null. */
+  sources: Record<string, FeatureSource>;
+  /** Saved keys that cannot be read any more (SHARED_SECRET changed): paste them again. */
+  unreadable: string[];
   two_step: { on: boolean; source: FeatureSource };
   credits: { on: boolean; source: FeatureSource };
   limits: { max_jobs_per_hour: number; max_upload_mb: number; source: FeatureSource };

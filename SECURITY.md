@@ -4,9 +4,13 @@
 
 Please report security problems privately, not in a public issue:
 
-- through GitHub's private vulnerability reporting on this repository (**Security → Report a
-  vulnerability**), which is always available; or
-- to the contact email shown on the site's `/privacy` page (set on `/admin`).
+- to the contact email shown on the site's `/privacy` page (set on `/admin` → Settings); or
+- through GitHub's private vulnerability reporting (**Security → Report a vulnerability**), when
+  the repository owner has turned it on (repository **Settings → Code security → Private
+  vulnerability reporting → Enable**).
+
+Owner: keep at least one of the two working. Until the contact email is set, turn the GitHub
+channel on.
 
 Include what you found and how to reproduce it.
 We aim to answer within a few days and to fix confirmed problems quickly.
