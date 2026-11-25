@@ -171,6 +171,7 @@ function Site() {
             me={me}
             onPricing={() => setTab('pricing')}
             onSignIn={() => setAccountOpen(true)}
+            onFeed={() => setTab('feed')}
             resume={resume}
           />
         </div>

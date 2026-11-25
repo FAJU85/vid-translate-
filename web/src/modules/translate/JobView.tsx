@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job, type RatingAspect } from '../../shared/api';
 import { ShareLink } from './ShareLink';
+import { Progress } from './Progress';
+import { PostToProfile } from './PostToProfile';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
 
 interface Props {
@@ -11,6 +13,9 @@ interface Props {
   onClose: () => void;
   /** A retry runs as a new job: show that one instead. */
   onRetried: (jobId: string) => void;
+  /** Signed in with an account (not a guest): the result offers posting to the profile. */
+  signedIn?: boolean;
+  onSignIn?: () => void;
 }
 
 const ACTIVE = new Set(['awaiting_upload', 'queued', 'running']);
@@ -25,7 +30,7 @@ function waitLine(job: Job): string | null {
   return job.status === 'running' ? `About ${min} min left` : null;
 }
 
-export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Props) {
+export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, signedIn = false, onSignIn }: Props) {
   const [job, setJob] = useState<Job | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cues, setCues] = useState<Cue[] | null>(null);
@@ -251,9 +256,10 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
         </div>
 
         {active && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <Progress job={job} />
             <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2 text-amber-300">
+              <span className="flex items-center gap-2 text-rose-300">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 {STAGE_LABEL[job.status === 'running' ? job.stage : job.stage === 'waking' ? 'waking' : job.status] ?? job.stage}
               </span>
@@ -266,7 +272,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
               aria-valuemin={0}
               aria-valuemax={100}
             >
-              <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${job.progress}%` }} />
+              <div className="h-full bg-gradient-to-r from-amber-400 to-rose-400 transition-all duration-500" style={{ width: `${job.progress}%` }} />
             </div>
             {waitLine(job) && <p className="text-sm text-slate-300">{waitLine(job)}</p>}
             <div className="flex items-center justify-between text-xs text-slate-500">
@@ -315,11 +321,20 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried }: Pr
 
         {job.status === 'done' && (
           <>
-            <div className="flex items-center gap-2 text-sm text-emerald-300">
-              <CheckCircle2 className="w-4 h-4" />
-              Ready. Files stay available for 24 hours.
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5" />
+              </span>
+              <span>
+                {/* Subtitle files from a link have no video to watch here: say what there is. */}
+                <span className="block font-semibold text-slate-100">{videoUrl ? 'Your video is ready' : 'Your subtitles are ready'}</span>
+                <span className="block text-xs text-slate-400">
+                  {videoUrl ? 'Watch it below.' : 'Download the files below.'} Files stay available for 24 hours.
+                </span>
+              </span>
             </div>
             {job.share_url && <ShareLink url={job.share_url} />}
+            {job.share_url && <PostToProfile shareUrl={job.share_url} signedIn={signedIn} onSignIn={onSignIn} />}
             <div className="flex flex-wrap gap-2">
               {downloads.map(
                 ([label, url], i) =>

@@ -11,8 +11,8 @@
     "description": "Turn any video into subtitles or a dubbed voice in your language, then share it with the world. Works in the browser and in Telegram."
   },
   "translate": {
-    "title": "Translate a video's speech into subtitles",
-    "intro": "Upload a file or paste a link. You get a subtitle file (.srt / .vtt) in the language you choose, or the video with the subtitles burned in.",
+    "title": "Watch any video in your language",
+    "intro": "Paste a link or upload a file. KAVOX turns the speech into subtitles or a dubbed voice in the language you choose. Then download it, share a link, or post it for everyone to watch.",
     "link_hint": "A public video link (Facebook, Instagram, TikTok and many more) or a direct link to a video or audio file. YouTube links are not supported: upload the file instead."
   },
   "history": {
