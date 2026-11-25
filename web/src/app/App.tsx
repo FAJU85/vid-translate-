@@ -195,6 +195,7 @@ function Site() {
             }}
             onSignIn={() => setAccountOpen(true)}
             onPricing={() => setTab('pricing')}
+            onTranslate={() => setTab('translate')}
           />
         )}
         {tab === 'feed' && <FeedView config={config} signedIn={Boolean(me?.account)} onSignIn={() => setAccountOpen(true)} />}
