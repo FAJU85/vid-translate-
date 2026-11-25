@@ -12,10 +12,15 @@ const day = (sec: number) => new Date(sec * 1000).toISOString().slice(0, 10);
 /**
  * GET /robots.txt and /sitemap.xml, so search engines find what people posted: every posted
  * video's page and its creator's profile (blocked accounts left out). Link-only videos are never
- * listed and their pages say noindex.
+ * listed and their pages say noindex. Also /google….html, Search Console's ownership check.
  */
 export async function handleSeo(request: Request, env: Env, path: string, origin: string): Promise<Response | null> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
+  // Google Search Console's ownership check (the HTML file method): the file name set on /admin.
+  const verify = env.GOOGLE_SITE_VERIFICATION;
+  if (verify && path === `/${verify}.html`) {
+    return new Response(`google-site-verification: ${verify}.html`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  }
   const base = await publicOrigin(env, origin);
 
   if (path === '/robots.txt') {

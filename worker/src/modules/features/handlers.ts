@@ -40,7 +40,7 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
 
   if (request.method === 'GET') {
     const site = await publicSettings(server).catch(() => null);
-    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'];
+    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
     return json({
       // Per setting: set on the server (locked here), saved here, or not set; and which saved keys cannot be read.
       sources: Object.fromEntries(fields.map((n) => [n, source(n)])),
@@ -74,6 +74,12 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
       },
       telegram: { bot: await getBotUsername(live).catch(() => null) },
       domain: { public_domain: site?.public_domain || '', https_note: Boolean(site?.public_domain) },
+      search: {
+        site: `${base}/`,
+        sitemap: `${base}/sitemap.xml`,
+        verification: live.GOOGLE_SITE_VERIFICATION ?? '',
+        file_url: live.GOOGLE_SITE_VERIFICATION ? `${base}/${live.GOOGLE_SITE_VERIFICATION}.html` : null,
+      },
     });
   }
   if (request.method !== 'POST') return null;
@@ -135,7 +141,7 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
   // --- A switch, a number or a key ---
   if (action === 'set') {
     const name = String(body?.name ?? '') as FieldName;
-    const settable: FieldName[] = ['CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'];
+    const settable: FieldName[] = ['CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
     if (!settable.includes(name)) return apiError(400, 'E_BAD_REQUEST', 'That cannot be set here.');
     if (server[name as keyof Env]) return apiError(409, 'E_SET_ON_SERVER', 'This is set on the server; change it there.');
     let value = String(body?.value ?? '').trim();
@@ -147,6 +153,12 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
     }
     if (name === 'EMAIL_FROM' && value && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$|^.+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>$/.test(value)) {
       return apiError(400, 'E_BAD_REQUEST', 'The sender must look like name@your-domain.com or KAVOX <name@your-domain.com>.');
+    }
+    if (name === 'GOOGLE_SITE_VERIFICATION' && value) {
+      // The file Search Console gives (google1a2b….html), its name, or its content: keep the name.
+      const file = value.match(/google[0-9a-z]{6,64}/i)?.[0];
+      if (!file) return apiError(400, 'E_BAD_REQUEST', 'Paste the name of the file Google gives (like google1a2b3c4d5e6f7a8b.html).');
+      value = file.toLowerCase();
     }
     if (value.length > 500) return apiError(400, 'E_BAD_REQUEST', 'That is too long.');
     await writeFeature(server, name, value);

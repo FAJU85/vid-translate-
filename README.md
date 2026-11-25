@@ -478,7 +478,12 @@ Posted videos and creator profiles can be found on Google; link-only videos cann
   title and description in the preview.
 - To be found sooner: add your site in [Google Search Console](https://search.google.com/search-console)
   and submit `https://<your address>/sitemap.xml` there (free). The addresses use the public
-  domain set in the admin panel, so set the domain first.
+  domain set in the admin panel, so set the domain first. The admin panel's Features page →
+  **Launch** walks through it: paste the name of Google's HTML check file (`google….html`) there
+  and the site serves the file itself, nothing to upload.
+- The same Launch section shows whether GitHub's private vulnerability reporting is on (read from
+  GitHub's public API) and the live health of the Worker and the Space, with the steps to replace
+  the Logs workflow's `CLOUDFLARE_API_TOKEN` (a GitHub secret, set on GitHub, never in the panel).
 
 ## Feedback
 

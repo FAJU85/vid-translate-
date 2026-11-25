@@ -414,6 +414,7 @@ export interface AdminFeatures {
   stripe: { ready: boolean; key: string | null; webhook_secret: string | null; webhook_url: string; source: FeatureSource };
   telegram: { bot: string | null };
   domain: { public_domain: string; https_note: boolean };
+  search: { site: string; sitemap: string; verification: string; file_url: string | null };
 }
 
 export interface AuditItem {
