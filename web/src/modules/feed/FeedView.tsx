@@ -89,7 +89,7 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
 
   const from = item.src_lang && item.src_lang !== 'auto' && item.src_lang !== item.tgt_lang ? `${lang(item.src_lang)} → ` : '';
   const action = 'flex flex-col items-center gap-0.5 text-[11px] font-semibold text-white drop-shadow';
-  const round = 'w-11 h-11 rounded-full bg-black/40 backdrop-blur flex items-center justify-center';
+  const round = 'w-11 h-11 rounded-full bg-slate-950/70 ring-1 ring-slate-100/15 backdrop-blur flex items-center justify-center';
   return (
     <div ref={box} className="relative h-full w-full snap-start snap-always bg-black overflow-hidden">
       <video
@@ -106,7 +106,10 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
       />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
       <div className="absolute left-3 right-20 bottom-4 text-white space-y-1">
-        <a href={`/@${item.creator.handle}`} className="font-bold drop-shadow hover:underline">
+        <a href={`/@${item.creator.handle}`} className="inline-flex items-center gap-2 font-bold drop-shadow hover:underline">
+          <span className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 text-sm font-extrabold flex items-center justify-center ring-2 ring-slate-950/40">
+            {item.creator.handle[0].toUpperCase()}
+          </span>
           @{item.creator.handle}
         </a>
         {item.title && (

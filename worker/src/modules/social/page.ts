@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
 import { reportDialog } from '../../shared/report-dialog';
-import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
+import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
 import { followCounts, isBlocked, profileByHandle } from './store';
@@ -39,13 +39,7 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   const views = totals.views;
   const name = profile.display_name || `@${profile.handle}`;
   const url = `${base}/@${profile.handle}`;
-  const tiles = videos
-    .map((v) => {
-      const title = v.title || 'Translated video';
-      const thumb = v.has_thumb ? `<img src="/v/${v.id}/thumb.jpg" alt="" loading="lazy">` : '<div class="blank"></div>';
-      return `<a class="tile" href="/${v.id}" title="${esc(title)}">${thumb}<span class="badge">${v.mode === 'dub' ? 'Dubbed' : 'Subtitled'} · ${esc(langName(v.tgt_lang))}</span><span class="views">▶ ${v.views}</span></a>`;
-    })
-    .join('');
+  const tiles = videos.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang) })).join('');
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -78,13 +72,10 @@ ${chromeCss}
   .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid #2E3D63; color: #F9EBD6; background: transparent; font: inherit; cursor: pointer; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #131C31; font-weight: 700; }
   .btn.primary.on { background: transparent; color: #F9EBD6; border-color: #2E3D63; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 20px; }
-  @media (min-width: 720px) { .grid { grid-template-columns: repeat(4, 1fr); } }
-  .tile { position: relative; aspect-ratio: 9 / 16; background: #19243E; border-radius: 6px; overflow: hidden; display: block; }
-  .tile img, .tile .blank { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .badge, .views { position: absolute; left: 6px; font-size: 11px; color: #F9EBD6; text-shadow: 0 1px 2px #000; }
-  .badge { top: 6px; background: rgba(2, 6, 23, .6); padding: 1px 6px; border-radius: 6px; }
-  .views { bottom: 6px; font-weight: 700; }
+${tileCss}
+${ctaCss}
+  .link { background: none; border: 0; padding: 8px 4px; color: #8F8B88; font: inherit; font-size: 13px; cursor: pointer; }
+  .link:hover { color: #E2D6C6; text-decoration: underline; }
   footer { max-width: 960px; margin: 0 auto; padding: 16px; color: #8F8B88; font-size: 13px; }
   footer a { color: var(--accent); }
   .empty { color: #ABA59E; text-align: center; padding: 48px 0; }
@@ -102,8 +93,9 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
     </div>
   </div>
   ${profile.bio ? `<p class="bio">${esc(profile.bio)}</p>` : ''}
-  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>Follow</button> <button class="btn" id="copy" type="button">Copy profile link</button> <button class="btn" type="button" onclick="kavoxReport('profile', ${esc(JSON.stringify(profile.handle))})">Report</button></div>
+  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>Follow</button> <button class="btn" id="copy" type="button">Copy profile link</button> <button class="link" type="button" onclick="kavoxReport('profile', ${esc(JSON.stringify(profile.handle))})">Report</button></div>
   ${videos.length ? `<div class="grid">${tiles}</div>` : '<p class="empty">No videos posted yet.</p>'}
+  ${makeYourOwn(esc(brand))}
 </main>
 <footer>Made with <a href="/">${esc(brand)}</a> · <a href="/terms">Terms</a></footer>
 ${reportDialog('profile', profile.handle)}

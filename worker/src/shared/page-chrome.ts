@@ -43,3 +43,50 @@ export const chromeCss = `
  */
 export const brandHeader = (brand: string, logo = DEFAULT_LOGO, size = 36) =>
   `<header class="kx-head"><a class="kx-brand" href="/"><img src="${logo}" alt="" style="height:${size}px;max-width:${size * 4}px"><span>${brand}</span></a></header>`;
+
+/** A video as a tall tile: its picture, or (without one) its title on a soft brand gradient. */
+export interface TileVideo {
+  id: string;
+  title: string | null;
+  mode: string;
+  views: number;
+  has_thumb: number;
+  /** "Arabic", already looked up. */
+  language: string;
+}
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+export const videoTile = (v: TileVideo) => {
+  const title = escHtml(v.title || 'Translated video');
+  const picture = v.has_thumb
+    ? `<img src="/v/${v.id}/thumb.jpg" alt="" loading="lazy">`
+    : `<span class="blank"><span class="play">▶</span><span class="t" dir="auto">${title}</span></span>`;
+  return `<a class="tile" href="/${v.id}" title="${title}">${picture}<span class="badge">${v.mode === 'dub' ? 'Dubbed' : 'Subtitled'} · ${escHtml(v.language)}</span><span class="views">▶ ${v.views}</span></a>`;
+};
+export const tileCss = `
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; }
+  @media (min-width: 720px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+  .tile { position: relative; aspect-ratio: 9 / 16; background: ${PALETTE.panel}; border-radius: 10px; overflow: hidden; display: block; text-decoration: none; }
+  .tile:hover { outline: 2px solid ${PALETTE.teal}; outline-offset: 1px; }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tile .blank { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 28px 10px; text-align: center;
+    background: linear-gradient(160deg, rgba(42,184,161,.22), rgba(25,36,62,.9) 55%, rgba(232,124,106,.18)); }
+  .tile .play { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(249,235,214,.12); color: ${PALETTE.cream}; font-size: 14px; }
+  .tile .t { color: ${PALETTE.cream}; font-size: 12px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .badge, .views { position: absolute; left: 6px; font-size: 11px; color: ${PALETTE.cream}; text-shadow: 0 1px 2px #000; }
+  .badge { top: 6px; background: rgba(19,28,49,.7); padding: 1px 6px; border-radius: 6px; }
+  .views { bottom: 6px; font-weight: 700; }`;
+
+/** The invitation every public page ends with: make your own translated video. */
+export const makeYourOwn = (brand: string) => `<a class="kx-cta" href="/">
+  <span class="kx-cta-icon">✦</span>
+  <span><b>Watch any video in your language</b><span>Paste a link or upload a file: ${brand} adds subtitles or a dubbed voice in minutes.</span></span>
+  <span class="kx-cta-go">Try it →</span>
+</a>`;
+export const ctaCss = `
+  .kx-cta { display: flex; align-items: center; gap: 14px; margin-top: 28px; padding: 16px; border-radius: 16px; text-decoration: none; color: ${PALETTE.text};
+    border: 1px solid rgba(42,184,161,.35); background: linear-gradient(120deg, rgba(42,184,161,.14), rgba(232,124,106,.08)); }
+  .kx-cta:hover { border-color: ${PALETTE.teal}; }
+  .kx-cta b { display: block; color: ${PALETTE.cream}; font-size: 15px; }
+  .kx-cta > span > span { display: block; font-size: 13px; color: ${PALETTE.muted}; margin-top: 2px; }
+  .kx-cta-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: ${PALETTE.teal}; color: ${PALETTE.navy}; font-size: 18px; }
+  .kx-cta-go { margin-left: auto; flex: none; color: ${PALETTE.teal}; font-weight: 700; font-size: 14px; }`;
