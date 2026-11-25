@@ -220,7 +220,8 @@ def download_direct(url: str, dest: Path, cancelled: CancelFn, progress: Progres
 def probe(path: Path) -> dict:
     """Return {"duration": seconds, "has_video": bool, "has_audio": bool}."""
     proc = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_type,disposition",
+        # stream_disposition: a song's album art is a picture stream marked attached_pic, not a video.
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_type:stream_disposition=attached_pic",
          "-of", "json", str(path)],
         capture_output=True, text=True, timeout=120,
     )

@@ -114,3 +114,34 @@ def test_a_bad_video_says_nothing_about_the_site(monkeypatch, tmp_path):
     with pytest.raises(PipelineError):
         core.download_url("https://www.instagram.com/p/a/", tmp_path, True, lambda: False, lambda p: None, None, tried)
     assert tried == []
+
+
+# ---------------------------------------------------------------- sound alone
+
+import shutil
+import subprocess
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+def test_album_art_is_not_a_video_and_becomes_the_background(tmp_path):
+    """A song with album art is sound alone: it gets a visualizer video, its cover as the background."""
+    from app.modules.media import audio_video, probe
+
+    art, song = tmp_path / "art.jpg", tmp_path / "song.mp3"
+    run = lambda *a: subprocess.run(["ffmpeg", "-loglevel", "error", "-y", *a], check=True)  # noqa: E731
+    run("-f", "lavfi", "-i", "color=c=orange:s=200x200", "-frames:v", "1", str(art))
+    run("-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-i", str(art), "-map", "0", "-map", "1",
+        "-c:a", "libmp3lame", "-c:v", "mjpeg", "-disposition:v", "attached_pic", str(song))
+    assert probe(song)["has_video"] is False
+
+    (tmp_path / "lyrics.ass").write_text("[Script Info]\nScriptType: v4.00+\n", encoding="utf-8")
+    out = tmp_path / "video.mp4"
+    audio_video(song, "lyrics.ass", out, 2.0, "bars", "cover", "wide", lambda: False, lambda _f: None)
+    info = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                           "-of", "csv=p=0", str(out)], capture_output=True, text=True).stdout.strip()
+    assert info == "1280,720" and probe(out)["has_audio"]
+    # The corner (outside the visualizer band) is the blurred orange cover, not the default navy.
+    pixel = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(out), "-frames:v", "1", "-vf", "crop=2:2:4:4",
+                            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
+    assert pixel[0] > 120 and pixel[2] < 100, pixel
+    assert not (tmp_path / "visual_bg.png").exists()  # the working picture is removed

@@ -61,8 +61,25 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     style = SubtitleStyle.from_dict({"size": "large", "position": "top", "color": "ffcc00", "background": "box", "font": "bold"})
     assert style.to_dict() == {
         "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False, "voice": "female", "animation": "none",
+        "lines": "translation", "look": "wave", "backdrop": "kavox", "frame": "vertical",
     }
     assert SubtitleStyle.from_dict({"bilingual": "yes"}).bilingual is False  # only a real true turns it on
+    sound = SubtitleStyle.from_dict({"look": "neon", "backdrop": "cover", "frame": "wide", "lines": "original"})
+    assert (sound.look, sound.backdrop, sound.frame, sound.lines) == ("neon", "cover", "wide", "original")
+    assert SubtitleStyle.from_dict({"look": "x", "frame": 3}) == SubtitleStyle()
+
+
+def test_to_ass_original_lines_put_the_original_first():
+    """A song's own lyrics as the main line (lit word by word), the translation beside them."""
+    cues = [Cue(1, 0, 2, "Hello my friend", "مرحبا يا صديقي")]
+    out = to_ass(cues, "ar", SubtitleStyle(lines="original", bilingual=True), "en")
+    default, original = [line for line in out.splitlines() if line.startswith("Style:")]
+    assert "Noto Sans," in default and "Noto Sans Arabic" in original  # fonts follow each line's language
+    events = [line for line in out.splitlines() if line.startswith("Dialogue:")]
+    assert events[0].endswith(",Default,,0,0,0,,Hello my friend")
+    assert events[1].endswith(",Original,,0,0,0,,مرحبا يا صديقي")
+    plain = to_ass(cues, "ar", SubtitleStyle(lines="original"), "en")
+    assert "مرحبا" not in plain and "Hello my friend" in plain
 
 
 def test_to_ass_fonts_per_writing_system():

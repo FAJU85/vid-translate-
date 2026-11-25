@@ -141,13 +141,31 @@ def test_rerender_needs_a_kept_video_and_valid_cues(client):
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
-def test_audio_only_hard_mode_skips_render(client, tmp_path):
+def test_audio_only_hard_mode_makes_a_visualizer_video(client, tmp_path):
+    """Sound alone (a song, a podcast) becomes a video: a background, the sound drawn, the lyrics."""
     job = JOB.format(5)
     clip = make_clip(tmp_path, video=False)
     client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=clip)
-    client.post("/invoke", json={"job_id": job, "source_kind": "upload", "subtitle_mode": "hard"}, headers=AUTH)
+    style = {"look": "neon", "backdrop": "sunset", "frame": "square", "lines": "original", "animation": "highlight"}
+    body = {"job_id": job, "source_kind": "upload", "subtitle_mode": "hard", "tgt_lang": "ar", "subtitle_style": style}
+    client.post("/invoke", json=body, headers=AUTH)
     data = wait_done(client, job)
-    assert data["status"] == "done" and "mp4" not in data["outputs"]
+    assert data["status"] == "done", data
+    assert {"mp4", "thumb", "srt"} <= set(data["outputs"])
+    mp4 = client.get(f"/files/{job}/video.mp4", params=signed(f"file:{job}:video.mp4"))
+    assert mp4.status_code == 200 and mp4.content[4:8] == b"ftyp"
+    path = tmp_path / "out.mp4"
+    path.write_bytes(mp4.content)
+    probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                            "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    assert probe.stdout.strip() == "720,720"  # the square frame chosen
+    # Edited lyrics are rendered again onto the kept sound (an id no other test uses: they share one queue).
+    again = "0a0a0a0a-0000-4000-8000-0000000000a5"
+    body = {"job_id": again, "source_kind": "rerender", "parent_job_id": job, "tgt_lang": "ar", "subtitle_mode": "hard",
+            "cues": [{"start": 0.0, "end": 1.4, "text": "Hello there.", "translation": "مرحبا"}], "subtitle_style": style}
+    client.post("/invoke", json=body, headers=AUTH)
+    data = wait_done(client, again)
+    assert data["status"] == "done" and "mp4" in data["outputs"], data
 
 
 def test_garbage_upload_fails_cleanly(client):

@@ -10,6 +10,9 @@ import {
   SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
+  VISUAL_BACKDROPS,
+  VISUAL_FRAMES,
+  VISUAL_LOOKS,
   activeJobs,
   canDub,
   canRetry,
@@ -110,10 +113,11 @@ const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ?
 
 function chooseKeyboard(ui: UiLang, pending: Pending, tgtLang: string): Keyboard {
   const rows: Keyboard = [[{ text: t(ui, 'btn_soft'), callback_data: 'go:soft' }]];
-  if (pending.video) rows[0].push({ text: t(ui, 'btn_hard'), callback_data: 'go:hard' });
+  // Sound alone (a song, a voice note) becomes a video too: a visualizer with the words as lyrics.
+  rows[0].push({ text: t(ui, pending.video ? 'btn_hard' : 'btn_lyrics'), callback_data: 'go:hard' });
   if (pending.video && canDub(tgtLang)) rows.push([{ text: t(ui, 'btn_dub'), callback_data: 'go:dub' }]);
   const last: Keyboard[number] = [{ text: t(ui, 'btn_lang'), callback_data: 'lang' }];
-  if (pending.video) last.push({ text: t(ui, 'btn_style'), callback_data: 'style' });
+  last.push({ text: t(ui, 'btn_style'), callback_data: 'style' });
   rows.push(last);
   return rows;
 }
@@ -334,9 +338,11 @@ const STYLE_COLORS: Record<string, string> = {
   pink: '#F472B6',
 };
 
-/** Same design (the "show the original too" switch and the voice are separate from the ready-made designs). */
+/** What a ready-made design leaves as it is: the voice, which text is shown, and the picture for sound alone. */
+const OWN_CHOICES: (keyof SubtitleStyle)[] = ['bilingual', 'voice', 'lines', 'look', 'backdrop', 'frame'];
+/** Same design (apart from OWN_CHOICES). */
 const sameStyle = (a: SubtitleStyle, b: SubtitleStyle) =>
-  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => k === 'bilingual' || k === 'voice' || a[k] === b[k]);
+  (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => OWN_CHOICES.includes(k) || a[k] === b[k]);
 
 function chatStyle(chat: ChatRow): SubtitleStyle {
   return parseSubtitleStyle(chat.style ? JSON.parse(chat.style) : null);
@@ -359,7 +365,7 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     background: t(ui, `bg_${style.background}`),
     color: color ? t(ui, `color_${color}`) : style.color,
     animation: t(ui, `anim_${style.animation}`),
-  });
+  }) + t(ui, 'sound_menu', { look: t(ui, `look_${style.look}`), backdrop: t(ui, `backdrop_${style.backdrop}`), frame: t(ui, `frame_${style.frame}`) });
   const presets = (Object.keys(STYLE_PRESETS) as (keyof typeof STYLE_PRESETS)[]).map((k) => ({
     text: mark(preset === k, t(ui, `preset_${k}`)),
     callback_data: `st:preset:${k}`,
@@ -376,6 +382,11 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     colors.slice(0, 3),
     colors.slice(3),
     [{ text: t(ui, style.bilingual ? 'bilingual_on' : 'bilingual_off'), callback_data: `st:bilingual:${style.bilingual ? 'off' : 'on'}` }],
+    [{ text: t(ui, `lines_${style.lines}`), callback_data: `st:lines:${style.lines === 'original' ? 'translation' : 'original'}` }],
+    VISUAL_LOOKS.map((v) => ({ text: mark(style.look === v, t(ui, `look_${v}`)), callback_data: `st:look:${v}` })),
+    VISUAL_BACKDROPS.slice(0, 3).map((v) => ({ text: mark(style.backdrop === v, t(ui, `backdrop_${v}`)), callback_data: `st:backdrop:${v}` })),
+    VISUAL_BACKDROPS.slice(3).map((v) => ({ text: mark(style.backdrop === v, t(ui, `backdrop_${v}`)), callback_data: `st:backdrop:${v}` })),
+    VISUAL_FRAMES.map((v) => ({ text: mark(style.frame === v, t(ui, `frame_${v}`)), callback_data: `st:frame:${v}` })),
     (['female', 'male', 'classic'] as const).map((v) => ({ text: mark(style.voice === v, t(ui, `voice_${v}`)), callback_data: `st:voice:${v}` })),
   ];
   return { text, keyboard };
@@ -395,7 +406,7 @@ async function startJob(
     await editMessage(env, chat.chat_id, messageId, t(ui, 'expired'));
     return null;
   }
-  const finalMode: SubtitleMode = pending.video && (mode !== 'dub' || canDub(chat.tgt_lang)) ? mode : 'soft';
+  const finalMode: SubtitleMode = mode === 'hard' || (pending.video && mode === 'dub' && canDub(chat.tgt_lang)) ? mode : 'soft';
   const account = creditsEnabled(env) ? await accountForTelegram(env, chat.chat_id) : null;
   if (account && chat.consent) await recordConsent(env, account.id, chat.consent);
   if (account) {
@@ -468,7 +479,10 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       const current = chatStyle(chat);
       const next =
         field === 'preset'
-          ? parseSubtitleStyle({ ...(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current), bilingual: current.bilingual, voice: current.voice })
+          ? parseSubtitleStyle({
+              ...(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current),
+              ...Object.fromEntries(OWN_CHOICES.map((k) => [k, current[k]])),
+            })
           : field === 'bilingual'
             ? { ...current, bilingual: value === 'on' }
             : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });

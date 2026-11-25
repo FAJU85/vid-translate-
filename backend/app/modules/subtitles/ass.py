@@ -40,6 +40,12 @@ ANIMATIONS = ("none", "highlight", "pop")
 HIGHLIGHT_FALLBACK = "#FFD400"  # the lit word, when the text colour is white
 POP_WORDS = 3  # at most this many words on screen in pop mode
 POP_CHARS = 18  # ... and at most about this many characters
+# Sound alone made into a video (media/visual.py): the visualizer, the background and the frame.
+LOOKS = ("wave", "neon", "bars")
+BACKDROPS = ("kavox", "night", "sunset", "forest", "cover")
+FRAMES = ("vertical", "square", "wide")
+# Which text is the main line: the translation, or the original words (a song's own lyrics).
+LINES = ("translation", "original")
 
 _HEX = re.compile(r"^#?([0-9a-fA-F]{6})$")
 # Emoji and pictographs: no font the renderer can use draws them, so they would become squares.
@@ -56,6 +62,10 @@ class SubtitleStyle:
     bilingual: bool = False  # also show the original text, smaller, next to the translation
     voice: str = "female"  # dubbing: the voice (female / male, or classic: eSpeak NG, rule-based)
     animation: str = "none"  # dynamic captions (ANIMATIONS)
+    lines: str = "translation"  # the main line (LINES); with bilingual, the other one beside it
+    look: str = "wave"  # sound alone: the visualizer (LOOKS)
+    backdrop: str = "kavox"  # sound alone: the background (BACKDROPS; cover = the file's own picture)
+    frame: str = "vertical"  # sound alone: the video's shape (FRAMES)
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
@@ -78,6 +88,10 @@ class SubtitleStyle:
             bilingual=data.get("bilingual") is True,
             voice=pick("voice", ("female", "male", "classic")),
             animation=pick("animation", ANIMATIONS),
+            lines=pick("lines", LINES),
+            look=pick("look", LOOKS),
+            backdrop=pick("backdrop", BACKDROPS),
+            frame=pick("frame", FRAMES),
         )
 
     def to_dict(self) -> dict:
@@ -90,6 +104,10 @@ class SubtitleStyle:
             "bilingual": self.bilingual,
             "voice": self.voice,
             "animation": self.animation,
+            "lines": self.lines,
+            "look": self.look,
+            "backdrop": self.backdrop,
+            "frame": self.frame,
         }
 
 
@@ -177,8 +195,13 @@ ORIGINAL_COLOUR = "#E2E8F0"
 
 
 def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_lang: str | None = None) -> str:
-    """Styled subtitles in `lang`; with style.bilingual, the original (in `src_lang`) above them."""
+    """Styled subtitles in `lang`; with style.bilingual, the original (in `src_lang`) above them.
+    With style.lines "original", the other way round: the original words, the translation beside."""
     style = style or SubtitleStyle()
+    if style.lines == "original":
+        # The original words are the main line (and lit word by word); the translation goes beside them.
+        cues = [Cue(c.index, c.start, c.end, c.translation or c.text, c.text) for c in cues]
+        lang, src_lang = src_lang or lang, lang
     font, bold, scale = FONTS[style.font]["arabic" if lang in RTL_LANGS else "latin"]
     font_size = round(SIZES[style.size] * scale, 1)
     primary = _ass_colour(style.color if style.animation == "none" else "#FFFFFF")
