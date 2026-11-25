@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { CheckCircle2, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { ApiError, adminApi, type AdminSettings } from '../../shared/api';
-import { SITE } from '../../shared/content';
+import { DEFAULT_LOGO, SITE } from '../../shared/content';
 
 const MAX_LOGO_KB = 256;
 
@@ -110,6 +110,9 @@ export function SettingsPanel({ password }: { password: string }) {
             <div className="w-16 h-16 shrink-0 rounded-xl border border-slate-700 bg-slate-950 flex items-center justify-center overflow-hidden">
               {logoPreview ? (
                 <img src={logoPreview} alt="Logo" className="max-w-full max-h-full object-contain" />
+              ) : DEFAULT_LOGO ? (
+                // No logo uploaded: the site shows the built-in one.
+                <img src={DEFAULT_LOGO} alt="Built-in logo" className="max-w-full max-h-full object-contain opacity-80" />
               ) : (
                 <span className="text-amber-400 font-bold">{(SITE.brand.mark || SITE.brand.name).slice(0, 1)}</span>
               )}

@@ -16,6 +16,8 @@ export interface SiteContent {
 // A copy, so the defaults stay available when a saved value is cleared.
 const DEFAULTS: SiteContent = site;
 export const SITE: SiteContent = structuredClone(site);
+/** The built-in logo (content/site.json), shown when no logo is uploaded on the /admin page. */
+export const DEFAULT_LOGO = DEFAULTS.brand.logo;
 
 /**
  * Apply the accent colour. The interface uses Tailwind's amber shades, which are CSS variables

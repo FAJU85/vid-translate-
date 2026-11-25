@@ -28,7 +28,7 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   const found = await profileByHandle(env, handle);
   const profile = found && !(await isBlocked(env, found.account_id)) ? found : null;
   if (!profile) {
-    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not found · ${esc(brand)}</title><body style="background:#131C31;color:#E2D6C6;font:16px ${FONT};padding:40px;text-align:center"><p>No one is called @${esc(handle)} on ${esc(brand)}.</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
+    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not found · ${esc(brand)}</title><style>body{background:#131C31;color:#E2D6C6;font:16px ${FONT};padding:40px;text-align:center}</style><body><p>No one is called @${esc(handle)} on ${esc(brand)}.</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
       status: 404,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
