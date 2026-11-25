@@ -75,6 +75,7 @@ class SubtitleStyle:
     bar: bool = True  # sound alone: a bar along the bottom fills as it plays
     karaoke: bool = True  # sound alone: the sung words, lit as they are sung (the lyrics caption)
     translation_at: str = "top"  # sound alone: the translation's own place (TRANSLATION_PLACES)
+    visual: bool = False  # a lyrics video even from a video: its picture is replaced, only its sound is used
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
@@ -107,6 +108,7 @@ class SubtitleStyle:
             bar=data.get("bar") is not False,
             karaoke=data.get("karaoke") is not False,
             translation_at=pick("translation_at", TRANSLATION_PLACES),
+            visual=data.get("visual") is True,
         )
 
     def to_dict(self) -> dict:
@@ -129,6 +131,7 @@ class SubtitleStyle:
             "bar": self.bar,
             "karaoke": self.karaoke,
             "translation_at": self.translation_at,
+            "visual": self.visual,
         }
 
 

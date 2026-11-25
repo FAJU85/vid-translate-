@@ -115,8 +115,10 @@ const defaultLang = (env: Env) => (isTargetLang(env.DEFAULT_TARGET_LANG ?? '') ?
 function chooseKeyboard(ui: UiLang, pending: Pending, tgtLang: string): Keyboard {
   const rows: Keyboard = [[{ text: t(ui, 'btn_soft'), callback_data: 'go:soft' }]];
   // Sound alone (a song, a voice note) becomes a video too: a visualizer with the words as lyrics.
-  rows[0].push({ text: t(ui, pending.video ? 'btn_hard' : 'btn_lyrics'), callback_data: 'go:hard' });
+  if (pending.video) rows[0].push({ text: t(ui, 'btn_hard'), callback_data: 'go:hard' });
   if (pending.video && canDub(tgtLang)) rows.push([{ text: t(ui, 'btn_dub'), callback_data: 'go:dub' }]);
+  // Its own journey: a song or any video made into a lyrics video (the picture replaced).
+  rows.push([{ text: t(ui, 'btn_lyrics'), callback_data: 'go:lyrics' }]);
   const last: Keyboard[number] = [{ text: t(ui, 'btn_lang'), callback_data: 'lang' }];
   last.push({ text: t(ui, 'btn_style'), callback_data: 'style' });
   rows.push(last);
@@ -407,14 +409,16 @@ async function startJob(
   chat: ChatRow,
   ui: UiLang,
   messageId: number,
-  mode: SubtitleMode,
+  choice: SubtitleMode | 'lyrics',
 ): Promise<string | null> {
+  // A lyrics video is a burned-in video made from the sound alone (even from a video).
+  const mode: SubtitleMode = choice === 'lyrics' ? 'hard' : choice;
   const pending = chat.pending ? (JSON.parse(chat.pending) as Pending) : null;
   if (!pending || pending.messageId !== messageId) {
     await editMessage(env, chat.chat_id, messageId, t(ui, 'expired'));
     return null;
   }
-  const finalMode: SubtitleMode = mode === 'hard' || (pending.video && mode === 'dub' && canDub(chat.tgt_lang)) ? mode : 'soft';
+  const finalMode: SubtitleMode = choice === 'lyrics' || (pending.video && (mode === 'hard' || (mode === 'dub' && canDub(chat.tgt_lang)))) ? mode : 'soft';
   const account = creditsEnabled(env) ? await accountForTelegram(env, chat.chat_id) : null;
   if (account && chat.consent) await recordConsent(env, account.id, chat.consent);
   if (account) {
@@ -432,7 +436,7 @@ async function startJob(
     title: pending.title ?? null,
     tgtLang: chat.tgt_lang,
     mode: finalMode,
-    style: chatStyle(chat),
+    style: { ...chatStyle(chat), visual: choice === 'lyrics' },
     origin,
     accountId: (account ?? (await existingTelegramAccount(env, chat.chat_id)))?.id ?? null,
   });
@@ -464,8 +468,8 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       if (account) await recordConsent(env, account.id, LEGAL_VERSION);
       await editMessage(env, chatId, messageId, t(ui, 'consent_thanks'));
       if (pending) await askMode(env, { ...chat, consent: LEGAL_VERSION }, ui, pending);
-    } else if (data === 'go:soft' || data === 'go:hard' || data === 'go:dub') {
-      alert = await startJob(env, ctx, origin, chat, ui, messageId, data.slice(3) as SubtitleMode);
+    } else if (data === 'go:soft' || data === 'go:hard' || data === 'go:dub' || data === 'go:lyrics') {
+      alert = await startJob(env, ctx, origin, chat, ui, messageId, data.slice(3) as SubtitleMode | 'lyrics');
     } else if (data === 'style') {
       // From the "video with subtitles" choice: open the style menu below, keeping that message.
       const menu = styleMenu(ui, chatStyle(chat));

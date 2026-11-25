@@ -6,6 +6,7 @@ import { FeedView } from '../modules/feed';
 import { PricingView } from '../modules/pricing';
 import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
+import { LyricsView } from '../modules/lyrics';
 import { AccountButton, AccountDialog } from '../modules/account';
 import { NotificationBell } from '../modules/notifications';
 import { InstallButton } from './InstallButton';
@@ -46,7 +47,7 @@ function Site() {
   // ?tab=pricing opens the prices (links from the bot).
   const [tab, setTab] = useState<NavTab>(() => {
     const asked = new URLSearchParams(window.location.search).get('tab');
-    return asked === 'pricing' || asked === 'dashboard' || asked === 'feed' || asked === 'telegram' ? asked : 'translate';
+    return asked === 'pricing' || asked === 'dashboard' || asked === 'feed' || asked === 'telegram' || asked === 'lyrics' ? asked : 'translate';
   });
   // Shared to the installed app from another app (Android share sheet): the video link it carries.
   const [sharedLink] = useState<string | null>(() => {
@@ -54,6 +55,8 @@ function Site() {
     return [q.get('link'), q.get('text'), q.get('title')].map((v) => v?.match(/https?:\/\/\S+/)?.[0]).find(Boolean) ?? null;
   });
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
+  // A lyrics video being made (the Lyrics page): followed apart from a translation.
+  const [lyricsJobId, setLyricsJobId] = useState<string | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [configError, setConfigError] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
@@ -196,6 +199,19 @@ function Site() {
             onFeed={() => setTab('feed')}
             initialLink={sharedLink}
             resume={resume}
+            onLyrics={() => setTab('lyrics')}
+          />
+        </div>
+        {/* Its own journey; stays mounted too, for an upload in progress. */}
+        <div className={tab === 'lyrics' ? '' : 'hidden'}>
+          <LyricsView
+            config={config}
+            jobId={lyricsJobId}
+            onJob={setLyricsJobId}
+            onCreditsChanged={refreshMe}
+            me={me}
+            onPricing={() => setTab('pricing')}
+            onSignIn={() => setAccountOpen(true)}
           />
         </div>
         {tab === 'dashboard' && (

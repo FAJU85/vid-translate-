@@ -31,6 +31,8 @@ export interface SubtitleStyle {
   karaoke: boolean;
   /** Sound alone: the translation's own caption, apart from the lyrics: where it goes, or off. */
   translation_at: 'top' | 'middle' | 'bottom' | 'off';
+  /** A lyrics video (the Lyrics page, the bot's lyrics button): even a video is used for its sound only. */
+  visual: boolean;
 }
 
 export const SUBTITLE_SIZES = ['small', 'medium', 'large', 'xlarge'] as const;
@@ -44,7 +46,7 @@ export const VISUAL_BACKDROPS = ['kavox', 'night', 'sunset', 'forest', 'cover'] 
 export const VISUAL_FRAMES = ['vertical', 'square', 'wide'] as const;
 export const TRANSLATION_PLACES = ['top', 'middle', 'bottom', 'off'] as const;
 /** The parts a ready-made design leaves as they are: what to show and, for sound alone, its picture. */
-const KEEP = { lines: 'translation', look: 'wave', backdrop: 'kavox', frame: 'vertical', title_card: true, title: '', artist: '', bar: true, karaoke: true, translation_at: 'top' } as const;
+const KEEP = { lines: 'translation', look: 'wave', backdrop: 'kavox', frame: 'vertical', title_card: true, title: '', artist: '', bar: true, karaoke: true, translation_at: 'top', visual: false } as const;
 export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', bilingual: false, voice: 'female', animation: 'none', ...KEEP };
 
 /** Ready-made designs: one tap sets every field. */
@@ -85,6 +87,7 @@ export function parseSubtitleStyle(input: unknown): SubtitleStyle {
     bar: raw.bar !== false,
     karaoke: raw.karaoke !== false,
     translation_at: pick(TRANSLATION_PLACES, raw.translation_at, DEFAULT_STYLE.translation_at),
+    visual: raw.visual === true,
   };
 }
 

@@ -433,8 +433,11 @@ replaces the old "My translations" list. API: `GET /api/dashboard?client_id=…`
 
 ## Lyrics videos (songs and podcasts)
 
-Sound alone (an audio file, a voice note, or a link with sound only) can come back as a video:
-choose **Lyrics video** on the website, or **🎵 Lyrics video** in the bot.
+A journey of its own, apart from translating: the **Lyrics video** tab on the website (also
+`/?tab=lyrics` and the app's shortcut), or **🎵 Lyrics video** in the bot. A song, a podcast or any
+video becomes a "faceless" lyrics video: from a video only the sound is used (a link is downloaded
+without its picture) and the picture is made anew. "No translation" shows the lyrics only and skips
+translating. On the Translate page an audio file shows a link to the Lyrics page.
 
 - The picture is drawn by ffmpeg on the Space (no extra models or services): a background (four
   colour gradients, or the file's own album art, blurred), the sound drawn as it plays (wave,

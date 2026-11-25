@@ -292,7 +292,7 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
       <div className="text-sm font-medium text-slate-200">{sound ? t("Your lyrics video") : t("Subtitle style")}</div>
       {sound && (
         <>
-          <p className="text-xs text-slate-400">{t("Your file is sound only, so KAVOX makes the picture: a background, the sound drawn as it plays, and the words lit as they are sung or spoken.")}</p>
+          <p className="text-xs text-slate-400">{t("KAVOX makes the picture: a background, the sound drawn as it plays, and the words lit as they are sung or spoken.")}</p>
           {soundChoices}
         </>
       )}
