@@ -1,15 +1,16 @@
 import { Check } from 'lucide-react';
 import type { Job } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 /** The stages a job goes through, in order, for its result (the server's job.stage names). */
 function stagesFor(job: Job): { id: string; label: string }[] {
   const list = [
-    { id: 'downloading', label: job.source_url ? 'Get the video' : 'Upload' },
-    { id: 'transcribing', label: 'Listen' },
-    { id: 'translating', label: 'Translate' },
+    { id: 'downloading', label: job.source_url ? t("Get the video") : t("Upload") },
+    { id: 'transcribing', label: t("Listen") },
+    { id: 'translating', label: t("Translate") },
   ];
-  if (job.mode === 'hard') list.push({ id: 'rendering', label: 'Add subtitles' });
-  if (job.mode === 'dub') list.push({ id: 'dubbing', label: 'Record voice' });
+  if (job.mode === 'hard') list.push({ id: 'rendering', label: t("Add subtitles") });
+  if (job.mode === 'dub') list.push({ id: 'dubbing', label: t("Record voice") });
   return list;
 }
 
@@ -21,14 +22,14 @@ export function Progress({ job }: { job: Job }) {
   const stages = stagesFor(job);
   const at = job.status === 'running' ? stages.findIndex((s) => s.id === job.stage) : -1;
   return (
-    <ol className="flex items-start" aria-label="Progress">
+    <ol className="flex items-start" aria-label={t("Progress")}>
       {stages.map((s, i) => {
         const done = at > i;
         const live = at === i;
         return (
           <li key={s.id} className="flex-1 flex flex-col items-center text-center relative" aria-current={live ? 'step' : undefined}>
             {/* The line to the previous stage. */}
-            {i > 0 && <span className={`absolute top-3.5 right-1/2 w-full h-0.5 ${at >= i ? 'bg-amber-400' : 'bg-slate-700'}`} aria-hidden />}
+            {i > 0 && <span className={`absolute top-3.5 end-1/2 w-full h-0.5 ${at >= i ? 'bg-amber-400' : 'bg-slate-700'}`} aria-hidden />}
             <span
               className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                 done

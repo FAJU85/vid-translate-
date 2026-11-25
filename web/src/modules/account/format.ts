@@ -1,4 +1,5 @@
 import type { Bucket } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 const SECONDS_PER_CREDIT = 60;
 
@@ -13,8 +14,8 @@ export function timeText(seconds: number): string {
 }
 
 export const BUCKET_LABEL: Record<Bucket, string> = {
-  daily: 'Free today',
-  monthly: 'This month’s plan',
-  bonus: 'Bonus',
-  topup: 'Bought credits',
+  daily: t("Free today"),
+  monthly: t("This month’s plan"),
+  bonus: t("Bonus"),
+  topup: t("Bought credits"),
 };

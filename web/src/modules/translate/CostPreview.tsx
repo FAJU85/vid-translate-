@@ -1,5 +1,6 @@
 import { AlertTriangle, Coins } from 'lucide-react';
 import type { Me, SubtitleMode } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 const MIN_BILLED = 10;
 const fmt = (seconds: number) => (seconds / 60).toFixed(2);
@@ -25,13 +26,13 @@ export function CostPreview({ me, mode, duration, isLink, onPricing }: {
   const cost = duration ? costOf(duration, mode) : null;
   const warnings: string[] = [];
   if (free && !free.paid) {
-    if (mode === 'dub' && !free.dub_preview_available) warnings.push('Dubbing needs credits: your free preview is used.');
+    if (mode === 'dub' && !free.dub_preview_available) warnings.push(t("Dubbing needs credits: your free preview is used."));
     else if (mode === 'dub' && duration && duration > free.dub_preview_max_seconds)
-      warnings.push(`The free dubbing preview is for videos up to ${free.dub_preview_max_seconds} seconds.`);
+      warnings.push(t('The free dubbing preview is for videos up to {n} seconds.', { n: free.dub_preview_max_seconds }));
     else if (free.max_video_seconds && duration && duration > free.max_video_seconds)
-      warnings.push(`Free videos can be up to ${free.max_video_seconds} seconds long; this one is ${clock(duration)}.`);
+      warnings.push(t('Free videos can be up to {n} seconds long; this one is {time}.', { n: free.max_video_seconds, time: clock(duration) }));
   }
-  if (cost !== null && cost > have) warnings.push(`This video needs ${fmt(cost)} credits and you have ${fmt(have)}.`);
+  if (cost !== null && cost > have) warnings.push(t('This video needs {cost} credits and you have {have}.', { cost: fmt(cost), have: fmt(have) }));
   const nextDaily = free?.next_daily_at && have < 30 ? Math.max(1, Math.ceil((free.next_daily_at * 1000 - Date.now()) / 3600000)) : null;
 
   return (
@@ -41,18 +42,18 @@ export function CostPreview({ me, mode, duration, isLink, onPricing }: {
         <div className="space-y-0.5">
           {cost !== null && duration ? (
             <p>
-              Video length <b>{clock(duration)}</b> · cost <b>{fmt(cost)} credits</b>
+              {t("Video length")}{' '}<b>{clock(duration)}</b>{' '}{t("· cost")}{' '}<b>{fmt(cost)}{' '}{t("credits")}</b>
               {cost <= have && (
                 <>
                   {' '}
-                  · left after <b>{fmt(have - cost)}</b>
+                  {t("· left after")}{' '}<b>{fmt(have - cost)}</b>
                 </>
               )}
             </p>
           ) : (
             <p>
-              Costs {mode === 'dub' ? '2 credits' : '1 credit'} a minute, counted by the second
-              {isLink ? ' once the video is downloaded' : ''}. You have <b>{fmt(have)} credits</b>.
+              {t("Costs")}{' '}{mode === 'dub' ? '2 credits' : '1 credit'}{' '}{t("a minute, counted by the second")}
+              {isLink ? ' once the video is downloaded' : ''}{t(". You have")}{' '}<b>{fmt(have)}{' '}{t("credits")}</b>.
             </p>
           )}
           {warnings.map((w) => (
@@ -62,12 +63,12 @@ export function CostPreview({ me, mode, duration, isLink, onPricing }: {
           ))}
           {!warnings.length && have < 30 && (
             <p className="text-slate-400">
-              Low balance.{nextDaily ? ` Your next free credits come in about ${nextDaily} h.` : ''}
+              {t("Low balance.")}{nextDaily ? ' ' + t('Your next free credits come in about {n} h.', { n: nextDaily }) : ''}
             </p>
           )}
           {(warnings.length > 0 || have < 30) && (
             <button type="button" onClick={onPricing} className="text-amber-300 hover:underline">
-              See plans and credit packs
+              {t("See plans and credit packs")}
             </button>
           )}
         </div>

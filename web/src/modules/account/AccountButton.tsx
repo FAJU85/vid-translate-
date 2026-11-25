@@ -1,6 +1,7 @@
 import { CircleUserRound, Coins } from 'lucide-react';
 import type { Me } from '../../shared/api';
 import { creditsText } from './format';
+import { t } from '../../shared/i18n';
 
 /** In the header: "Sign in", or the account's name and balance. */
 export function AccountButton({ me, onOpen }: { me: Me | null; onOpen: () => void }) {
@@ -17,9 +18,9 @@ export function AccountButton({ me, onOpen }: { me: Me | null; onOpen: () => voi
       {showBalance ? (
         <span className="tabular-nums">{creditsText(me.balance!.total_seconds)}</span>
       ) : (
-        <span className="hidden sm:inline">{me.account ? me.account.name?.split(' ')[0] || 'Account' : 'Sign in'}</span>
+        <span className="hidden sm:inline">{me.account ? me.account.name?.split(' ')[0] || t("Account") : t("Sign in")}</span>
       )}
-      {showBalance && !me.account && <span className="hidden sm:inline text-slate-400">· Sign in</span>}
+      {showBalance && !me.account && <span className="hidden sm:inline text-slate-400">{t("· Sign in")}</span>}
     </button>
   );
 }

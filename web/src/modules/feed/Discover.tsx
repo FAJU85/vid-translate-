@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Flame, Hash, Heart, Loader2, Play, Search, Users, X } from 'lucide-react';
 import { ApiError, discoverApi, type CreatorHit, type FeedItem } from '../../shared/api';
+import { plural, t } from '../../shared/i18n';
 
 const TAG = /#([\p{L}\p{N}_]{1,50})/gu;
 
@@ -45,9 +46,9 @@ function Grid({ videos, badge }: { videos: (FeedItem & { week_likes?: number })[
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/85 to-transparent text-[11px] text-white">
-            <div dir="auto" className="line-clamp-2 leading-tight">{v.title || 'Untitled'}</div>
+            <div dir="auto" className="line-clamp-2 leading-tight">{v.title || t("Untitled")}</div>
             <div className="mt-0.5 flex items-center gap-1 text-slate-300">
-              <Heart className="w-3 h-3" /> {badge === 'week' ? `${v.week_likes ?? 0} this week` : v.likes} · @{v.creator.handle}
+              <Heart className="w-3 h-3" /> {badge === 'week' ? t('{n} this week', { n: v.week_likes ?? 0 }) : v.likes} · <bdi dir="ltr">@{v.creator.handle}</bdi>
             </div>
           </div>
         </a>
@@ -66,7 +67,7 @@ function Creators({ creators }: { creators: CreatorHit[] }) {
             <span className="min-w-0 flex-1 text-sm">
               <span className="block text-white font-medium truncate">{c.display_name || `@${c.handle}`}</span>
               <span className="block text-xs text-slate-400 truncate">
-                @{c.handle} · {c.followers} follower{c.followers === 1 ? '' : 's'}
+                <bdi dir="ltr">@{c.handle}</bdi> · {plural(c.followers, '{n} follower', '{n} followers')}
               </span>
             </span>
           </a>
@@ -91,7 +92,7 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    discoverApi.trending().then(setTrending).catch(() => setError('Trending could not be loaded.'));
+    discoverApi.trending().then(setTrending).catch(() => setError(t("Trending could not be loaded.")));
   }, []);
 
   // A hashtag: its videos.
@@ -103,7 +104,7 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
     discoverApi
       .tag(tag)
       .then((r) => current && setTagged(r.items))
-      .catch((err) => current && setError(err instanceof ApiError ? err.message : 'That hashtag could not be loaded.'))
+      .catch((err) => current && setError(err instanceof ApiError ? err.message : t("That hashtag could not be loaded.")))
       .finally(() => current && setLoading(false));
     return () => {
       current = false;
@@ -126,7 +127,7 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
       discoverApi
         .search(wanted)
         .then((r) => current && setResults({ creators: r.creators, videos: r.videos }))
-        .catch(() => current && setError('The search did not work. Try again.'))
+        .catch(() => current && setError(t("The search did not work. Try again.")))
         .finally(() => current && setLoading(false));
     }, 350);
     return () => {
@@ -146,8 +147,8 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
             setQ(e.target.value);
             if (tag) onTag(null);
           }}
-          placeholder="Search creators, videos or #hashtags"
-          aria-label="Search"
+          placeholder={t("Search creators, videos or #hashtags")}
+          aria-label={t("Search")}
           className="flex-1 min-w-0 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
         />
         {(q || tag) && (
@@ -156,7 +157,7 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
               setQ('');
               onTag(null);
             }}
-            aria-label="Clear search"
+            aria-label={t("Clear search")}
             className="text-slate-400 hover:text-white"
           >
             <X className="w-4 h-4" />
@@ -175,11 +176,11 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
           <h2 className="flex items-center gap-1 text-lg font-bold text-white">
             <Hash className="w-5 h-5 text-amber-400" />
             <bdi>{tag}</bdi>
-            <span className="ml-1 text-sm font-normal text-slate-400">
-              {tagged.length} video{tagged.length === 1 ? '' : 's'}
+            <span className="ms-1 text-sm font-normal text-slate-400">
+              {plural(tagged.length, '{n} video', '{n} videos')}
             </span>
           </h2>
-          {tagged.length ? <Grid videos={tagged} /> : <p className="text-sm text-slate-400">No posted videos with #{tag} yet.</p>}
+          {tagged.length ? <Grid videos={tagged} /> : <p className="text-sm text-slate-400">{t("No posted videos with #")}{tag}{' '}{t("yet.")}</p>}
         </section>
       )}
 
@@ -188,18 +189,18 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
           {results.creators.length > 0 && (
             <section className="space-y-2">
               <h2 className={heading}>
-                <Users className="w-4 h-4 text-sky-300" /> Creators
+                <Users className="w-4 h-4 text-sky-300" />{' '}{t("Creators")}
               </h2>
               <Creators creators={results.creators} />
             </section>
           )}
           {results.videos.length > 0 && (
             <section className="space-y-2">
-              <h2 className={heading}>Videos</h2>
+              <h2 className={heading}>{t("Videos")}</h2>
               <Grid videos={results.videos} />
             </section>
           )}
-          {!results.creators.length && !results.videos.length && <p className="text-sm text-slate-400 text-center py-6">Nothing found for “{wanted}”.</p>}
+          {!results.creators.length && !results.videos.length && <p className="text-sm text-slate-400 text-center py-6">{t("Nothing found for “")}{wanted}”.</p>}
         </>
       )}
 
@@ -208,12 +209,12 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
           {trending.tags.length > 0 && (
             <section className="space-y-2">
               <h2 className={heading}>
-                <Hash className="w-4 h-4 text-amber-400" /> Popular hashtags
+                <Hash className="w-4 h-4 text-amber-400" />{' '}{t("Popular hashtags")}
               </h2>
               <div className="flex flex-wrap gap-1.5">
-                {trending.tags.map((t) => (
-                  <button key={t.tag} onClick={() => onTag(t.tag)} className="px-2.5 py-1 rounded-full bg-slate-800 text-xs text-slate-200 hover:bg-slate-700">
-                    <bdi dir="ltr">#{t.tag}</bdi> <span className="text-slate-500">{t.videos}</span>
+                {trending.tags.map((tg) => (
+                  <button key={tg.tag} onClick={() => onTag(tg.tag)} className="px-2.5 py-1 rounded-full bg-slate-800 text-xs text-slate-200 hover:bg-slate-700">
+                    <bdi dir="ltr">#{tg.tag}</bdi> <span className="text-slate-500">{tg.videos}</span>
                   </button>
                 ))}
               </div>
@@ -221,9 +222,9 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
           )}
           <section className="space-y-2">
             <h2 className={heading}>
-              <Flame className="w-4 h-4 text-rose-400" /> Trending this week
+              <Flame className="w-4 h-4 text-rose-400" />{' '}{t("Trending this week")}
             </h2>
-            {trending.videos.length ? <Grid videos={trending.videos} badge="week" /> : <p className="text-sm text-slate-400">No videos posted lately.</p>}
+            {trending.videos.length ? <Grid videos={trending.videos} badge="week" /> : <p className="text-sm text-slate-400">{t("No videos posted lately.")}</p>}
           </section>
         </>
       )}

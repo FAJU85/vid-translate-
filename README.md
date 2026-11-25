@@ -451,6 +451,19 @@ Every page fits from a 320 px phone to a wide desktop. On phones the main tabs a
 bottom (Translate, Feed, Mine, Bot), in reach of the thumb; the admin's workspace strip scrolls
 sideways on phones.
 
+## Arabic interface (right to left)
+
+The website, the video pages, profiles, the Terms and the offline page are in English or Arabic.
+The **ع / EN** button in the header switches; the first visit follows the browser's language.
+The choice is kept in the browser and in a `kavox_lang` cookie, so the pages the Worker makes
+follow it too. The admin dashboard stays in English.
+
+- Every text is written in English and passed through `t()` (`web/src/shared/i18n`); the Arabic
+  is in `web/src/shared/i18n/ar.ts`. A text missing there is shown in English, so nothing breaks.
+- The Worker's pages use `worker/src/shared/page-i18n.ts` the same way.
+- The texts the admin edits (`content/site.json`) have an `"ar"` section with the Arabic.
+- Layouts use start/end (not left/right), so they mirror by themselves in Arabic.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Globe2, Loader2 } from 'lucide-react';
 import { ApiError, dashboardApi, socialApi } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 /**
  * The last step of the journey: put the finished video on your profile and in the feed. Signing in
@@ -19,7 +20,7 @@ export function PostToProfile({ shareUrl, signedIn, onSignIn }: { shareUrl: stri
       const me = await socialApi.myProfile().catch(() => null);
       setState({ handle: me?.profile?.handle ?? null });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'It could not be posted. Try again from your Dashboard.');
+      setError(err instanceof ApiError ? err.message : t("It could not be posted. Try again from your Dashboard."));
       setState('idle');
     }
   }
@@ -31,19 +32,19 @@ export function PostToProfile({ shareUrl, signedIn, onSignIn }: { shareUrl: stri
         <Check className="w-4 h-4 text-amber-300" />
         {state.handle ? (
           <span className="flex-1 text-slate-200">
-            Posted.{' '}
+            {t("Posted.")}{' '}
             <a href={`/@${state.handle}`} className="text-amber-300 hover:underline">
-              See it on @{state.handle}
+              {t("See it on @")}{state.handle}
             </a>{' '}
-            or in the feed.
+            {t("or in the feed.")}
           </span>
         ) : (
           <span className="flex-1 text-slate-200">
-            Posted. Choose your @handle on the{' '}
+            {t("Posted. Choose your @handle on the")}{' '}
             <a href="/?tab=dashboard" className="text-amber-300 hover:underline">
-              Dashboard
+              {t("Dashboard")}
             </a>{' '}
-            so people can find it.
+            {t("so people can find it.")}
           </span>
         )}
       </div>
@@ -53,7 +54,7 @@ export function PostToProfile({ shareUrl, signedIn, onSignIn }: { shareUrl: stri
     <div className={box}>
       <Globe2 className="w-4 h-4 text-amber-300" />
       <span className="flex-1 min-w-[12rem] text-slate-300">
-        {signedIn ? 'Post it to your profile and the feed, for everyone to watch.' : 'Sign in to post it to your profile and the feed.'}
+        {signedIn ? t("Post it to your profile and the feed, for everyone to watch.") : t("Sign in to post it to your profile and the feed.")}
       </span>
       {signedIn ? (
         <button
@@ -61,20 +62,20 @@ export function PostToProfile({ shareUrl, signedIn, onSignIn }: { shareUrl: stri
           disabled={state === 'busy'}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-60 font-semibold text-slate-950"
         >
-          {state === 'busy' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe2 className="w-4 h-4" />} Post to my profile
+          {state === 'busy' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe2 className="w-4 h-4" />}{' '}{t("Post to my profile")}
         </button>
       ) : (
         onSignIn && (
           <button onClick={onSignIn} className="px-3 py-2 rounded-lg border border-slate-600 text-slate-100 hover:bg-slate-800">
-            Sign in
+            {t("Sign in")}
           </button>
         )
       )}
       {error && <p className="w-full text-xs text-rose-300">{error}</p>}
       <p className="w-full text-xs text-slate-500">
-        Post only videos you have the right to share (
+        {t("Post only videos you have the right to share (")}
         <a href="/terms" target="_blank" rel="noreferrer" className="underline">
-          Terms
+          {t("Terms")}
         </a>
         ).
       </p>

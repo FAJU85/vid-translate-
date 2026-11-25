@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LOCALE, plural, t } from '../../shared/i18n';
 
 /**
  * Videos per day, last 14 days: one series, so no legend (the title names it). Thin bars with
@@ -7,14 +8,14 @@ import { useState } from 'react';
 export function DayBars({ days }: { days: { day: string; videos: number }[] }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(1, ...days.map((d) => d.videos));
-  const label = (d: { day: string }) => new Date(`${d.day}T00:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const label = (d: { day: string }) => new Date(`${d.day}T00:00:00Z`).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric', timeZone: 'UTC' });
   const shown = hover ?? days.length - 1;
   return (
     <figure className="space-y-2">
       <figcaption className="flex items-baseline justify-between gap-2 text-xs text-slate-400">
-        <span>Videos per day, last 14 days</span>
+        <span>{t("Videos per day, last 14 days")}</span>
         <span className="tabular-nums text-slate-200" aria-live="polite">
-          {label(days[shown])}: {days[shown].videos} video{days[shown].videos === 1 ? '' : 's'}
+          {label(days[shown])}: {plural(days[shown].videos, '{n} video', '{n} videos')}
         </span>
       </figcaption>
       <div className="flex items-end gap-0.5 h-24 border-b border-slate-700" onMouseLeave={() => setHover(null)} aria-hidden>
@@ -32,7 +33,7 @@ export function DayBars({ days }: { days: { day: string; videos: number }[] }) {
         <span>{label(days[days.length - 1])}</span>
       </div>
       <table className="sr-only">
-        <caption>Videos per day</caption>
+        <caption>{t("Videos per day")}</caption>
         <tbody>
           {days.map((d) => (
             <tr key={d.day}>

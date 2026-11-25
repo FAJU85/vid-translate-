@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 /** Baseplate: the typed client for the Worker's /api and the types every brick shares. */
 export type JobStatus = 'awaiting_upload' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 /** soft: subtitle files; hard: subtitles burned in; dub: the translation spoken over the video. */
@@ -139,10 +141,11 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...(init?.headers as Record<string, string>) },
     });
   } catch {
-    throw new ApiError('E_NETWORK', 'Could not reach the server. Check your connection and try again.');
+    throw new ApiError('E_NETWORK', t('Could not reach the server. Check your connection and try again.'));
   }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(data?.error_code ?? 'E_HTTP', data?.message ?? `Request failed (${res.status}).`);
+  // The server's messages are in English: shown in the interface language when translated (i18n/ar.ts).
+  if (!res.ok) throw new ApiError(data?.error_code ?? 'E_HTTP', data?.message ? t(data.message) : t('Request failed ({n}).', { n: res.status }));
   return data as T;
 }
 
@@ -293,12 +296,12 @@ export interface Comment {
 export type ReportKind = 'video' | 'comment' | 'profile';
 export type ReportReason = 'copyright' | 'spam' | 'abuse' | 'sexual' | 'violence' | 'other';
 export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
-  { value: 'copyright', label: 'It uses my work (copyright)' },
-  { value: 'abuse', label: 'Harassment, threats or hate' },
-  { value: 'sexual', label: 'Sexual content' },
-  { value: 'violence', label: 'Violence or dangerous acts' },
-  { value: 'spam', label: 'Spam, scam or impersonation' },
-  { value: 'other', label: 'Something else' },
+  { value: 'copyright', label: t('It uses my work (copyright)') },
+  { value: 'abuse', label: t('Harassment, threats or hate') },
+  { value: 'sexual', label: t('Sexual content') },
+  { value: 'violence', label: t('Violence or dangerous acts') },
+  { value: 'spam', label: t('Spam, scam or impersonation') },
+  { value: 'other', label: t('Something else') },
 ];
 
 export type FeedTab = 'foryou' | 'following';

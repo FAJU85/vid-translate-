@@ -1,13 +1,11 @@
-import { LANGUAGES } from '../../shared/languages';
 import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
+import { htmlAttrs, languageName, pageLang, plural, translator, type PageLang } from '../../shared/page-i18n';
 import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
 import { countView, getShare, listPublicShares, viewerLang, type ShareRow } from './store';
-
-const langName = (code: string, _ui: 'en') => LANGUAGES.find((l) => l.code === code)?.en ?? code;
 
 /** #hashtags in (escaped) text as links to their videos on the site. */
 const tagLinks = (html: string) =>
@@ -16,7 +14,9 @@ const tagLinks = (html: string) =>
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 /** The public page of a shared video: the player, what it is, and a download. */
-async function page(env: Env, share: ShareRow, origin: string): Promise<Response> {
+async function page(env: Env, share: ShareRow, origin: string, lang: PageLang): Promise<Response> {
+  const tr = translator(lang);
+  const langName = (code: string) => languageName(code, lang);
   const site = await publicSettings(env).catch(() => null);
   const brand = site?.name || 'KAVOX';
   const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#2AB8A1';
@@ -24,16 +24,16 @@ async function page(env: Env, share: ShareRow, origin: string): Promise<Response
   const url = `${origin}/${share.id}`;
   const files = `${origin}/v/${share.id}`;
   const creator = await creatorOf(env, share);
-  const title = share.title || 'Translated video';
-  const what = share.mode === 'dub' ? 'Dubbed' : 'Subtitled';
-  const from = share.src_lang && share.src_lang !== 'auto' && share.src_lang !== share.tgt_lang ? `${langName(share.src_lang, 'en')} → ` : '';
-  const langs = `${from}${langName(share.tgt_lang, 'en')}`;
-  const description = `${what} in ${langName(share.tgt_lang, 'en')} with ${brand}.`;
+  const title = share.title || tr('Translated video');
+  const what = tr(share.mode === 'dub' ? 'Dubbed' : 'Subtitled');
+  const from = share.src_lang && share.src_lang !== 'auto' && share.src_lang !== share.tgt_lang ? `${langName(share.src_lang)} ${lang === 'ar' ? '←' : '→'} ` : '';
+  const langs = `${from}${langName(share.tgt_lang)}`;
+  const description = tr('{what} in {lang} with {brand}.', { what, lang: langName(share.tgt_lang), brand });
   const thumb = share.has_thumb ? `${files}/thumb.jpg` : '';
   // More from the same creator (a posted video only): up to six of their other posted videos.
   const more = creator && share.account_id ? (await listPublicShares(env, share.account_id, 7)).filter((v) => v.id !== share.id).slice(0, 6) : [];
   const html = `<!doctype html>
-<html lang="en">
+<html ${htmlAttrs(lang)}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -100,34 +100,34 @@ ${ctaCss}
 ${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
-  ${creator ? `<div class="byline"><a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span>@${esc(creator.handle)}</span></a><button class="btn primary" id="follow" type="button" hidden>Follow</button></div>` : ''}
+  ${creator ? `<div class="byline"><a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span dir="ltr">@${esc(creator.handle)}</span></a><button class="btn primary" id="follow" type="button" hidden>${tr('Follow')}</button></div>` : ''}
   <h1>${tagLinks(esc(title))}</h1>
-  <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${share.views + 1} view${share.views ? 's' : ''}</span></div>
+  <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${plural(tr, share.views + 1, '{n} view', '{n} views')}</span></div>
   <div class="actions">
     <button class="btn" id="like" type="button" hidden aria-pressed="false">♡ <span id="likes">0</span></button>
-    <button class="btn primary" id="copy" type="button">Copy link</button>
-    <a class="btn" href="/v/${share.id}/video.mp4?download=1">Download</a>
-    <button class="link" type="button" onclick="kavoxReport('video', ${esc(JSON.stringify(share.id))})">Report</button>
+    <button class="btn primary" id="copy" type="button">${tr('Copy link')}</button>
+    <a class="btn" href="/v/${share.id}/video.mp4?download=1">${tr('Download')}</a>
+    <button class="link" type="button" onclick="kavoxReport('video', ${esc(JSON.stringify(share.id))})">${tr('Report')}</button>
   </div>
   <section id="comments" hidden>
-    <h2>Comments <span id="comment-count"></span></h2>
-    <form id="comment-form" hidden><textarea id="comment-text" rows="2" maxlength="500" placeholder="Add a comment"></textarea><button class="btn primary" type="submit">Post</button></form>
+    <h2>${tr('Comments')} <span id="comment-count"></span></h2>
+    <form id="comment-form" hidden><textarea id="comment-text" rows="2" maxlength="500" placeholder="${tr('Add a comment')}"></textarea><button class="btn primary" type="submit">${tr('Post')}</button></form>
     <p id="comment-note" class="note"></p>
     <ul id="comment-list"></ul>
-    <button class="btn" id="comment-more" type="button" hidden>More comments</button>
+    <button class="btn" id="comment-more" type="button" hidden>${tr('More comments')}</button>
   </section>
-  ${more.length ? `<section class="more"><h2>More from @${esc(creator!.handle)}</h2><div class="grid">${more.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang, 'en') })).join('')}</div></section>` : ''}
-  ${makeYourOwn(esc(brand))}
+  ${more.length ? `<section class="more"><h2>${tr('More from {handle}', { handle: `<bdi dir="ltr">@${esc(creator!.handle)}</bdi>` })}</h2><div class="grid">${more.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang) }, tr)).join('')}</div></section>` : ''}
+  ${makeYourOwn(esc(brand), tr)}
 </main>
-<footer>Translated with <a href="/">${esc(brand)}</a>: subtitles and dubbing for any video, in minutes. · <a href="/terms">Terms</a></footer>
-${reportDialog('video', share.id)}
+<footer>${tr('Translated with {brand}: subtitles and dubbing for any video, in minutes.', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a></footer>
+${reportDialog('video', share.id, tr)}
 ${creator ? `<script>
   // Follow the creator from their video (hidden on your own video); signing in happens on the site.
   (() => {
     const btn = document.getElementById('follow');
     const api = ${JSON.stringify(`/api/follows/${creator.handle}`)};
     let state = null;
-    const show = (s) => { btn.hidden = s.self; btn.textContent = s.following ? 'Following' : 'Follow'; btn.classList.toggle('on', s.following); };
+    const show = (s) => { btn.hidden = s.self; btn.textContent = s.following ? ${JSON.stringify(tr('Following'))} : ${JSON.stringify(tr('Follow'))}; btn.classList.toggle('on', s.following); };
     fetch(api, { credentials: 'same-origin' }).then((r) => r.json()).then((s) => { state = s; show(s); }).catch(() => {});
     btn.addEventListener('click', async () => {
       if (!state) return;
@@ -171,27 +171,28 @@ ${creator ? `<script>
     let next = null;
     $('comments').hidden = false;
     $('comment-form').hidden = !signedIn;
-    if (!signedIn) note.innerHTML = '<a href="/?tab=dashboard" style="color:var(--accent)">Sign in</a> to comment.';
+    if (!signedIn) note.innerHTML = ${JSON.stringify(`<a href="/?tab=dashboard" style="color:var(--accent)">${tr('Sign in')}</a> ${tr('to comment.')}`)};
     // "now", "5m", "3h", "2d", then the date.
     const when = (t) => {
       const d = Date.now() / 1000 - t;
-      if (d < 60) return 'now';
-      if (d < 3600) return Math.floor(d / 60) + 'm';
-      if (d < 86400) return Math.floor(d / 3600) + 'h';
-      if (d < 7 * 86400) return Math.floor(d / 86400) + 'd';
-      return new Date(t * 1000).toLocaleDateString();
+      const n = (u, s) => ({ m: ${JSON.stringify(tr('{n}m'))}, h: ${JSON.stringify(tr('{n}h'))}, d: ${JSON.stringify(tr('{n}d'))} })[u].replace('{n}', Math.floor(d / s));
+      if (d < 60) return ${JSON.stringify(tr('now'))};
+      if (d < 3600) return n('m', 60);
+      if (d < 86400) return n('h', 3600);
+      if (d < 7 * 86400) return n('d', 86400);
+      return new Date(t * 1000).toLocaleDateString(${JSON.stringify(lang === 'ar' ? 'ar-u-nu-latn-ca-gregory' : 'en')});
     };
     const row = (c) => {
       const li = document.createElement('li');
       const who = document.createElement('div'); who.className = 'who';
-      const a = document.createElement('a'); a.href = '/@' + c.author.handle; a.textContent = '@' + c.author.handle;
+      const a = document.createElement('a'); a.href = '/@' + c.author.handle; a.textContent = '@' + c.author.handle; a.dir = 'ltr';
       const d = document.createElement('span'); d.textContent = when(c.created_at);
-      const rep = document.createElement('button'); rep.type = 'button'; rep.textContent = 'Report'; rep.onclick = () => kavoxReport('comment', c.id);
+      const rep = document.createElement('button'); rep.type = 'button'; rep.textContent = ${JSON.stringify(tr('Report'))}; rep.onclick = () => kavoxReport('comment', c.id);
       who.append(a, d, rep);
       if (c.can_delete) {
-        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = ${JSON.stringify(tr('Delete'))};
         del.onclick = async () => {
-          if (!confirm('Delete this comment?')) return;
+          if (!confirm(${JSON.stringify(tr('Delete this comment?'))})) return;
           const r = await fetch('/api/comments/' + c.id, { method: 'DELETE', credentials: 'same-origin' }).catch(() => null);
           if (r && r.ok) li.remove();
         };
@@ -211,7 +212,7 @@ ${creator ? `<script>
       page.items.forEach((c) => list.append(row(c)));
       next = page.next;
       more.hidden = !next;
-      if (!list.children.length && !signedIn) note.innerHTML = 'No comments yet. <a href="/?tab=dashboard" style="color:var(--accent)">Sign in</a> to write the first.';
+      if (!list.children.length && !signedIn) note.innerHTML = ${JSON.stringify(`${tr('No comments yet.')} <a href="/?tab=dashboard" style="color:var(--accent)">${tr('Sign in')}</a> ${tr('to write the first.')}`)};
     };
     more.onclick = () => load(false);
     $('comment-form').addEventListener('submit', async (e) => {
@@ -222,14 +223,14 @@ ${creator ? `<script>
       try {
         const r = await fetch(api, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
         if (r.ok) { $('comment-text').value = ''; note.textContent = ''; next = null; await load(true); }
-        else note.textContent = ((await r.json().catch(() => null)) || {}).message || 'Could not post the comment.';
+        else note.textContent = ((await r.json().catch(() => null)) || {}).message || ${JSON.stringify(tr('Could not post the comment.'))};
       } finally { btn.disabled = false; }
     });
     load(true);
   }
   document.getElementById('copy').addEventListener('click', async (e) => {
-    try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = 'Copied'; }
-    catch { prompt('Copy this link', ${JSON.stringify(url)}); }
+    try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = ${JSON.stringify(tr('Copied'))}; }
+    catch { prompt(${JSON.stringify(tr('Copy this link'))}, ${JSON.stringify(url)}); }
   });
 </script>
 </body>
@@ -277,11 +278,11 @@ export async function handleSharePage(request: Request, env: Env, path: string, 
   if (!m[2] && (!short || new URL(request.url).host !== new URL(base).host)) return Response.redirect(`${base}/${m[1]}`, 301);
   const share = env.MEDIA ? await getShare(env, m[1]) : null;
   if (!share) {
-    return new Response('This video is not available any more.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    return new Response(translator(pageLang(request))('This video is not available any more.'), { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
   if (!m[2]) {
     await countView(env, share.id, viewerLang(request));
-    return page(env, share, base);
+    return page(env, share, base, pageLang(request));
   }
   const isVideo = m[2] === '/video.mp4';
   const download = isVideo && new URL(request.url).searchParams.has('download')

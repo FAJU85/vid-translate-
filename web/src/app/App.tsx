@@ -10,6 +10,7 @@ import { InstallButton } from './InstallButton';
 import { accountApi, api, type AppConfig, type Me } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
+import { t } from '../shared/i18n';
 
 // The dashboard (drag and drop, virtual lists) is only downloaded by people who open /admin.
 const AdminView = lazy(() => import('../modules/admin').then((m) => ({ default: m.AdminView })));
@@ -21,10 +22,10 @@ const PAYMENT_WAIT_MS = 30 * 60 * 1000;
 const PAYMENT_POLL_MS = 4000;
 
 const SIGNIN_NOTICE: Record<string, string> = {
-  ok: 'You are signed in.',
-  expired: 'That sign-in link has expired or was already used. Ask for a new one.',
-  failed: 'Signing in with Google did not work. Please try again.',
-  unavailable: 'That way of signing in is not available.',
+  ok: t("You are signed in."),
+  expired: t("That sign-in link has expired or was already used. Ask for a new one."),
+  failed: t("Signing in with Google did not work. Please try again."),
+  unavailable: t("That way of signing in is not available."),
 };
 
 export default function App() {
@@ -149,24 +150,22 @@ function Site() {
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-8 pb-24 sm:pb-8">
         {paidTab && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
-            Payment received, thank you! Your credits are added in a few seconds. If you started a translation in another
-            tab, it continues there by itself; you can close this one.
+            {t("Payment received, thank you! Your credits are added in a few seconds. If you started a translation in another tab, it continues there by itself; you can close this one.")}
           </div>
         )}
         {paidNotice && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
-            Payment received: your credits are here.
+            {t("Payment received: your credits are here.")}
           </div>
         )}
         {awaitingSince && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-slate-700 bg-slate-900 text-slate-200">
-            Waiting for your payment… Finish it in the other tab or in Telegram; this page carries on by itself.
+            {t("Waiting for your payment… Finish it in the other tab or in Telegram; this page carries on by itself.")}
           </div>
         )}
         {configError && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">
-            The service is not reachable right now. If you run this site, check that <code>VITE_API_BASE</code> points
-            at your Worker.
+            {t("The service is not reachable right now. If you run this site, check that")}{' '}<code>{t("VITE_API_BASE")}</code>{' '}{t("points at your Worker.")}
           </div>
         )}
         {/* Stays mounted so an upload in progress survives switching tabs. */}
@@ -207,7 +206,7 @@ function Site() {
       <footer className={`${tab === 'feed' ? 'hidden sm:block ' : ''}border-t border-slate-900 pt-5 pb-24 sm:pb-5 px-4 text-center text-xs text-slate-500`}>
         {SITE.brand.footer} ·{' '}
         <a href="/terms" className="hover:text-slate-300 underline-offset-2 hover:underline">
-          Terms
+          {t("Terms")}
         </a>
       </footer>
     </div>
