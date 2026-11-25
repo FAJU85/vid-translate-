@@ -139,7 +139,7 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
   ${more.length ? `<section class="more"><h2>${tr('More from {handle}', { handle: `<bdi dir="ltr">@${esc(creator!.handle)}</bdi>` })}</h2><div class="grid">${more.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang) }, tr)).join('')}</div></section>` : ''}
   ${makeYourOwn(esc(brand), tr)}
 </main>
-<footer>${tr('Translated with {brand}: subtitles and dubbing for any video, in minutes.', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a></footer>
+<footer>${tr('Translated with {brand}: subtitles and dubbing for any video, in minutes.', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a> · <a href="/privacy">${tr('Privacy')}</a></footer>
 ${reportDialog('video', share.id, tr)}
 ${creator ? `<script>
   // Follow the creator from their video (hidden on your own video); signing in happens on the site.

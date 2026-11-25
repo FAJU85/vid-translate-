@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ConsentCheck, useConsent } from '../../shared/consent';
 import { AlertCircle, ArrowRight, AudioLines, Captions, Clapperboard, FileText, Link2, Loader2, Share2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type Me, type SubtitleMode } from '../../shared/api';
 import { CostPreview } from './CostPreview';
@@ -70,6 +71,10 @@ const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
 
 export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, onFeed, initialLink, resume = 0 }: Props) {
   const [dragging, setDragging] = useState(false);
+  // PDPL: agreed to the Terms and Privacy Policy (ticked once per version, in this browser).
+  const legalVersion = config?.legal_version ?? '';
+  const [agreed, setAgreed] = useConsent(legalVersion);
+  const [askConsent] = useState(() => !agreed);
   const [source, setSource] = useState<'url' | 'upload'>('url');
   const [videoUrl, setVideoUrl] = useState(initialLink ?? '');
   // A site whose downloads have been failing lately (learned from every download): said before starting.
@@ -136,7 +141,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
     e.preventDefault();
     setError(null);
     setErrorCode(null);
-    const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode, ...(mode !== 'soft' ? { style } : {}) };
+    const options = { src_lang: srcLang, tgt_lang: tgtLang, subtitle_mode: mode, consent: legalVersion, ...(mode !== 'soft' ? { style } : {}) };
     try {
       let job: Job;
       if (source === 'url') {
@@ -390,9 +395,10 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
           </div>
         )}
 
+        {(askConsent || !agreed) && legalVersion && <ConsentCheck checked={agreed} onChange={setAgreed} />}
         <button
           type="submit"
-          disabled={busy !== null}
+          disabled={busy !== null || (Boolean(legalVersion) && !agreed)}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-base font-bold shadow-lg shadow-amber-400/20 disabled:opacity-60"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

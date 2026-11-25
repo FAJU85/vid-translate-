@@ -26,3 +26,13 @@ export async function verifySigned(secret: string, scope: string, exp: string | 
   if (!exp || !sig || !Number.isFinite(expNum) || expNum < Date.now() / 1000) return false;
   return safeEqual(await hmacHex(secret, `${scope}:${expNum}`), sig);
 }
+
+/**
+ * A keyed fingerprint of the visitor's connection, kept instead of the IP address itself (data
+ * minimisation): the same connection gives the same value, so rate limits still work, but the
+ * address cannot be read back from it.
+ */
+export async function connectionKey(secret: string, request: Request): Promise<string | null> {
+  const ip = request.headers.get('CF-Connecting-IP');
+  return ip ? `k:${(await hmacHex(secret || 'kavox', `conn:${ip}`)).slice(0, 24)}` : null;
+}

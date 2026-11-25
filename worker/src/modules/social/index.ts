@@ -15,3 +15,4 @@ export { handleComments, handleModeration } from './moderation';
 export { handleNotifications, notifyPost, sweepNotifications } from './notifications';
 export { PROFILE_PATH, handleProfilePage } from './page';
 export { handleSeo } from './sitemap';
+export { eraseSocial, exportSocial } from './personal';

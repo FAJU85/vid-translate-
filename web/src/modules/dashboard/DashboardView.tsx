@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { YourData } from '../privacy';
 import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Pencil, Play, RefreshCw, Trash2, Video } from 'lucide-react';
 import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, type DashboardVideo, type Me } from '../../shared/api';
 import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
@@ -442,9 +443,11 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
           <OutroSettings outro={me.outro} onChange={() => accountApi.me().then(onMe, () => {})} />
         </section>
       )}
+          <YourData key={`d-${me.account.id}`} me={me} onRenamed={() => accountApi.me().then(onMe, () => {})} />
 
         </div>
       )}
+      {!me?.account && <YourData me={me} />}
     </div>
   );
 }

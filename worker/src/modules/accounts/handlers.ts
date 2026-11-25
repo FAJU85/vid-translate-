@@ -1,3 +1,5 @@
+import { LEGAL_VERSION } from '../settings';
+import { connectionKey } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { UUID, apiError, json } from '../../shared/http';
 import {
@@ -79,6 +81,9 @@ async function me(env: Env, request: Request, api: AccountsContext, clientId: st
   const daily = held?.buckets.find((b) => b.bucket === 'daily');
   return {
     account: account && publicAccount(account),
+    // The Terms and Privacy Policy version this person agreed to (the website asks again when it changes).
+    consent_version: (account ?? holder)?.consent_version ?? null,
+    legal_version: LEGAL_VERSION,
     outro: account ? await outroInfo(env, account) : null,
     credits_enabled: enabled,
     seconds_per_credit: SECONDS_PER_CREDIT,
@@ -130,7 +135,7 @@ const withCookie = (res: Response, cookie: string) => {
 export async function handleAccounts(request: Request, env: Env, path: string, api: AccountsContext): Promise<Response | null> {
   const url = new URL(request.url);
   const method = request.method;
-  const ip = request.headers.get('CF-Connecting-IP');
+  const ip = await connectionKey(env.SHARED_SECRET, request); // a fingerprint, never the address
 
   if (path === '/api/me' && method === 'GET') return json(await me(env, request, api, url.searchParams.get('client_id')));
 

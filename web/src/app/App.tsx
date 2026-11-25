@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { sendConsent, storedConsent } from '../shared/consent';
 import { FeedbackButton } from '../modules/feedback';
 import { DashboardView } from '../modules/dashboard';
 import { FeedView } from '../modules/feed';
@@ -68,12 +69,20 @@ function Site() {
   const [awaitingSince, setAwaitingSince] = useState<number | null>(null);
   const [resume, setResume] = useState(0);
   const [paidNotice, setPaidNotice] = useState(false);
+  // Came back from "Delete my account".
+  const [deletedNotice] = useState(() => new URLSearchParams(window.location.search).get('deleted') === '1');
   const refreshMe = () => accountApi.me().then(setMe, () => {});
+  // Signed in after ticking "I agree" (or on another device): the account keeps that consent too.
+  useEffect(() => {
+    if (me?.account && me.legal_version && me.consent_version !== me.legal_version && storedConsent() === me.legal_version) {
+      void sendConsent(me.legal_version);
+    }
+  }, [me?.account, me?.legal_version, me?.consent_version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     refreshMe();
     const url = new URL(window.location.href);
-    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source'];
+    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted'];
     if (once.some((k) => url.searchParams.has(k))) {
       once.forEach((k) => url.searchParams.delete(k));
       window.history.replaceState(null, '', url);
@@ -154,6 +163,11 @@ function Site() {
             {t("Payment received, thank you! Your credits are added in a few seconds. If you started a translation in another tab, it continues there by itself; you can close this one.")}
           </div>
         )}
+        {deletedNotice && (
+          <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
+            {t("Your account and data were deleted.")}
+          </div>
+        )}
         {paidNotice && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
             {t("Payment received: your credits are here.")}
@@ -208,6 +222,10 @@ function Site() {
         {SITE.brand.footer} ·{' '}
         <a href="/terms" className="hover:text-slate-300 underline-offset-2 hover:underline">
           {t("Terms")}
+        </a>{' '}
+        ·{' '}
+        <a href="/privacy" className="hover:text-slate-300 underline-offset-2 hover:underline">
+          {t("Privacy")}
         </a>{' '}
         ·{' '}
         <FeedbackButton className="hover:text-slate-300 underline-offset-2 hover:underline" />

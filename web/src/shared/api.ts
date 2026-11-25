@@ -77,6 +77,8 @@ export interface AppConfig {
   languages: Language[];
   max_upload_mb: number;
   max_jobs_per_hour: number;
+  /** The version of the Terms and Privacy Policy people agree to. */
+  legal_version?: string;
   /** Values saved on the /admin page; empty strings mean "use the default". */
   site?: SiteSettings;
 }
@@ -167,6 +169,9 @@ export interface Account {
 }
 export interface Me {
   account: Account | null;
+  /** The Terms and Privacy Policy version this person agreed to (null: not yet), and the current one. */
+  consent_version?: string | null;
+  legal_version?: string;
   credits_enabled: boolean;
   seconds_per_credit: number;
   balance: Balance | null;
@@ -357,6 +362,31 @@ export interface CreatorHit {
   bio: string | null;
   followers: number;
 }
+/** PDPL rights: download my data, delete my account, correct my name. */
+export const privacyApi = {
+  /** Everything linked to you, as a JSON file (a Blob, to save). */
+  export: async (): Promise<Blob> => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/api/me/export?client_id=${clientId()}`);
+    } catch {
+      throw new ApiError('E_NETWORK', t('Could not reach the server. Check your connection and try again.'));
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new ApiError(data?.error_code ?? 'E_HTTP', data?.message ? t(data.message) : t('Request failed ({n}).', { n: res.status }));
+    }
+    return res.blob();
+  },
+  erase: () => call<{ ok: true; deleted: { videos: number; jobs: number } }>('/api/me/delete', { method: 'POST', body: JSON.stringify({ confirm: true, client_id: clientId() }) }),
+  rename: (name: string) => call<{ ok: true; name: string | null }>('/api/me/name', { method: 'POST', body: JSON.stringify({ name }) }),
+};
+
+/** "I agree to the Terms and Privacy Policy": kept with the account. */
+export const consentApi = {
+  give: (version: string) => call<{ ok: true }>('/api/consent', { method: 'POST', body: JSON.stringify({ version, client_id: clientId() }) }),
+};
+
 /** "Send feedback": anyone can send it; the admin reads it on the /admin page. */
 export const feedbackApi = {
   send: (text: string, page: string, lang: string) =>

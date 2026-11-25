@@ -2,7 +2,7 @@
  * Accounts brick: who someone is (Telegram, an email link, Google, or a guest browser) and their
  * credits (1 credit = 60 seconds of video). This file is the brick's only public interface.
  */
-export { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, getAccount, type Account } from './store';
+export { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, getAccount, recordConsent, type Account } from './store';
 export { cancelTelegramLogin, confirmTelegramLogin, describeTelegramLogin } from './auth';
 export { SECONDS_PER_CREDIT, balance, costSeconds, creditsEnabled, grant, type Balance } from './credits';
 export { billingListener, chargeJob, checkJob, estimateSeconds, releaseJob, type ChargeResult, type Refusal } from './billing';
@@ -11,3 +11,4 @@ export { accountForTelegram, accountForWeb, existingTelegramAccount, handleAccou
 export { PRODUCTS, PLAN_PERIOD, isProduct, starsPrice, type Product, type ProductId } from './products';
 export { chooseOutro, hasPlan, jobAccount } from './outro';
 export { PAYMENTS_SCHEMA, createCheckout, fulfil, handleStripeWebhook, stripeConfigured } from './payments';
+export { eraseAccount, exportAccount, personFor, renameAccount } from './personal';
