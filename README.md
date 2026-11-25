@@ -480,6 +480,17 @@ Posted videos and creator profiles can be found on Google; link-only videos cann
   and submit `https://<your address>/sitemap.xml` there (free). The addresses use the public
   domain set in the admin panel, so set the domain first.
 
+## Feedback
+
+People can tell you what to improve, and you read it all in one place.
+
+- Website: **Send feedback** at the bottom of every page opens a short form (anyone, signed in or
+  not; 5 messages an hour per person, up to 2,000 characters).
+- Telegram bot: `/feedback <message>`. Run `POST /admin/setup` once after deploying so the bot's
+  command menu shows it.
+- Admin: the **Feedback** workspace on `/admin` lists it newest first, with where it came from
+  (website or Telegram), the page and language. Mark each one **Done** or delete it.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

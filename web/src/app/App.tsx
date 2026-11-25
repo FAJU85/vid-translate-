@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { FeedbackButton } from '../modules/feedback';
 import { DashboardView } from '../modules/dashboard';
 import { FeedView } from '../modules/feed';
 import { PricingView } from '../modules/pricing';
@@ -207,7 +208,9 @@ function Site() {
         {SITE.brand.footer} ·{' '}
         <a href="/terms" className="hover:text-slate-300 underline-offset-2 hover:underline">
           {t("Terms")}
-        </a>
+        </a>{' '}
+        ·{' '}
+        <FeedbackButton className="hover:text-slate-300 underline-offset-2 hover:underline" />
       </footer>
     </div>
   );

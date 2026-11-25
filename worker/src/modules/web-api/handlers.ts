@@ -28,6 +28,7 @@ import { handleAdminJobs } from './admin';
 import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
+import { handleFeedback, handleFeedbackAdmin } from '../feedback';
 import { handleAnalytics, handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
@@ -286,6 +287,16 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const moderation = await handleModeration(request, env, path, api.origin);
     if (moderation) return moderation;
+  }
+  // "Send feedback" (anyone), and reading it on the /admin page.
+  if (path === '/api/feedback') {
+    const sent = await handleFeedback(request, env, path);
+    if (sent) return sent;
+  }
+  if (path === '/api/admin/feedback') {
+    if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    const feedback = await handleFeedbackAdmin(request, env, path);
+    if (feedback) return feedback;
   }
   // Which KAVOX an address reaches (the admin's public-domain check).
   if (path === '/api/instance' && method === 'GET') return serveInstance(env);

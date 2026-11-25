@@ -357,6 +357,23 @@ export interface CreatorHit {
   bio: string | null;
   followers: number;
 }
+/** "Send feedback": anyone can send it; the admin reads it on the /admin page. */
+export const feedbackApi = {
+  send: (text: string, page: string, lang: string) =>
+    call<{ ok: true }>('/api/feedback', { method: 'POST', body: JSON.stringify({ text, page, lang }) }),
+};
+
+export interface FeedbackItem {
+  id: number;
+  source: 'web' | 'telegram';
+  account_id: string | null;
+  text: string;
+  page: string | null;
+  lang: string | null;
+  status: 'new' | 'done';
+  created_at: number;
+}
+
 export const discoverApi = {
   search: (q: string) => call<{ q: string; creators: CreatorHit[]; videos: FeedItem[]; tag: string | null }>(`/api/search?q=${encodeURIComponent(q)}`),
   tag: (tag: string) => call<{ tag: string; items: FeedItem[] }>(`/api/tags/${encodeURIComponent(tag)}`),
@@ -554,6 +571,10 @@ export const adminApi = {
   sites: (password: string) => call<{ sites: SiteMethod[] }>('/api/admin/sites', { headers: auth(password) }),
   deleteMemory: (password: string, id: number) =>
     call<{ ok: true }>(`/api/admin/memory/${id}`, { method: 'DELETE', headers: auth(password) }),
+  feedback: (password: string, status: 'new' | 'done' | '' = '') =>
+    call<{ items: FeedbackItem[]; counts: { new: number; done: number } }>(`/api/admin/feedback?status=${status}`, { headers: auth(password) }),
+  judgeFeedback: (password: string, id: number, action: 'done' | 'new' | 'delete') =>
+    call<{ ok: true }>('/api/admin/feedback', { method: 'POST', headers: auth(password), body: JSON.stringify({ id, action }) }),
   moderation: (password: string) => call<{ reports: ReportGroup[]; blocked: BlockedAccount[] }>('/api/admin/moderation', { headers: auth(password) }),
   moderate: (password: string, body: { action: ModerationAction; kind: ReportKind; target: string; reason?: string } | { action: 'unblock'; account_id: string }) =>
     call<{ ok: true }>('/api/admin/moderation', { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
