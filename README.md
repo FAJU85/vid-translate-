@@ -450,8 +450,14 @@ choose **Lyrics video** on the website, or **🎵 Lyrics video** in the bot.
 - Edited lyrics can be rendered again for free, like any subtitled video: fix a line with the
   pencil on the result screen, then **Render video with my edits**.
 - At most 15 minutes of sound (Space setting `VISUAL_MAX_MIN`): drawing every frame takes time.
-- Song lyrics are recognised less well than speech (the music covers the voice): check them in
-  the editor before sharing. Post only songs you have the right to share.
+- Songs: the speech detector (made for talking) hears singing as "no speech" and threw the lyrics
+  away. When it hears speech in less than a quarter of a recording of 20 seconds or more, the
+  recording is treated as music: Whisper hears all of it, and the "thank you" it writes over
+  instrumental parts is dropped. Talking (even with music under it) is not affected.
+- Separating the voice from the music first (Demucs) was measured on 2 CPU cores: about 0.55 s per
+  second of song and ~700 MB more in the image, and the lyrics came out no better, so it is not used.
+- Song lyrics are still recognised less well than speech: check them in the editor before
+  sharing. Post only songs you have the right to share.
 
 ## App (PWA) and screen sizes
 

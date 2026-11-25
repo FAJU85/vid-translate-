@@ -34,6 +34,50 @@ def test_loops_and_silence_are_dropped():
     assert is_invented("Hmm.", no_speech_prob=0.8, avg_logprob=-1.4, compression_ratio=1.0)
 
 
+def _fake_whisper(monkeypatch, tmp_path, share: float, seconds: int):
+    """A recording of `seconds`, the detector hearing `share` of it as speech, and a model that
+    records how it was called and answers with sung lines and a filler over the music."""
+    import wave
+    from types import SimpleNamespace
+
+    from app.modules.speech import whisper as W
+
+    path = tmp_path / "a.wav"
+    with wave.open(str(path), "wb") as f:
+        f.setnchannels(1), f.setsampwidth(2), f.setframerate(16000)
+        f.writeframes(b"\0\0" * 16000 * seconds)
+    calls = {}
+
+    def seg(start, text):
+        return SimpleNamespace(start=start, end=start + 2, text=text, words=[], no_speech_prob=0.0, avg_logprob=-0.4, compression_ratio=1.0)
+
+    class Model:
+        def transcribe(self, samples, **opts):
+            calls.update(opts)
+            return iter([seg(0, " Oh Shenandoah, I long to hear you"), seg(30, " Thank you.")]), SimpleNamespace(language="en", duration=seconds)
+
+    monkeypatch.setattr(W, "get_model", lambda: Model())
+    monkeypatch.setattr(W, "speech_share", lambda samples: share)
+    return W, path, calls
+
+
+def test_a_song_is_heard_without_the_speech_detector(monkeypatch, tmp_path):
+    """Singing is not speech to the detector: a song gets all of its sound heard, and the
+    "thank you" Whisper writes over the instrumental parts is dropped."""
+    W, path, calls = _fake_whisper(monkeypatch, tmp_path, share=0.01, seconds=60)
+    segments, _ = W.transcribe(path, "en", 60, lambda: False, lambda f: None)
+    assert calls["vad_filter"] is False
+    assert [s[2].strip() for s in segments] == ["Oh Shenandoah, I long to hear you"]
+
+
+@pytest.mark.parametrize(("share", "seconds"), [(0.9, 60), (0.01, 10)])
+def test_talking_and_short_clips_keep_the_speech_detector(monkeypatch, tmp_path, share, seconds):
+    W, path, calls = _fake_whisper(monkeypatch, tmp_path, share=share, seconds=seconds)
+    segments, _ = W.transcribe(path, "en", seconds, lambda: False, lambda f: None)
+    assert calls["vad_filter"] is True
+    assert len(segments) == 2  # "Thank you." is kept where someone may really have said it
+
+
 def test_a_sentence_never_runs_into_one_that_starts_right_after():
     plan = dubbing.plan([(0.0, 0.2, "a"), (0.3, 1.0, "b")], ["x", "y"], 2.0)
     assert plan[0].latest_end <= 0.3
