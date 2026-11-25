@@ -145,3 +145,29 @@ def test_album_art_is_not_a_video_and_becomes_the_background(tmp_path):
                             "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
     assert pixel[0] > 120 and pixel[2] < 100, pixel
     assert not (tmp_path / "visual_bg.png").exists()  # the working picture is removed
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+def test_song_tags_bar_and_logo(tmp_path):
+    from app.modules.media import audio_video, tags
+
+    run = lambda *a: subprocess.run(["ffmpeg", "-loglevel", "error", "-y", *a], check=True)  # noqa: E731
+    song, logo = tmp_path / "song.mp3", tmp_path / "logo.bin"
+    run("-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-metadata", "title=Moonlight", "-metadata", "artist=The Band", str(song))
+    assert tags(song) == {"title": "Moonlight", "artist": "The Band"}
+    run("-f", "lavfi", "-i", "color=c=red:s=100x100", "-frames:v", "1", "-f", "image2", "-c:v", "png", str(logo))
+    (tmp_path / "lyrics.ass").write_text("[Script Info]\nScriptType: v4.00+\n", encoding="utf-8")
+    out = tmp_path / "video.mp4"
+    audio_video(song, "lyrics.ass", out, 4.0, "wave", "night", "square", lambda: False, lambda _f: None, bar=True, logo=logo)
+
+    def pixel(at: float, x: int, y: int) -> bytes:
+        return subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", str(at), "-i", str(out), "-frames:v", "1",
+                               "-vf", f"crop=2:2:{x}:{y}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
+
+    assert pixel(0.5, 650, 60)[0] > 180  # the red logo, top right
+    early, late = pixel(1.0, 500, 716), pixel(3.5, 500, 716)
+    assert early[0] < 100 and late[0] > 180  # the amber bar has reached 500 px by the end, not at the start
+    # A logo ffmpeg cannot draw (an SVG) is left out instead of failing the video.
+    logo.write_text("<svg xmlns='http://www.w3.org/2000/svg'/>")
+    audio_video(song, "lyrics.ass", out, 4.0, "wave", "night", "square", lambda: False, lambda _f: None, logo=logo)
+    assert out.stat().st_size > 0

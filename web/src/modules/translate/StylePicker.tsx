@@ -39,12 +39,16 @@ export function rememberedStyle(): SubtitleStyle {
     look: oneOf(LOOKS.map(([id]) => id), saved.look, 'wave'),
     backdrop: oneOf(BACKDROPS.map(([id]) => id), saved.backdrop, 'kavox'),
     frame: oneOf(FRAMES.map(([id]) => id), saved.frame, 'vertical'),
+    title_card: saved.title_card !== false,
+    bar: saved.bar !== false,
   };
 }
 
 export function remember(style: SubtitleStyle): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(style));
+    // A song's title and artist belong to that song: never carried over to the next one.
+    const { title: _title, artist: _artist, ...kept } = style;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
   } catch {
     /* storage blocked: the choice still applies to this video */
   }
@@ -97,6 +101,7 @@ const FRAMES: [NonNullable<SubtitleStyle['frame']>, string, string][] = [
   ['square', t("Square 1:1"), '1 / 1'],
   ['wide', t("Wide 16:9"), '16 / 9'],
 ];
+const field = 'w-full px-3 py-2 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400';
 const COLORS = ['#FFFFFF', '#FFD400', '#38BDF8', '#4ADE80', '#FB923C', '#F472B6'];
 
 // The fonts the server burns in, per writing system (backend subtitles/ass.py FONTS). `em` is how
@@ -237,6 +242,32 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
           <p className="mt-1 text-xs text-slate-500">{t("The picture inside your audio file (its album art), blurred. A file without one gets the KAVOX colours.")}</p>
         )}
       </div>
+      <label className="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer select-none">
+        <input type="checkbox" checked={style.title_card !== false} onChange={(e) => update({ title_card: e.target.checked })} className="w-4 h-4 accent-amber-400" />
+        {t("Title and artist at the top")}
+      </label>
+      <label className="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer select-none">
+        <input type="checkbox" checked={style.bar !== false} onChange={(e) => update({ bar: e.target.checked })} className="w-4 h-4 accent-amber-400" />
+        {t("A bar that fills as it plays")}
+      </label>
+      {style.title_card !== false && (
+        <div className="sm:col-span-2 grid gap-2 sm:grid-cols-2">
+          <input
+            value={style.title ?? ''}
+            maxLength={80}
+            onChange={(e) => update({ title: e.target.value })}
+            placeholder={t("Title (from the song itself if empty)")}
+            className={field}
+          />
+          <input
+            value={style.artist ?? ''}
+            maxLength={80}
+            onChange={(e) => update({ artist: e.target.value })}
+            placeholder={t("Artist (from the song itself if empty)")}
+            className={field}
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -258,6 +289,15 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
         aria-label={t("Subtitle preview")}
       >
         {sound && <Visualizer look={style.look ?? 'wave'} tick={tick} />}
+        {sound && style.title_card !== false && (
+          <div className="absolute inset-x-0 top-[3%] px-[4%] text-center leading-tight" style={{ fontSize: cqw(16, 1, height), textShadow: '0 0 2px #000, 0 0 3px #000' }}>
+            <div className="font-bold text-white truncate">{style.title || t("Song title")}</div>
+            <div className="text-slate-300 truncate" style={{ fontSize: '0.75em' }}>{style.artist || t("Artist")}</div>
+          </div>
+        )}
+        {sound && style.bar !== false && (
+          <div className="absolute bottom-0 left-0 h-[0.6%] min-h-[3px] bg-amber-400 transition-all duration-300" style={{ width: `${((tick % 40) / 40) * 100}%` }} />
+        )}
         <div
           className={`absolute inset-x-0 flex items-center gap-[0.6cqw] px-[4%] ${style.position === 'top' ? 'flex-col' : 'flex-col-reverse'}`}
           style={placement}

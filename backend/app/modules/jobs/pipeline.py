@@ -11,7 +11,7 @@ from .. import media, speech, subtitles, translation, voice
 from ...shared import config, security
 from ...shared.errors import Cancelled, PipelineError
 from . import dubbing
-from .model import KEPT_SOURCE, OUTPUT_FILES, OUTRO_UPLOAD, STAGE_SPAN, UPLOAD_NAME, Job
+from .model import KEPT_SOURCE, LOGO_UPLOAD, OUTPUT_FILES, OUTRO_UPLOAD, STAGE_SPAN, UPLOAD_NAME, Job
 
 log = logging.getLogger("tarjim.jobs")
 
@@ -206,14 +206,22 @@ def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
 
 def _render(job: Job, workdir: Path, source: Path, info: dict, cues: list, src_lang: str | None, cancelled, report) -> None:
     """The video with the styled subtitles in it. Sound alone (a song, a podcast) gets a picture
-    made for it: a background, the sound drawn as it plays, and the subtitles as lyrics."""
+    made for it: a background, the sound drawn as it plays, a filling bar, the site's logo, the
+    song's title card, and the subtitles as lyrics."""
     style = subtitles.SubtitleStyle.from_dict(job.style)
-    (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang), encoding="utf-8")
+    heading = None
+    if not info["has_video"] and style.title_card:
+        found = media.tags(source)
+        # Typed on the website first, then the song's own tags; a link's page title as the last resort.
+        title = style.title or found.get("title") or (job.title if job.source_kind == "url" else "") or ""
+        heading = (title, style.artist or found.get("artist", ""))
+    (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang, heading), encoding="utf-8")
     dest = workdir / OUTPUT_FILES["mp4"]
     if info["has_video"]:
         media.burn_subtitles(source, BURN_FILE, dest, info["duration"], cancelled, report)
     else:
-        media.audio_video(source, BURN_FILE, dest, info["duration"], style.look, style.backdrop, style.frame, cancelled, report)
+        media.audio_video(source, BURN_FILE, dest, info["duration"], style.look, style.backdrop, style.frame,
+                          cancelled, report, bar=style.bar, logo=workdir / LOGO_UPLOAD)
 
 
 def _add_thumbnail(workdir: Path, video: Path, duration: float, outputs: dict) -> None:

@@ -22,6 +22,8 @@ KEPT_SOURCE = "source_video.bin"
 UPLOAD_NAME = "upload.bin"
 # A subscriber's own ending clip, sent by the Worker with the job (outro "custom").
 OUTRO_UPLOAD = "outro.bin"
+# The site's logo for lyrics videos, sent by the Worker with the job when the admin switched it on.
+LOGO_UPLOAD = "logo.bin"
 TERMINAL = {"done", "failed", "cancelled"}
 
 # (start %, end %) of overall progress for each stage, per subtitle mode.

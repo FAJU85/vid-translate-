@@ -633,4 +633,10 @@ export const AR: Record<string, string> = {
   "Lyrics video": "فيديو كلمات",
   "A video made from the sound: moving visuals and the words, lit as they are sung.": "فيديو مصنوع من الصوت: رسوم متحركة والكلمات تُضاء عند غنائها.",
   "Colours": "الألوان",
+  "Title and artist at the top": "العنوان والفنان في الأعلى",
+  "A bar that fills as it plays": "شريط يمتلئ أثناء التشغيل",
+  "Title (from the song itself if empty)": "العنوان (من الأغنية نفسها إن تُرك فارغًا)",
+  "Artist (from the song itself if empty)": "الفنان (من الأغنية نفسها إن تُرك فارغًا)",
+  "Song title": "عنوان الأغنية",
+  "Artist": "الفنان",
 };

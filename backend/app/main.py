@@ -4,6 +4,8 @@ A base only wires bricks together and speaks HTTP; the work lives in ``app.modul
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 import os
 import re
@@ -18,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .modules import media, speech, subtitles, translation
-from .modules.jobs import KEPT_SOURCE, OUTPUT_FILES, OUTRO_UPLOAD, UPLOAD_NAME, Job, manager
+from .modules.jobs import KEPT_SOURCE, LOGO_UPLOAD, OUTPUT_FILES, OUTRO_UPLOAD, UPLOAD_NAME, Job, manager
 from .shared import config, security
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -91,6 +93,8 @@ class InvokeRequest(BaseModel):
     memory: dict | None = None
     # Download methods (media.STRATEGIES) that worked best for the link's site, best first.
     download: list[str] | None = Field(default=None, max_length=8)
+    # The site's logo (base64 PNG / JPEG / WebP, at most 256 KB) for lyrics videos, when switched on.
+    logo: str | None = Field(default=None, max_length=360_000)
 
 
 def _require_auth(authorization: str | None) -> None:
@@ -164,6 +168,14 @@ def invoke(req: InvokeRequest, authorization: str | None = Header(default=None))
         created = _prepare_rerender(req)
     elif not (manager.job_dir(req.job_id) / UPLOAD_NAME).exists():
         raise HTTPException(status_code=409, detail="No uploaded file for this job")
+
+    if req.logo and req.subtitle_mode == "hard":
+        try:
+            image = base64.b64decode(req.logo, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=400, detail="logo must be base64") from None
+        manager.job_dir(req.job_id).mkdir(parents=True, exist_ok=True)
+        (manager.job_dir(req.job_id) / LOGO_UPLOAD).write_bytes(image)  # checked again when drawn
 
     job = Job(
         id=req.job_id,

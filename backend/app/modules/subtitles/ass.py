@@ -7,6 +7,7 @@ form that Noto Sans Arabic lacks, so it was drawn as a square.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from .core import Cue, _wrap
@@ -66,6 +67,10 @@ class SubtitleStyle:
     look: str = "wave"  # sound alone: the visualizer (LOOKS)
     backdrop: str = "kavox"  # sound alone: the background (BACKDROPS; cover = the file's own picture)
     frame: str = "vertical"  # sound alone: the video's shape (FRAMES)
+    title_card: bool = True  # sound alone: the song's title and artist at the top
+    title: str = ""  # ...written by the person; empty: from the song's own tags
+    artist: str = ""
+    bar: bool = True  # sound alone: a bar along the bottom fills as it plays
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
@@ -92,6 +97,10 @@ class SubtitleStyle:
             look=pick("look", LOOKS),
             backdrop=pick("backdrop", BACKDROPS),
             frame=pick("frame", FRAMES),
+            title_card=data.get("title_card") is not False,
+            title=_short_text(data.get("title")),
+            artist=_short_text(data.get("artist")),
+            bar=data.get("bar") is not False,
         )
 
     def to_dict(self) -> dict:
@@ -108,7 +117,37 @@ class SubtitleStyle:
             "look": self.look,
             "backdrop": self.backdrop,
             "frame": self.frame,
+            "title_card": self.title_card,
+            "title": self.title,
+            "artist": self.artist,
+            "bar": self.bar,
         }
+
+
+TEXT_MAX = 80
+
+
+def _short_text(value) -> str:
+    """A title or an artist typed by someone: one line, at most TEXT_MAX characters, or empty.
+    Control characters go; joiners (the zero-width non-joiner Persian needs) stay."""
+    if not isinstance(value, str):
+        return ""
+    return " ".join("".join(" " if unicodedata.category(c) == "Cc" else c for c in value).split())[:TEXT_MAX]
+
+
+_ARABIC_SCRIPT = re.compile("[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]")
+
+
+def _heading_styles(style: "SubtitleStyle", title: str, artist: str) -> list[str]:
+    """The title card's two styles, at the top centre, each in a font for its own writing system."""
+    out = []
+    for name, text, size, bold, colour in (("Title", title, 16, True, "#FFFFFF"), ("Artist", artist, 12, False, "#CBD5E1")):
+        font, font_bold, scale = FONTS[style.font]["arabic" if _ARABIC_SCRIPT.search(text) else "latin"]
+        out.append(
+            f"Style: {name},{font},{round(size * scale, 1):g},{_ass_colour(colour)},{_ass_colour(colour)},{_ass_colour('#000000')},"
+            f"&H80000000,{-1 if bold or font_bold else 0},0,0,0,100,100,0,0,1,1,0,8,16,16,14,-1"
+        )
+    return out
 
 
 def _ass_colour(hex_rgb: str, alpha: int = 0) -> str:
@@ -194,9 +233,12 @@ ORIGINAL_SCALE = 0.72  # the original text, in two-language subtitles, is this m
 ORIGINAL_COLOUR = "#E2E8F0"
 
 
-def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_lang: str | None = None) -> str:
+def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_lang: str | None = None,
+           heading: tuple[str, str] | None = None) -> str:
     """Styled subtitles in `lang`; with style.bilingual, the original (in `src_lang`) above them.
-    With style.lines "original", the other way round: the original words, the translation beside."""
+    With style.lines "original", the other way round: the original words, the translation beside.
+    `heading`: (title, artist) shown at the top for the whole video (a lyrics video's title card)."""
+    title, artist = (_short_text(heading[0]), _short_text(heading[1])) if heading else ("", "")
     style = style or SubtitleStyle()
     if style.lines == "original":
         # The original words are the main line (and lit word by word); the translation goes beside them.
@@ -230,6 +272,7 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_l
         f"Style: Default,{font},{font_size:g},{primary},{primary},{outline_colour},{back_colour},"
         f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin_v},{encoding}",
         *([_original_style(style, src_lang, border_style, outline, outline_colour, back_colour, margin_v)] if style.bilingual else []),
+        *(_heading_styles(style, title, artist) if title or artist else []),
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -244,6 +287,12 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_l
         if original and original != text:
             # Written after the translation: libass stacks a later bottom subtitle above an earlier one.
             events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Original,,0,0,0,,{original}")
+    if title or artist:
+        # Written first: lines at the top are stacked downwards in order (title, artist, then any
+        # lyrics placed at the top too, which move below the card instead of covering it).
+        end = _ass_time(max([c.end for c in cues] + [0]) + 36_000)  # past any video's end
+        events[:0] = [f"Dialogue: 0,0:00:00.00,{end},{name},,0,0,0,,{_ass_text(text)}"
+                      for name, text in (("Title", title), ("Artist", artist)) if text]
     return header + "\n" + "\n".join(events) + "\n"
 
 

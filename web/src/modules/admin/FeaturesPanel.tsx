@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import qrcode from 'qrcode-generator';
-import { Activity, Bot, Check, Coins, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Activity, Bot, Check, Coins, Image as ImageIcon, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { ApiError, adminApi, type AdminFeatures } from '../../shared/api';
 
 const input = 'w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400';
@@ -352,6 +352,27 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
             }
           >
             {f.credits.on ? 'Turn off' : 'Turn on'}
+          </button>
+        )}
+      </Card>
+
+      <Card icon={ImageIcon} title="Your logo on lyrics videos" status={<Chip on={f.lyrics_logo.on} label={f.lyrics_logo.on ? 'On' : 'Off'} />}>
+        <p className="text-sm text-slate-400">
+          Songs and podcasts made into videos get your logo, small, in the top corner. It uses the logo saved in Settings.
+        </p>
+        {f.lyrics_logo.logo === 'none' && <p className="text-xs text-amber-200">No logo is saved yet: add one in Settings first.</p>}
+        {f.lyrics_logo.logo === 'svg' && (
+          <p className="text-xs text-amber-200">Your logo is an SVG, which videos cannot show. Save a PNG or JPEG version in Settings to use it here.</p>
+        )}
+        {locked('LYRICS_LOGO') ? (
+          <ServerNote />
+        ) : (
+          <button
+            className={f.lyrics_logo.on ? quiet : primary}
+            disabled={busy !== null || (!f.lyrics_logo.on && f.lyrics_logo.logo !== 'drawable')}
+            onClick={() => set('LYRICS_LOGO', f.lyrics_logo.on ? '' : '1', f.lyrics_logo.on ? 'Your logo is off on lyrics videos.' : 'Your logo is on: new lyrics videos show it.')}
+          >
+            {busy === 'LYRICS_LOGO' && <Loader2 className="w-4 h-4 animate-spin" />} {f.lyrics_logo.on ? 'Turn off' : 'Turn on'}
           </button>
         )}
       </Card>

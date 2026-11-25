@@ -119,6 +119,25 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
 }
 
 /** GET /api/logo: the uploaded logo, served from the database. */
+/** Logo types the video engine can draw (not SVG). */
+const DRAWABLE_LOGO = /^data:image\/(png|jpeg|webp|gif);base64,(.+)$/;
+
+/**
+ * The logo for lyrics videos (base64 image bytes), when LYRICS_LOGO is on (Features page) and the
+ * saved logo is a picture the video engine can draw; null otherwise.
+ */
+export async function lyricsLogo(env: Env): Promise<string | null> {
+  if (!['1', 'true', 'yes'].includes(String(env.LYRICS_LOGO ?? '').toLowerCase())) return null;
+  const { settings } = await readSettings(env);
+  return settings.logo.match(DRAWABLE_LOGO)?.[2] ?? null;
+}
+
+/** What the Features page says about the logo: none saved, one the videos can show, or an SVG. */
+export async function logoKind(env: Env): Promise<'none' | 'drawable' | 'svg'> {
+  const { settings } = await readSettings(env);
+  return !settings.logo ? 'none' : DRAWABLE_LOGO.test(settings.logo) ? 'drawable' : 'svg';
+}
+
 export async function serveLogo(env: Env): Promise<Response> {
   const { settings } = await readSettings(env);
   const match = settings.logo.match(/^data:([a-z+/-]+);base64,(.+)$/);

@@ -41,6 +41,7 @@ export {
   registerDownloadPlanner,
   registerJobListener,
   registerMemoryProvider,
+  registerLogoProvider,
   registerOutroChooser,
   registerSourceFetcher,
   type JobListener,

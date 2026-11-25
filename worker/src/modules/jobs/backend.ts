@@ -23,6 +23,8 @@ export interface InvokeBody {
   memory?: Record<string, unknown>;
   /** Download methods that worked best for the link's site, best first (learning brick). */
   download?: string[];
+  /** The site's logo for lyrics videos (base64 PNG / JPEG / WebP), when the admin switched it on. */
+  logo?: string;
   callback_url: string;
   title: string | null;
 }

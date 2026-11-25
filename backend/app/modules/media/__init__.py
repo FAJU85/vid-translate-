@@ -7,7 +7,7 @@ from .core import (
     FIT_SLOWER, OUTRO_MAX_SECONDS, STRATEGIES, DubPiece, append_outro, build_dub_track, burn_subtitles, download_direct, download_url,
     extract_audio, mix_dub, probe, speech_bounds, thumbnail,
 )
-from .visual import BACKDROPS, FRAMES, LOOKS, audio_video
+from .visual import BACKDROPS, FRAMES, LOOKS, audio_video, tags
 
-__all__ = ["BACKDROPS", "FRAMES", "LOOKS", "audio_video", "FIT_SLOWER", "OUTRO_MAX_SECONDS", "STRATEGIES", "DubPiece", "append_outro", "build_dub_track", "burn_subtitles", "download_direct", "download_url",
+__all__ = ["BACKDROPS", "FRAMES", "LOOKS", "audio_video", "tags", "FIT_SLOWER", "OUTRO_MAX_SECONDS", "STRATEGIES", "DubPiece", "append_outro", "build_dub_track", "burn_subtitles", "download_direct", "download_url",
            "extract_audio", "mix_dub", "probe", "speech_bounds", "thumbnail"]

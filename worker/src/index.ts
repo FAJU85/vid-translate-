@@ -14,6 +14,7 @@ import {
   registerJobListener,
   registerDownloadPlanner,
   registerMemoryProvider,
+  registerLogoProvider,
   registerOutroChooser,
   registerSourceFetcher,
   sweep,
@@ -28,7 +29,7 @@ import {
   setupBot,
   telegramJobListener,
 } from './modules/telegram';
-import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage } from './modules/settings';
+import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage, lyricsLogo } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
@@ -47,6 +48,8 @@ registerJobListener(telegramJobListener);
 registerJobListener(billingListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
+// The site's logo on lyrics videos, when switched on (settings brick).
+registerLogoProvider(lyricsLogo);
 // A video's page names its creator's @handle (social brick).
 registerCreatorLookup(creatorFor);
 registerPostListener(notifyPost);

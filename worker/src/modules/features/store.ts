@@ -19,6 +19,7 @@ export const FEATURES_SCHEMA = [
 /** What can be set from the panel, and which of those are secrets (stored encrypted, never shown). */
 export const FIELDS = {
   CREDITS_ENABLED: { secret: false },
+  LYRICS_LOGO: { secret: false },
   MAX_JOBS_PER_HOUR: { secret: false },
   MAX_UPLOAD_MB: { secret: false },
   RESEND_API_KEY: { secret: true },

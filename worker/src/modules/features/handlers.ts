@@ -2,7 +2,7 @@ import { connectionKey } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { audit } from '../audit';
-import { issueAdminToken, publicOrigin, publicSettings, totpOk } from '../settings';
+import { issueAdminToken, logoKind, publicOrigin, publicSettings, totpOk } from '../settings';
 import { getBotUsername, setupBot } from '../telegram';
 import { forgetFeatures, readFeatures, withFeatures, writeFeature, type FieldName } from './store';
 
@@ -40,13 +40,18 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
 
   if (request.method === 'GET') {
     const site = await publicSettings(server).catch(() => null);
-    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
+    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'LYRICS_LOGO', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
     return json({
       // Per setting: set on the server (locked here), saved here, or not set; and which saved keys cannot be read.
       sources: Object.fromEntries(fields.map((n) => [n, source(n)])),
       unreadable: unreadable.filter((n) => n !== 'ADMIN_TOTP_PENDING'),
       two_step: { on: Boolean(live.ADMIN_TOTP_SECRET), source: source('ADMIN_TOTP_SECRET') },
       credits: { on: ['1', 'true', 'yes'].includes(String(live.CREDITS_ENABLED ?? '').toLowerCase()), source: source('CREDITS_ENABLED') },
+      lyrics_logo: {
+        on: ['1', 'true', 'yes'].includes(String(live.LYRICS_LOGO ?? '').toLowerCase()),
+        logo: await logoKind(server).catch(() => 'none' as const),
+        source: source('LYRICS_LOGO'),
+      },
       limits: {
         max_jobs_per_hour: Number(live.MAX_JOBS_PER_HOUR) || 5,
         max_upload_mb: Number(live.MAX_UPLOAD_MB) || 500,
@@ -141,11 +146,11 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
   // --- A switch, a number or a key ---
   if (action === 'set') {
     const name = String(body?.name ?? '') as FieldName;
-    const settable: FieldName[] = ['CREDITS_ENABLED', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
+    const settable: FieldName[] = ['CREDITS_ENABLED', 'LYRICS_LOGO', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
     if (!settable.includes(name)) return apiError(400, 'E_BAD_REQUEST', 'That cannot be set here.');
     if (server[name as keyof Env]) return apiError(409, 'E_SET_ON_SERVER', 'This is set on the server; change it there.');
     let value = String(body?.value ?? '').trim();
-    if (name === 'CREDITS_ENABLED') value = value === '1' ? '1' : '';
+    if (name === 'CREDITS_ENABLED' || name === 'LYRICS_LOGO') value = value === '1' ? '1' : '';
     if (name === 'MAX_JOBS_PER_HOUR' || name === 'MAX_UPLOAD_MB') {
       const n = Number(value);
       const max = name === 'MAX_UPLOAD_MB' ? 2000 : 1000;
