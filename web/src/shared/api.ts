@@ -18,6 +18,12 @@ export interface SubtitleStyle {
   voice?: 'female' | 'male' | 'classic';
   /** Dynamic captions: none, highlight (the spoken word lights up), pop (a few words at a time). */
   animation?: 'none' | 'highlight' | 'pop';
+  /** The main line: the translation, or the original words (a song's own lyrics). */
+  lines?: 'translation' | 'original';
+  /** Sound alone (a song, a podcast) made into a video: the visualizer, the background, the shape. */
+  look?: 'wave' | 'neon' | 'bars';
+  backdrop?: 'kavox' | 'night' | 'sunset' | 'forest' | 'cover';
+  frame?: 'vertical' | 'square' | 'wide';
 }
 
 export interface Job {

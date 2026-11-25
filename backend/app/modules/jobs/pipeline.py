@@ -81,6 +81,12 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
             f"Video is {int(info['duration'] // 60)} min long; the limit is {config.MAX_DURATION_SEC // 60} min.",
         )
 
+    if job.mode == "hard" and not info["has_video"] and info["duration"] > config.VISUAL_MAX_SEC:
+        raise PipelineError(
+            "E_VIDEO_TOO_LONG",
+            f"Sound is made into a video for up to {config.VISUAL_MAX_SEC // 60} min. Choose subtitle files, or a shorter part.",
+        )
+
     # 2. Speech recognition ----------------------------------------------------
     enter("transcribing")
     audio = workdir / "audio.wav"
@@ -137,15 +143,10 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     outputs = write_subtitle_files(workdir, cues, detected, job.tgt_lang)
 
-    # 4. Burn-in (hard mode, only when there is a picture to burn into) ------------
-    if job.mode == "hard" and info["has_video"]:
+    # 4. Burn-in (hard mode); sound alone becomes a video with a visualizer ---------
+    if job.mode == "hard":
         enter("rendering")
-        style = subtitles.SubtitleStyle.from_dict(job.style)
-        (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, detected), encoding="utf-8")
-        media.burn_subtitles(
-            source, BURN_FILE, workdir / OUTPUT_FILES["mp4"],
-            info["duration"], cancelled, lambda f: reporter("rendering")(f * 0.95),
-        )
+        _render(job, workdir, source, info, cues, detected, cancelled, lambda f: reporter("rendering")(f * 0.95))
         _add_outro(job, workdir, workdir / OUTPUT_FILES["mp4"], cancelled, lambda f: reporter("rendering")(0.95 + f * 0.05), True)
         outputs["mp4"] = OUTPUT_FILES["mp4"]
         _add_thumbnail(workdir, workdir / OUTPUT_FILES["mp4"], info["duration"], outputs)
@@ -196,14 +197,23 @@ def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
     src_lang = job.src_lang if job.src_lang not in ("", "auto") else ""
     job.detected_lang = src_lang or None
     outputs = write_subtitle_files(workdir, cues, src_lang or "auto", job.tgt_lang)
-    style = subtitles.SubtitleStyle.from_dict(job.style)
-    (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang), encoding="utf-8")
-    media.burn_subtitles(source, BURN_FILE, workdir / OUTPUT_FILES["mp4"], info["duration"], cancelled,
-                         lambda f: reporter("rendering")(f * 0.95))
+    _render(job, workdir, source, info, cues, src_lang, cancelled, lambda f: reporter("rendering")(f * 0.95))
     _add_outro(job, workdir, workdir / OUTPUT_FILES["mp4"], cancelled, lambda f: reporter("rendering")(0.95 + f * 0.05), True)
     outputs["mp4"] = OUTPUT_FILES["mp4"]
     _add_thumbnail(workdir, workdir / OUTPUT_FILES["mp4"], info["duration"], outputs)
     job.outputs = outputs
+
+
+def _render(job: Job, workdir: Path, source: Path, info: dict, cues: list, src_lang: str | None, cancelled, report) -> None:
+    """The video with the styled subtitles in it. Sound alone (a song, a podcast) gets a picture
+    made for it: a background, the sound drawn as it plays, and the subtitles as lyrics."""
+    style = subtitles.SubtitleStyle.from_dict(job.style)
+    (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang), encoding="utf-8")
+    dest = workdir / OUTPUT_FILES["mp4"]
+    if info["has_video"]:
+        media.burn_subtitles(source, BURN_FILE, dest, info["duration"], cancelled, report)
+    else:
+        media.audio_video(source, BURN_FILE, dest, info["duration"], style.look, style.backdrop, style.frame, cancelled, report)
 
 
 def _add_thumbnail(workdir: Path, video: Path, duration: float, outputs: dict) -> None:

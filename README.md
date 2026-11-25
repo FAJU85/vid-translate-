@@ -431,6 +431,22 @@ languages, videos per day for two weeks, by kind), the video ending setting, and
 its thumbnail, share link (copy, open, delete) and, for a day, its files and subtitle editor. It
 replaces the old "My translations" list. API: `GET /api/dashboard?client_id=…`.
 
+## Lyrics videos (songs and podcasts)
+
+Sound alone (an audio file, a voice note, or a link with sound only) can come back as a video:
+choose **Lyrics video** on the website, or **🎵 Lyrics video** in the bot.
+
+- The picture is drawn by ffmpeg on the Space (no extra models or services): a background (four
+  colour gradients, or the file's own album art, blurred), the sound drawn as it plays (wave,
+  neon or bars), and the words burned in with the usual subtitle style, lit word by word.
+- Main text: the translation, or the original words (karaoke). With "show the other text too",
+  both lines are shown, the second one smaller.
+- Shapes: vertical 9:16 (Reels, TikTok, Shorts), square 1:1, wide 16:9, all 720 px on the short side.
+- Edited lyrics can be rendered again, like any subtitled video.
+- At most 15 minutes of sound (Space setting `VISUAL_MAX_MIN`): drawing every frame takes time.
+- Song lyrics are recognised less well than speech (the music covers the voice): check them in
+  the editor before sharing. Post only songs you have the right to share.
+
 ## App (PWA) and screen sizes
 
 KAVOX can be installed as an app, from the same website, at no cost and with no app store:

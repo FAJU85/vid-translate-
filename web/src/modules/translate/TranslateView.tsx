@@ -99,7 +99,13 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
   const [srcLang, setSrcLang] = useState('auto');
   const [tgtLang, setTgtLang] = useState('ar');
   const [mode, setMode] = useState<SubtitleMode>('soft');
+  // A song or a podcast (an audio file): the "video with subtitles" is made from the sound.
+  const soundOnly = source === 'upload' && Boolean(file?.type.startsWith('audio/'));
   const [style, setStyle] = useState(rememberedStyle);
+  // For a song or podcast the words start lit word by word (static lines can still be chosen).
+  useEffect(() => {
+    if (soundOnly && (style.animation ?? 'none') === 'none') setStyle((s) => ({ ...s, animation: 'highlight' }));
+  }, [soundOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -324,15 +330,17 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
                 <input type="radio" name="result" value={r.id} checked={on} disabled={off} onChange={() => setMode(r.id)} className="sr-only" />
                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
                   <r.icon className={`w-4 h-4 ${on ? 'text-amber-300' : 'text-slate-400'}`} />
-                  {r.title}
+                  {r.id === 'hard' && soundOnly ? t("Lyrics video") : r.title}
                 </span>
-                <span className="block mt-1 text-xs text-slate-400">{off ? t("Not available for this language yet.") : r.body}</span>
+                <span className="block mt-1 text-xs text-slate-400">
+                  {off ? t("Not available for this language yet.") : r.id === 'hard' && soundOnly ? t("A video made from the sound: moving visuals and the words, lit as they are sung.") : r.body}
+                </span>
               </label>
             );
           })}
         </div>
 
-        {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} />}
+        {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} sound={soundOnly} />}
         {mode === 'dub' && (
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-2">
             <div className="text-sm font-medium text-slate-200">{t("Voice")}</div>

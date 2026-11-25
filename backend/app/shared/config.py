@@ -97,6 +97,8 @@ OUTPUT_TTL_SEC = _int("OUTPUT_TTL_HOURS", 24) * 3600
 MAX_OUTRO_BYTES = _int("MAX_OUTRO_MB", 30) * 1024 * 1024
 # Height cap for burned-in output; keeps CPU encodes and Telegram uploads reasonable.
 HARD_SUB_MAX_HEIGHT = _int("HARD_SUB_MAX_HEIGHT", 720)
+# Sound alone (a song, a podcast) made into a video: at most this long, drawing every frame is slow.
+VISUAL_MAX_SEC = _int("VISUAL_MAX_MIN", 15) * 60
 
 # Optional yt-dlp helpers: Netscape-format cookies and an outbound proxy.
 YTDLP_COOKIES = os.environ.get("YTDLP_COOKIES", "")
