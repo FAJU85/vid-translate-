@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
-import { Bot, Clapperboard, Languages, LayoutDashboard, Tag } from 'lucide-react';
+import { Bot, Clapperboard, Languages, LayoutDashboard, Music, Tag } from 'lucide-react';
 import { SITE, logoSize } from '../shared/content';
 import { LANG, setLang } from '../shared/i18n';
 import { t } from '../shared/i18n';
 
-export type NavTab = 'translate' | 'feed' | 'dashboard' | 'telegram' | 'pricing';
+export type NavTab = 'translate' | 'lyrics' | 'feed' | 'dashboard' | 'telegram' | 'pricing';
 
 /** `short`: the label under the icon in the phone tab bar. */
 const TABS: { id: NavTab; label: string; short: string; icon: typeof Bot }[] = [
   { id: 'translate', label: t("Translate"), short: t("Translate"), icon: Languages },
+  { id: 'lyrics', label: t("Lyrics video"), short: t("Lyrics"), icon: Music },
   { id: 'feed', label: t("Feed"), short: t("Feed"), icon: Clapperboard },
   { id: 'dashboard', label: t("Dashboard"), short: t("Mine"), icon: LayoutDashboard },
   { id: 'telegram', label: t("Telegram bot"), short: t("Bot"), icon: Bot },

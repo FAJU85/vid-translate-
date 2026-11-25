@@ -53,7 +53,9 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     # 1. Fetch the media -----------------------------------------------------
     enter("downloading")
-    want_video = job.mode in ("hard", "dub")
+    lyrics_video = job.mode == "hard" and subtitles.SubtitleStyle.from_dict(job.style).visual
+    # A lyrics video only needs the sound: a link is downloaded without its picture (smaller, faster).
+    want_video = job.mode in ("hard", "dub") and not lyrics_video
     if job.source_kind == "upload":
         source = workdir / UPLOAD_NAME
         if not source.exists():
@@ -72,6 +74,10 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
         job.title = job.title or meta.get("title")
 
     info = media.probe(source)
+    style = subtitles.SubtitleStyle.from_dict(job.style)
+    # A lyrics video (the Lyrics page): a video is used for its sound only; its picture is made anew.
+    if lyrics_video:
+        info["has_video"] = False
     if not info["has_audio"]:
         raise PipelineError("E_MEDIA_INVALID", "The file has no audio track to transcribe.")
     job.duration = info["duration"]
@@ -121,12 +127,16 @@ def run(job: Job, workdir: Path, notify: Notify) -> None:
 
     # 3. Translation -------------------------------------------------------------
     enter("translating")
-    try:
-        translations, job.engine = translation.translate_texts(
-            [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating"), memory
-        )
-    except translation.TranslationError as exc:
-        raise PipelineError("E_NMT_FAILED", str(exc)) from exc
+    if lyrics_video and style.translation_at == "off":
+        # A lyrics video with no translation shown: nothing to translate (saves the slowest step).
+        translations, job.engine = [seg[2] for seg in segments], "none"
+    else:
+        try:
+            translations, job.engine = translation.translate_texts(
+                [seg[2] for seg in segments], detected, job.tgt_lang, reporter("translating"), memory
+            )
+        except translation.TranslationError as exc:
+            raise PipelineError("E_NMT_FAILED", str(exc)) from exc
     job.memory_hits = sum(1 for seg in segments if memory.sentence(seg[2]) is not None)
     cues = subtitles.build_cues(segments, translations)
     # ...and again for each subtitle: corrections are often made to one subtitle, not a sentence.
@@ -185,6 +195,8 @@ def _rerender(job: Job, workdir: Path, enter, reporter, cancelled) -> None:
     if not source.exists():
         raise PipelineError("E_UPLOAD_MISSING", "The original video is no longer kept. Translate it again.")
     info = media.probe(source)
+    if subtitles.SubtitleStyle.from_dict(job.style).visual:
+        info["has_video"] = False  # a lyrics video made from a video: rendered again as a lyrics video
     job.duration = info["duration"]
     cues = [
         subtitles.Cue(i + 1, float(c["start"]), float(c["end"]), subtitles.clean_text(str(c.get("text", ""))),

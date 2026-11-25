@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ConsentCheck, useConsent } from '../../shared/consent';
-import { AlertCircle, ArrowRight, AudioLines, Captions, Clapperboard, FileText, Link2, Loader2, Share2, Sparkles, Upload } from 'lucide-react';
+import { AlertCircle, ArrowRight, AudioLines, Captions, Clapperboard, FileText, Link2, Loader2, Music, Share2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type Me, type SubtitleMode } from '../../shared/api';
 import { CostPreview } from './CostPreview';
 import { readDuration, uploadFile } from './upload';
@@ -9,7 +9,7 @@ import { StylePicker, remember, rememberedStyle } from './StylePicker';
 import { SITE } from '../../shared/content';
 import { languageName, t } from '../../shared/i18n';
 
-const SOURCE_LANGS = [
+export const SOURCE_LANGS = [
   ['auto', t("Detect automatically")],
   ['en', t("English")],
   ['ar', t("Arabic")],
@@ -64,12 +64,14 @@ interface Props {
   onSignIn?: () => void;
   /** Goes up when a payment arrived: start again the video that was refused for credits. */
   resume?: number;
+  /** Opens the Lyrics page (a song: a lyrics video is its own journey). */
+  onLyrics?: () => void;
 }
 
 // Refusals the website answers with an offer: more credits, or signing in for free ones.
 const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
 
-export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, onFeed, initialLink, resume = 0 }: Props) {
+export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, onFeed, initialLink, resume = 0, onLyrics }: Props) {
   const [dragging, setDragging] = useState(false);
   // PDPL: agreed to the Terms and Privacy Policy (ticked once per version, in this browser).
   const legalVersion = config?.legal_version ?? '';
@@ -99,13 +101,9 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
   const [srcLang, setSrcLang] = useState('auto');
   const [tgtLang, setTgtLang] = useState('ar');
   const [mode, setMode] = useState<SubtitleMode>('soft');
-  // A song or a podcast (an audio file): the "video with subtitles" is made from the sound.
+  // A song or a podcast (an audio file): its lyrics video is made on the Lyrics page.
   const soundOnly = source === 'upload' && Boolean(file?.type.startsWith('audio/'));
   const [style, setStyle] = useState(rememberedStyle);
-  // For a song or podcast the words start lit word by word (static lines can still be chosen).
-  useEffect(() => {
-    if (soundOnly && (style.animation ?? 'none') === 'none') setStyle((s) => ({ ...s, animation: 'highlight' }));
-  }, [soundOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -286,6 +284,14 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
           </label>
         )}
 
+        {soundOnly && onLyrics && (
+          <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+            <Music className="w-3.5 h-3.5 text-amber-300" /> {t("A song or a podcast?")}
+            <button type="button" onClick={onLyrics} className="text-amber-300 hover:text-amber-200 underline">
+              {t("Make a lyrics video instead")}
+            </button>
+          </p>
+        )}
         </Step>
 
         <Step n={2} title={t("Languages")}>
@@ -330,17 +336,15 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
                 <input type="radio" name="result" value={r.id} checked={on} disabled={off} onChange={() => setMode(r.id)} className="sr-only" />
                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
                   <r.icon className={`w-4 h-4 ${on ? 'text-amber-300' : 'text-slate-400'}`} />
-                  {r.id === 'hard' && soundOnly ? t("Lyrics video") : r.title}
+                  {r.title}
                 </span>
-                <span className="block mt-1 text-xs text-slate-400">
-                  {off ? t("Not available for this language yet.") : r.id === 'hard' && soundOnly ? t("A video made from the sound: moving visuals and the words, lit as they are sung.") : r.body}
-                </span>
+                <span className="block mt-1 text-xs text-slate-400">{off ? t("Not available for this language yet.") : r.body}</span>
               </label>
             );
           })}
         </div>
 
-        {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} sound={soundOnly} />}
+        {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} />}
         {mode === 'dub' && (
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-2">
             <div className="text-sm font-medium text-slate-200">{t("Voice")}</div>

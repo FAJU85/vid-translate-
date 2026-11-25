@@ -176,6 +176,26 @@ def test_audio_only_hard_mode_makes_a_visualizer_video(client, tmp_path):
     assert data["status"] == "done" and "mp4" in data["outputs"], data
 
 
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+def test_a_video_becomes_a_lyrics_video_from_the_lyrics_page(client, tmp_path):
+    """The Lyrics page: a video is used for its sound only, its picture replaced (faceless), and
+    with no translation shown nothing is translated."""
+    job = "0a0a0a0a-0000-4000-8000-0000000000b7"
+    client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=make_clip(tmp_path))  # 160x120 video
+    style = {"visual": True, "translation_at": "off", "frame": "square"}
+    body = {"job_id": job, "source_kind": "upload", "subtitle_mode": "hard", "tgt_lang": "ar", "subtitle_style": style}
+    client.post("/invoke", json=body, headers=AUTH)
+    data = wait_done(client, job)
+    assert data["status"] == "done", data
+    assert data["engine"] == "none"  # not translated
+    mp4 = client.get(f"/files/{job}/video.mp4", params=signed(f"file:{job}:video.mp4"))
+    path = tmp_path / "lyrics.mp4"
+    path.write_bytes(mp4.content)
+    probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                            "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    assert probe.stdout.strip() == "720,720"  # a new picture, not the 160x120 one
+
+
 def test_garbage_upload_fails_cleanly(client):
     job = JOB.format(6)
     client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=b"this is not a video")
