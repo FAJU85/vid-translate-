@@ -10,7 +10,7 @@ function Faq({ q, children }: { q: string; children: React.ReactNode }) {
   return (
     <details className="group p-4 rounded-xl border border-slate-800 bg-slate-900">
       <summary className="cursor-pointer list-none flex items-center justify-between gap-3 text-sm font-medium text-white">
-        {q}
+        {t(q)}
         <span className="text-slate-500 group-open:rotate-45 transition-transform">+</span>
       </summary>
       <div className="mt-2 text-sm text-slate-300 leading-relaxed">{children}</div>

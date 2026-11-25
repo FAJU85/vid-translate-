@@ -5,11 +5,11 @@ import { t } from '../../shared/i18n';
 export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', animation: 'none' };
 
 /** Ready-made designs (the same four as the Telegram bot's /style). */
-const PRESETS: [string, string, SubtitleStyle][] = [
-  ['cinema', '🎬 Cinema', DEFAULT_STYLE],
-  ['boldbox', '🟨 Bold box', { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', animation: 'none' }],
-  ['elegant', '✒️ Elegant', { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', animation: 'none' }],
-  ['social', '📱 Social', { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', animation: 'pop' }],
+const PRESETS: [string, string, string, SubtitleStyle][] = [
+  ['cinema', '🎬', 'Cinema', DEFAULT_STYLE],
+  ['boldbox', '🟨', 'Bold box', { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', animation: 'none' }],
+  ['elegant', '✒️', 'Elegant', { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', animation: 'none' }],
+  ['social', '📱', 'Social', { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', animation: 'pop' }],
 ];
 
 const STORAGE_KEY = 'tarjim_subtitle_style';
@@ -123,7 +123,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
     onChange(next);
   };
   const rtl = RTL.has(lang);
-  const sample = rtl ? 'هذه معاينة لشكل الترجمة على الفيديو' : t("This is how your subtitles will look");
+  const sample = rtl ? 'هذه معاينة لشكل الترجمة على الفيديو' : 'This is how your subtitles will look';
   // Dynamic captions: step through the sample's words like a speaker would.
   const animation = style.animation ?? 'none';
   const [tick, setTick] = useState(0);
@@ -140,7 +140,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
   const shown = animation === 'pop' ? sampleWords.slice(group * 3, group * 3 + 3) : sampleWords;
   const shownLit = animation === 'pop' ? lit - group * 3 : lit;
   // The original language is not known yet: show English, or Arabic when translating into English.
-  const originalSample = lang === 'en' ? 'هذا هو النص الأصلي' : t("This is the original text");
+  const originalSample = lang === 'en' ? 'هذا هو النص الأصلي' : 'This is the original text';
   const originalRtl = lang === 'en';
   const box = style.background === 'box';
   const placement =
@@ -211,7 +211,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
       <div>
         <div className="text-xs text-slate-400 mb-1.5">{t("Ready-made designs")}</div>
         <div className="flex flex-wrap gap-2">
-          {PRESETS.map(([id, label, preset]) => (
+          {PRESETS.map(([id, icon, label, preset]) => (
             <button
               key={id}
               type="button"
@@ -221,7 +221,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
                 same(style, preset) ? 'border-amber-400 bg-amber-400/10 text-white' : 'border-slate-700 text-slate-300 hover:border-slate-500'
               }`}
             >
-              {label}
+              {icon} {t(label)}
             </button>
           ))}
         </div>

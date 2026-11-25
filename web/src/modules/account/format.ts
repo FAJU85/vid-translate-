@@ -10,7 +10,7 @@ export const creditsText = (seconds: number) => (seconds / SECONDS_PER_CREDIT).t
 export function timeText(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
-  return m ? `${m} min${s ? ` ${s} s` : ''}` : `${s} s`;
+  return m ? t('{n} min', { n: m }) + (s ? ' ' + t('{n} s', { n: s }) : '') : t('{n} s', { n: s });
 }
 
 export const BUCKET_LABEL: Record<Bucket, string> = {

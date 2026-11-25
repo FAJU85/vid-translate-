@@ -26,7 +26,7 @@ function waitLine(job: Job): string | null {
   if (!job.eta_seconds) return null;
   const min = Math.max(1, Math.round(job.eta_seconds / 60));
   if (job.status === 'queued' && job.queue_position && job.queue_position >= 1) {
-    return `You're #${job.queue_position} in line · about ${min} min`;
+    return t("You're #{pos} in line · about {n} min", { pos: job.queue_position, n: min });
   }
   return job.status === 'running' ? t('About {n} min left', { n: min }) : null;
 }

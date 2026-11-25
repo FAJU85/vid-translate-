@@ -25,6 +25,7 @@
   // Arabic when the visitor chose it on the site (or the browser asks for it).
   var lang = '';
   try { lang = localStorage.getItem('kavox_lang') || ''; } catch (e) {}
+  if (!lang) lang = (document.cookie.match(/(?:^|;\s*)kavox_lang=(ar|en)\b/) || [])[1] || '';
   if (!lang) lang = (navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en';
   if (lang === 'ar') {
     document.documentElement.lang = 'ar';

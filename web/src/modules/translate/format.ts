@@ -1,5 +1,5 @@
 import type { Cue, Job } from '../../shared/api';
-import { t } from '../../shared/i18n';
+import { RTL as UI_RTL, t } from '../../shared/i18n';
 
 export const RTL = new Set(['ar', 'fa', 'ur', 'he']);
 
@@ -28,8 +28,8 @@ export const STAGE_LABEL: Record<string, string> = {
 
 const ERROR_TEXT: Record<string, string> = {
   E_URL_INVALID: t("That link is not supported."),
-  E_YOUTUBE_UNSUPPORTED:
-    "YouTube blocks our server, so YouTube links can't be downloaded. Upload the video file instead: if the video is yours, download it from YouTube Studio (Content → ⋮ → Download). Facebook, Instagram and TikTok links work.",
+  E_YOUTUBE_UNSUPPORTED: t(
+    "YouTube blocks our server, so YouTube links can't be downloaded. Upload the video file instead: if the video is yours, download it from YouTube Studio (Content → ⋮ → Download). Facebook, Instagram and TikTok links work."),
   E_SITE_BLOCKED:
     t("The site refused our server (bot check or login required). Download the video yourself and upload the file instead."),
   E_DOWNLOAD_FAILED: t("The video could not be downloaded."),
@@ -49,7 +49,8 @@ const ERROR_TEXT: Record<string, string> = {
 
 export function jobError(job: Job): string {
   const base = ERROR_TEXT[job.error_code ?? ''] ?? t("Something went wrong.");
-  const detail = ['E_DOWNLOAD_FAILED', 'E_VIDEO_TOO_LONG', 'E_NMT_FAILED', 'E_TTS_FAILED'].includes(job.error_code ?? '') ? job.error_message : '';
+  // The server writes the detail in English: shown in the English interface only.
+  const detail = UI_RTL ? '' : ['E_DOWNLOAD_FAILED', 'E_VIDEO_TOO_LONG', 'E_NMT_FAILED', 'E_TTS_FAILED'].includes(job.error_code ?? '') ? job.error_message : '';
   return detail ? `${base} ${detail}` : base;
 }
 

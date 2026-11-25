@@ -10,9 +10,9 @@ import { RTL, formatDate, languageName, plural, t } from '../../shared/i18n';
 const MODE_LABEL: Record<string, string> = { soft: t("Subtitle files"), hard: t("Burned-in subtitles"), dub: t("Dubbed") };
 
 function minutes(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)} s`;
+  if (seconds < 60) return t('{n} s', { n: Math.round(seconds) });
   const m = seconds / 60;
-  return m < 100 ? `${m.toFixed(1)} min` : `${Math.round(m)} min`;
+  return t('{n} min', { n: m < 100 ? m.toFixed(1) : Math.round(m) });
 }
 
 function Stat({ icon: Icon, label, value, note }: { icon: typeof Video; label: string; value: string; note?: string }) {

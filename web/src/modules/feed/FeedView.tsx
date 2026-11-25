@@ -125,7 +125,7 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
       </div>
       <div className="absolute end-2 bottom-6 flex flex-col items-center gap-4">
         {!item.mine && (
-          <button onClick={follow} disabled={busy === 'follow'} aria-label={item.following ? `Unfollow @${item.creator.handle}` : `Follow @${item.creator.handle}`} className={action}>
+          <button onClick={follow} disabled={busy === 'follow'} aria-label={t(item.following ? 'Unfollow @{handle}' : 'Follow @{handle}', { handle: item.creator.handle })} className={action}>
             <span className={`${round} ${item.following ? '' : 'bg-amber-400/90 text-slate-950'}`}>
               {busy === 'follow' ? <Loader2 className="w-5 h-5 animate-spin" /> : item.following ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
             </span>

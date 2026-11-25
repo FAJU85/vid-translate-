@@ -151,7 +151,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
         await uploadFile(
           job.upload_url!,
           file,
-          (fraction) => setBusy(`Uploading… ${Math.round(fraction * 100)}%`),
+          (fraction) => setBusy(t('Uploading… {n}%', { n: Math.round(fraction * 100) })),
           () => setBusy(t("Waking up the translation server (can take a couple of minutes)…")),
         );
         job = await api.start(job.id, duration);
@@ -270,7 +270,7 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
             <Upload className="w-7 h-7 mx-auto text-amber-400" />
             <span className="block mt-2 text-sm font-semibold text-white">{file ? file.name : t("Drop a video or audio file here, or choose one")}</span>
             <span className="block mt-1 text-xs text-slate-400">
-              {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `Up to ${maxMb} MB`}
+              {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : t('Up to {n} MB', { n: maxMb })}
             </span>
           </label>
         )}

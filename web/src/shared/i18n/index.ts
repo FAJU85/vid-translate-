@@ -16,8 +16,10 @@ function detect(): Lang {
     const saved = localStorage.getItem(KEY);
     if (saved === 'ar' || saved === 'en') return saved;
   } catch {
-    /* storage blocked: the browser's language decides */
+    /* storage blocked: the cookie may still carry the choice */
   }
+  const cookie = typeof document !== 'undefined' ? document.cookie.match(/(?:^|;\s*)kavox_lang=(ar|en)\b/) : null;
+  if (cookie) return cookie[1] as Lang;
   const asked = typeof navigator !== 'undefined' ? navigator.languages?.[0] ?? navigator.language ?? '' : '';
   return asked.toLowerCase().startsWith('ar') ? 'ar' : 'en';
 }

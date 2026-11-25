@@ -52,8 +52,8 @@ export function CostPreview({ me, mode, duration, isLink, onPricing }: {
             </p>
           ) : (
             <p>
-              {t("Costs")}{' '}{mode === 'dub' ? '2 credits' : '1 credit'}{' '}{t("a minute, counted by the second")}
-              {isLink ? ' once the video is downloaded' : ''}{t(". You have")}{' '}<b>{fmt(have)}{' '}{t("credits")}</b>.
+              {t(mode === 'dub' ? 'Costs 2 credits a minute, counted by the second' : 'Costs 1 credit a minute, counted by the second')}
+              {isLink ? t(' once the video is downloaded') : ''}{t(". You have")}{' '}<b>{fmt(have)}{' '}{t("credits")}</b>.
             </p>
           )}
           {warnings.map((w) => (

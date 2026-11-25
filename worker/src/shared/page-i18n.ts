@@ -14,8 +14,29 @@ export function pageLang(request: Request): PageLang {
   const cookie = request.headers.get('Cookie') ?? '';
   const chosen = cookie.match(/(?:^|;\s*)kavox_lang=(ar|en)\b/);
   if (chosen) return chosen[1] as PageLang;
-  return (request.headers.get('Accept-Language') ?? '').trim().toLowerCase().startsWith('ar') ? 'ar' : 'en';
+  // The browser's most wanted language we have ("fr, ar;q=0.9, en;q=0.8" → Arabic); English otherwise.
+  let best: PageLang = 'en';
+  let top = 0;
+  for (const part of (request.headers.get('Accept-Language') ?? '').split(',')) {
+    const [tag, ...params] = part.trim().toLowerCase().split(';');
+    const q = Number(params.find((p) => p.trim().startsWith('q='))?.trim().slice(2) ?? 1);
+    const lang = tag.startsWith('ar') ? 'ar' : tag.startsWith('en') ? 'en' : null;
+    if (lang && q > top) [best, top] = [lang, q];
+  }
+  return best;
 }
+
+/** The server's messages a page's script may show (comments), in the page's language. */
+export const MESSAGES = [
+  'Sign in to comment.',
+  'Your account cannot comment.',
+  'Choose your @handle on the Dashboard to comment.',
+  'Write something first.',
+  'A comment has at most 500 characters.',
+  'You are commenting very fast. Wait a few minutes.',
+  'This video is not posted.',
+  'Not found.',
+];
 
 const fill = (s: string, vars?: Record<string, string | number>) => {
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
@@ -102,4 +123,13 @@ const AR: Record<string, string> = {
   'Report this video': 'الإبلاغ عن هذا الفيديو',
   'Thank you. The report was sent and will be reviewed.': 'شكرًا لك. أُرسل البلاغ وستتم مراجعته.',
   'The report could not be sent. Try again later.': 'تعذّر إرسال البلاغ. حاول لاحقًا.',
+  // Messages from the server
+  'Sign in to comment.': 'سجّل الدخول للتعليق.',
+  'Your account cannot comment.': 'لا يمكن لحسابك التعليق.',
+  'Choose your @handle on the Dashboard to comment.': 'اختر @معرّفك في لوحتك لتتمكن من التعليق.',
+  'Write something first.': 'اكتب شيئًا أولًا.',
+  'A comment has at most 500 characters.': 'التعليق 500 حرف كحد أقصى.',
+  'You are commenting very fast. Wait a few minutes.': 'تعلّق بسرعة كبيرة. انتظر بضع دقائق.',
+  'This video is not posted.': 'هذا الفيديو غير منشور.',
+  'Not found.': 'غير موجود.',
 };

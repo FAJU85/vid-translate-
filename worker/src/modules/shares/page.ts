@@ -1,6 +1,6 @@
 import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
-import { htmlAttrs, languageName, pageLang, plural, translator, type PageLang } from '../../shared/page-i18n';
+import { MESSAGES, htmlAttrs, languageName, pageLang, plural, translator, type PageLang } from '../../shared/page-i18n';
 import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
@@ -166,6 +166,7 @@ ${creator ? `<script>
   // Comments (a posted video only): anyone reads them; writing needs an account with an @handle.
   function comments(signedIn) {
     const api = ${JSON.stringify(`/api/comments/${share.id}`)};
+    const messages = ${JSON.stringify(Object.fromEntries(MESSAGES.map((m) => [m, tr(m)])))};
     const $ = (id) => document.getElementById(id);
     const list = $('comment-list'), more = $('comment-more'), note = $('comment-note');
     let next = null;
@@ -223,7 +224,10 @@ ${creator ? `<script>
       try {
         const r = await fetch(api, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
         if (r.ok) { $('comment-text').value = ''; note.textContent = ''; next = null; await load(true); }
-        else note.textContent = ((await r.json().catch(() => null)) || {}).message || ${JSON.stringify(tr('Could not post the comment.'))};
+        else {
+          const said = ((await r.json().catch(() => null)) || {}).message;
+          note.textContent = (said && said in messages ? messages[said] : said) || ${JSON.stringify(tr('Could not post the comment.'))};
+        }
       } finally { btn.disabled = false; }
     });
     load(true);

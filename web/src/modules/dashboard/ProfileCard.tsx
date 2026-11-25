@@ -5,9 +5,9 @@ import { t } from '../../shared/i18n';
 
 const HANDLE = /^(?=.{3,24}$)[a-z0-9_](?:[a-z0-9_]|\.(?!\.))*[a-z0-9_]$/;
 const REASON: Record<string, string> = {
-  invalid: '3 to 24 letters, digits, "_" or "." (not at the start or end)',
-  reserved: 'reserved: choose another one',
-  taken: 'taken: choose another one',
+  invalid: t('3 to 24 letters, digits, "_" or "." (not at the start or end)'),
+  reserved: t('reserved: choose another one'),
+  taken: t('taken: choose another one'),
 };
 
 /**
@@ -55,7 +55,7 @@ export function ProfileCard() {
     const timer = setTimeout(() => {
       socialApi
         .handle(wanted)
-        .then((r) => current && setCheck({ handle: wanted, ok: r.available, text: r.available ? 'available' : REASON[r.reason ?? 'taken'] }))
+        .then((r) => current && setCheck({ handle: wanted, ok: r.available, text: r.available ? t('available') : REASON[r.reason ?? 'taken'] }))
         .catch(() => {});
     }, 400);
     return () => {
