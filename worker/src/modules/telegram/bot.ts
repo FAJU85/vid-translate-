@@ -27,6 +27,7 @@ import {
   type SubtitleMode,
   type SubtitleStyle,
 } from '../jobs';
+import { telegramFeedback } from '../feedback';
 import { welcomeOverride } from '../settings';
 import { siteStatus } from '../learning';
 import {
@@ -242,6 +243,18 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
       return `${state} ${title}`;
     });
     await sendMessage(env, chatId, lines.join('\n'));
+    return;
+  }
+  // "/feedback <message>": kept for the admin to read on the /admin page.
+  if (command === '/feedback') {
+    const message = text.replace(/^\/feedback(@\w+)?/i, '').trim();
+    if (!message) {
+      await sendMessage(env, chatId, t(ui, 'feedback_how'));
+      return;
+    }
+    const account = await existingTelegramAccount(env, chatId).catch(() => null);
+    const saved = await telegramFeedback(env, chatId, account?.id ?? null, message, ui);
+    await sendMessage(env, chatId, t(ui, saved ? 'feedback_thanks' : 'feedback_slow'));
     return;
   }
   if (command === '/cancel') {
@@ -552,6 +565,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'balance', description: 'رصيدك' },
           { command: 'buy', description: 'شراء رصيد بنجوم تيليجرام' },
           { command: 'cancel', description: 'إيقاف الطلب الحالي' },
+          { command: 'feedback', description: 'أرسل ملاحظاتك لفريق KAVOX' },
         ]
       : [
           { command: 'start', description: 'How the bot works' },
@@ -561,6 +575,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'balance', description: 'Your credits' },
           { command: 'buy', description: 'Buy credits with Telegram Stars' },
           { command: 'cancel', description: 'Stop the running job' },
+          { command: 'feedback', description: 'Send feedback to the KAVOX team' },
         ];
   await tg(env, 'setMyCommands', { commands: commands('en') });
   await tg(env, 'setMyCommands', { commands: commands('ar'), language_code: 'ar' });

@@ -114,7 +114,10 @@
     "buy_plan_description": "{credits} credits (minutes of video) every month.",
     "buy_plan_link": "⭐ Subscribe to the {name} with Telegram Stars:",
     "btn_subscribe": "⭐ Subscribe",
-    "paid_ok": "✅ Thank you! Your balance is now <b>{credits} credits</b>."
+    "paid_ok": "✅ Thank you! Your balance is now <b>{credits} credits</b>.",
+    "feedback_how": "Tell us what to improve, or what went wrong: send <b>/feedback</b> followed by your message, e.g.\n<code>/feedback The subtitles were too small</code>",
+    "feedback_thanks": "Thank you! Your feedback was sent to the KAVOX team. 💛",
+    "feedback_slow": "You sent a lot of feedback this hour. Please try again later."
   },
   "ar": {
     "welcome": "👋 <b>KAVOX</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
@@ -231,6 +234,9 @@
     "buy_plan_description": "{credits} رصيد (دقائق فيديو) كل شهر.",
     "buy_plan_link": "⭐ اشترك في {name} بنجوم تيليجرام:",
     "btn_subscribe": "⭐ اشترك",
-    "paid_ok": "✅ شكراً! رصيدك الآن <b>{credits} رصيد</b>."
+    "paid_ok": "✅ شكراً! رصيدك الآن <b>{credits} رصيد</b>.",
+    "feedback_how": "أخبرنا بما نحسّنه أو بما لم ينجح: أرسل <b>/feedback</b> متبوعًا برسالتك، مثلًا\n<code>/feedback الترجمة كانت صغيرة جدًا</code>",
+    "feedback_thanks": "شكرًا لك! وصلت ملاحظتك إلى فريق KAVOX. 💛",
+    "feedback_slow": "أرسلت ملاحظات كثيرة هذه الساعة. حاول مرة أخرى لاحقًا."
   }
 }

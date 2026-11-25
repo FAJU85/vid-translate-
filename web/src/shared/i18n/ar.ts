@@ -576,4 +576,11 @@ export const AR: Record<string, string> = {
   "Share on {app}": "مشاركة على {app}",
   "More": "المزيد",
   "Watch this video in your language": "شاهد هذا الفيديو بلغتك",
+  "Send feedback": "أرسل ملاحظاتك",
+  "Thank you! Your feedback was sent to the KAVOX team.": "شكرًا لك! وصلت ملاحظتك إلى فريق KAVOX.",
+  "What should we improve, or what went wrong? Every message is read.": "ما الذي نحسّنه، أو ما الذي لم ينجح؟ نقرأ كل رسالة.",
+  "Your feedback": "ملاحظتك",
+  "Send": "إرسال",
+  "You sent a lot of feedback. Try again later.": "أرسلت ملاحظات كثيرة. حاول لاحقًا.",
+  "Feedback has at most 2000 characters.": "الملاحظة 2000 حرف كحد أقصى.",
 };
