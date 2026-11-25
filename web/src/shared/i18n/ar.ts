@@ -573,4 +573,7 @@ export const AR: Record<string, string> = {
   "{n} min": "{n} د",
   "{n} s": "{n} ث",
   "A comment has at most 500 characters.": "التعليق 500 حرف كحد أقصى.",
+  "Share on {app}": "مشاركة على {app}",
+  "More": "المزيد",
+  "Watch this video in your language": "شاهد هذا الفيديو بلغتك",
 };

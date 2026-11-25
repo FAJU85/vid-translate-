@@ -472,6 +472,10 @@ Posted videos and creator profiles can be found on Google; link-only videos cann
   profiles (blocked accounts left out). `/robots.txt` points to it and keeps `/admin` and `/api/` out.
 - A posted video's page has a canonical address and a `VideoObject` description (title, picture,
   length, views) that Google uses for video results. A link-only video's page says `noindex`.
+- Sharing: every video (the result screen, the feed, the video page) and every profile has
+  WhatsApp, X and Telegram buttons, plus copy-link. They open each app's own share address (no
+  account or key). The pages carry `og:` and `twitter:` tags, so the apps show the picture,
+  title and description in the preview.
 - To be found sooner: add your site in [Google Search Console](https://search.google.com/search-console)
   and submit `https://<your address>/sitemap.xml` there (free). The addresses use the public
   domain set in the admin panel, so set the domain first.

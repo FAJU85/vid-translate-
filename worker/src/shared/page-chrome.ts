@@ -95,3 +95,22 @@ export const ctaCss = `
   .kx-cta > span > span { display: block; font-size: 13px; color: ${PALETTE.muted}; margin-top: 2px; }
   .kx-cta-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: ${PALETTE.teal}; color: ${PALETTE.navy}; font-size: 18px; }
   .kx-cta-go { margin-inline-start: auto; flex: none; color: ${PALETTE.teal}; font-weight: 700; font-size: 14px; }`;
+
+/** One-tap share links to WhatsApp, X and Telegram (each app's own share address; no script). */
+export const shareRow = (url: string, text: string, tr: Tr = english) => {
+  const u = encodeURIComponent(url);
+  const t = encodeURIComponent(text);
+  const links: [string, string, string][] = [
+    ['wa', 'WhatsApp', `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`],
+    ['x', 'X', `https://x.com/intent/post?text=${t}&url=${u}`],
+    ['tg', 'Telegram', `https://t.me/share/url?url=${u}&text=${t}`],
+  ];
+  return `<div class="kx-share">${links
+    .map(([id, name, href]) => `<a class="kx-share-${id}" href="${escHtml(href)}" target="_blank" rel="noopener" aria-label="${escHtml(tr('Share on {app}', { app: name }))}">${name}</a>`)
+    .join('')}</div>`;
+};
+export const shareCss = `
+  .kx-share { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .kx-share a { padding: 7px 12px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; color: #fff; }
+  .kx-share a:hover { filter: brightness(1.1); }
+  .kx-share-wa { background: #25D366; color: #06210F; } .kx-share-x { background: #000; box-shadow: inset 0 0 0 1px #2E3D63; } .kx-share-tg { background: #229ED9; color: #04192A; }`;

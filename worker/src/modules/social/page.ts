@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { htmlAttrs, languageName, pageLang, plural, translator } from '../../shared/page-i18n';
 import { reportDialog } from '../../shared/report-dialog';
-import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
+import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, shareCss, shareRow, tileCss, videoTile } from '../../shared/page-chrome';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
 import { followCounts, isBlocked, profileByHandle } from './store';
@@ -54,6 +54,8 @@ ${headLinks(logo)}
 <meta property="og:site_name" content="${esc(brand)}">
 <meta property="og:title" content="${esc(name)} (@${esc(profile.handle)})">
 <meta property="og:url" content="${esc(url)}">
+<meta property="og:description" content="${esc(profile.bio || tr('Translated and dubbed videos by @{handle} on {brand}.', { handle: profile.handle, brand }))}">
+<meta name="twitter:card" content="${videos[0]?.has_thumb ? 'summary_large_image' : 'summary'}">
 ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${videos[0].id}/thumb.jpg`)}">` : ''}
 <link rel="canonical" href="${esc(url)}">
 <style>
@@ -75,6 +77,7 @@ ${chromeCss}
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #131C31; font-weight: 700; }
   .btn.primary.on { background: transparent; color: #F9EBD6; border-color: #2E3D63; }
 ${tileCss}
+${shareCss}
 ${ctaCss}
   .link { background: none; border: 0; padding: 8px 4px; color: #8F8B88; font: inherit; font-size: 13px; cursor: pointer; }
   .link:hover { color: #E2D6C6; text-decoration: underline; }
@@ -96,6 +99,7 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
   </div>
   ${profile.bio ? `<p class="bio">${esc(profile.bio)}</p>` : ''}
   <div class="actions"><button class="btn primary" id="follow" type="button" hidden>${tr('Follow')}</button> <button class="btn" id="copy" type="button">${tr('Copy profile link')}</button> <button class="link" type="button" onclick="kavoxReport('profile', ${esc(JSON.stringify(profile.handle))})">${tr('Report')}</button></div>
+  ${shareRow(url, tr('Videos by @{handle}, translated and dubbed', { handle: profile.handle }), tr)}
   ${videos.length ? `<div class="grid">${tiles}</div>` : `<p class="empty">${tr('No videos posted yet.')}</p>`}
   ${makeYourOwn(esc(brand), tr)}
 </main>

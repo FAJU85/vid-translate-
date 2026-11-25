@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Flag, Heart, Link2, Loader2, MessageCircle, Plus, Search, Volume2, VolumeX } from 'lucide-react';
 import { ApiError, socialApi, type AppConfig, type FeedItem, type FeedTab, type ReportKind } from '../../shared/api';
-import { CommentsSheet, ReportSheet } from './Sheets';
+import { CommentsSheet, ReportSheet, ShareSheet } from './Sheets';
 import { Discover, TagText } from './Discover';
 import { languageName, t } from '../../shared/i18n';
 
@@ -18,10 +18,9 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
 }) {
   const box = useRef<HTMLDivElement | null>(null);
   const video = useRef<HTMLVideoElement | null>(null);
-  const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<'like' | 'follow' | null>(null);
   // What is open over the bottom of the card: its comments, or a report (of the video or a comment).
-  const [sheet, setSheet] = useState<'comments' | { kind: ReportKind; target: string } | null>(null);
+  const [sheet, setSheet] = useState<'comments' | 'share' | { kind: ReportKind; target: string } | null>(null);
 
   // Plays while most of it is on screen; pauses (and saves data) otherwise.
   useEffect(() => {
@@ -73,18 +72,6 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
       window.alert(err instanceof ApiError ? err.message : t("That did not work."));
     } finally {
       setBusy(null);
-    }
-  }
-  async function share() {
-    try {
-      if (navigator.share) await navigator.share({ title: item.title ?? 'KAVOX', url: item.url });
-      else {
-        await navigator.clipboard.writeText(item.url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }
-    } catch {
-      /* closed the share sheet */
     }
   }
 
@@ -144,9 +131,9 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
           </span>
           {item.comments}
         </button>
-        <button onClick={share} aria-label={t("Share")} className={action}>
-          <span className={round}>{copied ? <Check className="w-5 h-5" /> : <Link2 className="w-5 h-5" />}</span>
-          {copied ? t("Copied") : t("Share")}
+        <button onClick={() => setSheet('share')} aria-label={t("Share")} className={action}>
+          <span className={round}><Link2 className="w-5 h-5" /></span>
+          {t("Share")}
         </button>
         <button onClick={onMute} aria-label={muted ? t("Sound on") : t("Sound off")} className={action}>
           <span className={round}>{muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}</span>
@@ -169,7 +156,8 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
           onReport={(id) => setSheet({ kind: 'comment', target: String(id) })}
         />
       )}
-      {sheet && sheet !== 'comments' && <ReportSheet kind={sheet.kind} target={sheet.target} onClose={() => setSheet(null)} />}
+      {sheet === 'share' && <ShareSheet url={item.url} text={item.title || t('Watch this video in your language')} onClose={() => setSheet(null)} />}
+      {sheet && typeof sheet === 'object' && <ReportSheet kind={sheet.kind} target={sheet.target} onClose={() => setSheet(null)} />}
     </div>
   );
 }
