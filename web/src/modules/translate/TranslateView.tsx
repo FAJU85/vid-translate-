@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { AlertCircle, Link2, Loader2, Sparkles, Upload } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { AlertCircle, ArrowRight, AudioLines, Captions, Clapperboard, FileText, Link2, Loader2, Share2, Sparkles, Upload } from 'lucide-react';
 import { ApiError, api, type AppConfig, type Job, type Me, type SubtitleMode } from '../../shared/api';
 import { CostPreview } from './CostPreview';
 import { readDuration, uploadFile } from './upload';
@@ -26,8 +26,30 @@ const SOURCE_LANGS = [
 const inputClass =
   'w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400';
 
+/** What a translation can give back: the three results, as choice cards. */
+const RESULTS: { id: SubtitleMode; title: string; body: string; icon: typeof Captions }[] = [
+  { id: 'soft', title: 'Subtitle files', body: 'Fastest. .srt and .vtt files to add to any player.', icon: FileText },
+  { id: 'hard', title: 'Subtitled video', body: 'The video with the subtitles in it, styled your way.', icon: Captions },
+  { id: 'dub', title: 'Dubbed video', body: 'A translated voice over the original sound, plus subtitles.', icon: AudioLines },
+];
+
+/** A numbered part of the form. */
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <fieldset className="space-y-3">
+      <legend className="flex items-center gap-2.5 text-sm font-semibold text-slate-100">
+        <span className="w-6 h-6 rounded-full bg-amber-400/15 text-amber-300 text-xs font-bold flex items-center justify-center">{n}</span>
+        {title}
+      </legend>
+      {children}
+    </fieldset>
+  );
+}
+
 interface Props {
   config: AppConfig | null;
+  /** Opens the feed (from the "watch translated videos" link). */
+  onFeed?: () => void;
   jobId: string | null;
   onJob: (id: string | null) => void;
   /** A job was submitted (credits may have been set aside): refresh the balance shown. */
@@ -43,7 +65,8 @@ interface Props {
 // Refusals the website answers with an offer: more credits, or signing in for free ones.
 const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
 
-export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, resume = 0 }: Props) {
+export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, onFeed, resume = 0 }: Props) {
+  const [dragging, setDragging] = useState(false);
   const [source, setSource] = useState<'url' | 'upload'>('url');
   const [videoUrl, setVideoUrl] = useState('');
   // A site whose downloads have been failing lately (learned from every download): said before starting.
@@ -144,12 +167,40 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white">{SITE.translate.title}</h1>
-        <p className="mt-2 text-sm text-slate-400 max-w-2xl">{SITE.translate.intro}</p>
+      <div className="space-y-4">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-100 max-w-3xl">{SITE.translate.title}</h1>
+        <p className="text-sm md:text-base text-slate-400 max-w-2xl">{SITE.translate.intro}</p>
+        {/* The whole journey at a glance: add a video, choose, then watch and share. */}
+        <ol className="grid grid-cols-3 gap-2 text-sm">
+          {(
+            [
+              [Upload, 'Add a video', 'A link or a file'],
+              [Sparkles, 'Choose a language', 'Subtitles or a dubbed voice'],
+              [Share2, 'Watch and share', 'Download, share a link, or post it'],
+            ] as const
+          ).map(([Icon, title, body], i) => (
+            <li key={title} className="flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-center sm:text-left">
+              <span className="w-9 h-9 shrink-0 rounded-xl bg-amber-400/15 text-amber-300 flex items-center justify-center">
+                <Icon className="w-4 h-4" />
+              </span>
+              <span>
+                <span className="block text-xs sm:text-sm font-semibold text-slate-100">
+                  {i + 1}. {title}
+                </span>
+                <span className="hidden sm:block text-xs text-slate-400">{body}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        {onFeed && (
+          <button type="button" onClick={onFeed} className="inline-flex items-center gap-1.5 text-sm text-amber-300 hover:text-amber-200">
+            <Clapperboard className="w-4 h-4" /> Watch videos others translated <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      <form ref={formRef} onSubmit={submit} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
+      <form ref={formRef} onSubmit={submit} className="p-5 md:p-6 rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/20 space-y-6">
+        <Step n={1} title="Your video">
         <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-sm">
           {(
             [
@@ -191,7 +242,22 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
             )}
           </label>
         ) : (
-          <label className="block cursor-pointer rounded-xl border border-dashed border-slate-700 hover:border-amber-400 bg-slate-950/60 p-6 text-center">
+          <label
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const dropped = e.dataTransfer.files?.[0];
+              if (dropped) setFile(dropped);
+            }}
+            className={`block cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+              dragging ? 'border-amber-400 bg-amber-400/10' : 'border-slate-700 hover:border-amber-400 bg-slate-950/60'
+            }`}
+          >
             <input
               type="file"
               accept="video/*,audio/*"
@@ -199,16 +265,19 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <Upload className="w-7 h-7 mx-auto text-amber-400" />
-            <span className="block mt-2 text-sm font-semibold text-white">{file ? file.name : 'Choose a video or audio file'}</span>
+            <span className="block mt-2 text-sm font-semibold text-white">{file ? file.name : 'Drop a video or audio file here, or choose one'}</span>
             <span className="block mt-1 text-xs text-slate-400">
               {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `Up to ${maxMb} MB`}
             </span>
           </label>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        </Step>
+
+        <Step n={2} title="Languages">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
           <label className="block">
-            <span className="block text-sm font-medium text-slate-200 mb-1.5">Spoken language</span>
+            <span className="block text-xs font-medium text-slate-400 mb-1.5">Spoken in the video</span>
             <select value={srcLang} onChange={(e) => setSrcLang(e.target.value)} className={inputClass}>
               {SOURCE_LANGS.map(([code, name]) => (
                 <option key={code} value={code}>
@@ -217,8 +286,9 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
               ))}
             </select>
           </label>
+          <ArrowRight className="hidden sm:block w-5 h-5 mb-3 text-slate-500" aria-hidden />
           <label className="block">
-            <span className="block text-sm font-medium text-slate-200 mb-1.5">Translate into</span>
+            <span className="block text-xs font-medium text-slate-400 mb-1.5">Translate into</span>
             <select value={tgtLang} onChange={(e) => setTgtLang(e.target.value)} className={inputClass}>
               {(config?.languages ?? [{ code: 'ar', flag: '🇸🇦', en: 'Arabic', ar: '' }]).map((l) => (
                 <option key={l.code} value={l.code}>
@@ -227,16 +297,34 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="block text-sm font-medium text-slate-200 mb-1.5">Result</span>
-            <select value={mode} onChange={(e) => setMode(e.target.value as SubtitleMode)} className={inputClass}>
-              <option value="soft">Subtitle files only (faster)</option>
-              <option value="hard">Video with burned-in subtitles</option>
-              <option value="dub" disabled={!canDub}>
-                Dubbed video (translated voice){canDub ? '' : ': not for this language'}
-              </option>
-            </select>
-          </label>
+        </div>
+        </Step>
+
+        <Step n={3} title="What you get">
+        <div role="radiogroup" aria-label="Result" className="grid gap-2 sm:grid-cols-3">
+          {RESULTS.map((r) => {
+            const off = r.id === 'dub' && !canDub;
+            const on = mode === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                disabled={off}
+                onClick={() => setMode(r.id)}
+                className={`text-left p-3.5 rounded-xl border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                  on ? 'border-amber-400 bg-amber-400/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'
+                }`}
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                  <r.icon className={`w-4 h-4 ${on ? 'text-amber-300' : 'text-slate-400'}`} />
+                  {r.title}
+                </span>
+                <span className="block mt-1 text-xs text-slate-400">{off ? 'Not available for this language yet.' : r.body}</span>
+              </button>
+            );
+          })}
         </div>
 
         {mode === 'hard' && <StylePicker style={style} onChange={setStyle} lang={tgtLang} />}
@@ -271,6 +359,8 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
           </div>
         )}
 
+        </Step>
+
         <CostPreview
           me={me ?? null}
           mode={mode}
@@ -303,10 +393,11 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
         <button
           type="submit"
           disabled={busy !== null}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-base font-bold shadow-lg shadow-amber-400/20 disabled:opacity-60"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {busy ?? 'Translate'}
+          {busy ??
+            `${mode === 'dub' ? 'Dub' : 'Translate'} into ${config?.languages.find((l) => l.code === tgtLang)?.en ?? 'your language'}`}
         </button>
       </form>
 
@@ -319,6 +410,8 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
             localVideoUrl={localVideo?.jobId === jobId ? localVideo.url : null}
             onClose={() => onJob(null)}
             onRetried={(id) => onJob(id)}
+            signedIn={Boolean(me?.account)}
+            onSignIn={onSignIn}
           />
         )}
       </div>
