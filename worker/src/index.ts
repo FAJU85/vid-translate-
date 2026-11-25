@@ -28,11 +28,13 @@ import {
   setupBot,
   telegramJobListener,
 } from './modules/telegram';
-import { SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage } from './modules/settings';
+import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
 import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
+import { AUDIT_SCHEMA, sweepAudit } from './modules/audit';
+import { FEATURES_SCHEMA, withFeatures } from './modules/features';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
 
@@ -54,7 +56,7 @@ registerMemoryProvider(memoryFor);
 registerDownloadPlanner(downloadPlanFor);
 registerJobListener(sitesJobListener);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -101,23 +103,52 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   return apiError(404, 'E_NOT_FOUND', 'Not found.');
 }
 
+/**
+ * Security headers on everything the Worker answers (the website's own files get the same from
+ * web/public/_headers): HTTPS only from now on, no sniffing, no framing, a short referrer, and no
+ * camera, microphone or location.
+ */
+const SECURITY_HEADERS: Record<string, string> = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+function secured(res: Response): Response {
+  if (res.status === 101) return res;
+  const out = new Response(res.body, res);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!out.headers.has(k)) out.headers.set(k, v);
+  return out;
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Plain HTTP is sent to HTTPS (never on a local development address).
+    const url = new URL(request.url);
+    if (url.protocol === 'http:' && !/^(localhost|127\.0\.0\.1)$/.test(url.hostname)) {
+      url.protocol = 'https:';
+      return Response.redirect(url.toString(), 301);
+    }
     try {
       await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
-      return await route(request, env, ctx);
+      // The admin page's feature switches and keys, filled into the settings this request runs with.
+      return secured(await route(request, await withFeatures(env), ctx));
     } catch (err) {
       console.error('request failed', (err as Error).stack ?? err);
-      return apiError(500, 'E_INTERNAL', 'Internal error.');
+      return secured(apiError(500, 'E_INTERNAL', 'Internal error.'));
     }
   },
 
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
+  async scheduled(_event: ScheduledController, serverEnv: Env, ctx: ExecutionContext): Promise<void> {
+    await ensureSchema(serverEnv, SCHEMA, ADDED_COLUMNS);
+    const env = await withFeatures(serverEnv);
     ctx.waitUntil(sweep(env));
     ctx.waitUntil(ensureWebhookUpdates(env));
     ctx.waitUntil(sweepShares(env));
     ctx.waitUntil(sweepNotifications(env));
     ctx.waitUntil(sweepFeedback(env));
+    ctx.waitUntil(sweepAudit(env));
   },
 } satisfies ExportedHandler<Env>;

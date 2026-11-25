@@ -135,6 +135,9 @@ export function clientId(): string {
 }
 let sessionId: string | undefined;
 
+/** Fired when the server refuses the admin sign-in token (the /admin page shows the sign-in form). */
+export const ADMIN_SIGNED_OUT = 'kavox-admin-signed-out';
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -146,6 +149,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError('E_NETWORK', t('Could not reach the server. Check your connection and try again.'));
   }
   const data = await res.json().catch(() => null);
+  // An admin sign-in that ended (12 hours, or the password changed): the /admin page asks again.
+  if (res.status === 401 && path.startsWith('/api/admin/') && path !== '/api/admin/login' && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ADMIN_SIGNED_OUT));
+  }
   // The server's messages are in English: shown in the interface language when translated (i18n/ar.ts).
   if (!res.ok) throw new ApiError(data?.error_code ?? 'E_HTTP', data?.message ? t(data.message) : t('Request failed ({n}).', { n: res.status }));
   return data as T;
@@ -393,6 +400,32 @@ export const feedbackApi = {
     call<{ ok: true }>('/api/feedback', { method: 'POST', body: JSON.stringify({ text, page, lang }) }),
 };
 
+type FeatureSource = 'server' | 'panel' | null;
+export interface AdminFeatures {
+  /** Per setting: 'server' (locked here), 'panel' (saved here) or null. */
+  sources: Record<string, FeatureSource>;
+  /** Saved keys that cannot be read any more (SHARED_SECRET changed): paste them again. */
+  unreadable: string[];
+  two_step: { on: boolean; source: FeatureSource };
+  credits: { on: boolean; source: FeatureSource };
+  limits: { max_jobs_per_hour: number; max_upload_mb: number; source: FeatureSource };
+  email: { ready: boolean; from: string; key: string | null; source: FeatureSource };
+  google: { ready: boolean; client_id: string; secret: string | null; redirect_uri: string; source: FeatureSource };
+  stripe: { ready: boolean; key: string | null; webhook_secret: string | null; webhook_url: string; source: FeatureSource };
+  telegram: { bot: string | null };
+  domain: { public_domain: string; https_note: boolean };
+}
+
+export interface AuditItem {
+  id: number;
+  at: number;
+  actor: string;
+  action: string;
+  target: string | null;
+  detail: string | null;
+  conn: string | null;
+}
+
 export interface FeedbackItem {
   id: number;
   source: 'web' | 'telegram';
@@ -576,7 +609,13 @@ export interface AdminActionResult {
 const auth = (password: string) => ({ Authorization: `Bearer ${password}` });
 
 export const adminApi = {
-  login: (password: string) => call<{ ok: true }>('/api/admin/login', { method: 'POST', headers: auth(password) }),
+  login: (password: string, code = '') =>
+    call<{ ok: true; token: string; expires_at: number; two_factor: boolean }>('/api/admin/login', { method: 'POST', headers: auth(password), body: JSON.stringify({ code }) }),
+  features: (password: string) => call<AdminFeatures>('/api/admin/features', { headers: auth(password) }),
+  feature: (password: string, body: Record<string, unknown>) =>
+    call<{ ok: true; token?: string; secret?: string; uri?: string; result?: unknown }>('/api/admin/features', { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
+  audit: (password: string, action = '', before: number | null = null) =>
+    call<{ items: AuditItem[]; next: number | null }>(`/api/admin/audit?action=${encodeURIComponent(action)}${before ? `&before=${before}` : ''}`, { headers: auth(password) }),
   load: (password: string) => call<AdminSettings>('/api/admin/settings', { headers: auth(password) }),
   save: (password: string, settings: Partial<AdminSettings>) =>
     call<{ ok: true }>('/api/admin/settings', { method: 'POST', headers: auth(password), body: JSON.stringify(settings) }),

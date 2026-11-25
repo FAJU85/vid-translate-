@@ -1,4 +1,6 @@
+import { connectionKey } from '../../shared/crypto';
 import { now, type Env } from '../../shared/env';
+import { audit } from '../audit';
 import { apiError, json } from '../../shared/http';
 import { eraseAccount, exportAccount, personFor, renameAccount } from '../accounts';
 import { eraseFeedback, exportFeedback } from '../feedback';
@@ -22,6 +24,8 @@ export async function handlePrivacy(request: Request, env: Env, path: string): P
   if (path === '/api/me/export' && method === 'GET') {
     const person = await personFor(env, request, url.searchParams.get('client_id'));
     if (!person) return apiError(400, 'E_BAD_REQUEST', 'Sign in first, or use the browser you translated in.');
+    const actor = person.accountId ? `user:${person.accountId}` : `guest:${person.owners[0] ?? '?'}`;
+    await audit(env, { actor, action: 'data.export', conn: await connectionKey(env.SHARED_SECRET, request) });
     const site = await publicSettings(env).catch(() => null);
     const data = {
       about: `Your personal data at ${site?.name || 'KAVOX'}, exported ${new Date().toISOString()}. Privacy Policy version ${LEGAL_VERSION}.`,
@@ -55,6 +59,8 @@ export async function handlePrivacy(request: Request, env: Env, path: string): P
     await eraseLearning(env, person);
     await eraseTelegram(env, person);
     await eraseAccount(env, person);
+    // Kept without the person's details: only that an account was deleted, and how much went.
+    await audit(env, { actor: person.accountId ? 'user' : 'guest', action: 'account.delete', detail: { videos, jobs }, conn: await connectionKey(env.SHARED_SECRET, request) });
     return json({ ok: true, deleted: { videos, jobs } }, 200, {
       'Set-Cookie': 'kavox_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax',
     });

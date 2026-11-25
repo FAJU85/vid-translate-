@@ -38,7 +38,7 @@ const table = (rows: readonly (readonly string[])[], head: readonly string[]) =>
     .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`)
     .join('')}</tbody></table></div>`;
 
-function english(brand: string, contact: string): string {
+function english(brand: string, contact: string, twoStep: boolean): string {
   return `<h1>Privacy Policy</h1>
 <p class="meta">Version ${LEGAL_VERSION}</p>
 <p>This policy explains what personal data ${brand} collects, why, how long it is kept, who it is shared with, and how you use your rights under the Saudi Personal Data Protection Law (PDPL). ${brand} is the controller of this data. Contact: ${contact}.</p>
@@ -70,6 +70,7 @@ ${table(
     ['Sign-in codes and the sign-in country', '1 day'],
     ['Notifications', '90 days'],
     ['Feedback', 'Until it is handled, at most 1 year'],
+    ['Security log (admin actions, data downloads and deletions)', '1 year'],
     ['Account, profile, posts, comments, credits', 'Until you delete your account'],
     ['Payment records', 'As long as the law requires for accounting'],
   ],
@@ -92,7 +93,7 @@ ${table(PROCESSORS.en, ['Service', 'What it does with your data', 'Where'])}
 <p>If you think we have not respected your rights, you can complain to the Saudi Data and AI Authority (SDAIA).</p>
 
 <h2>6. Security</h2>
-<p>All connections use HTTPS. The database and stored files are encrypted at rest by our hosting provider. Videos are not in a public storage bucket: they are served only through ${brand}, and private files use links that expire. There are no passwords to leak: you sign in with a one-time email link, Google or Telegram. Administrator access is protected.</p>
+<p>All connections use HTTPS. The database and stored files are encrypted at rest by our hosting provider. Videos are not in a public storage bucket: they are served only through ${brand}, and private files use links that expire. There are no passwords to leak: you sign in with a one-time email link, Google or Telegram. Administrator access needs a password${twoStep ? ' and a one-time code from an authenticator app' : ''}, and sensitive actions (administrator sign-ins and changes, data downloads and deletions) are logged.</p>
 <p>If a breach puts your data at risk, we will tell SDAIA within 72 hours of finding out, as the law requires, and tell you without undue delay when it may harm you.</p>
 
 <h2>7. Children</h2>
@@ -103,7 +104,7 @@ ${table(PROCESSORS.en, ['Service', 'What it does with your data', 'Where'])}
 <p style="margin-top:32px"><a href="/terms">Terms of use</a> · <a href="/">Back to ${brand}</a></p>`;
 }
 
-function arabic(brand: string, contact: string): string {
+function arabic(brand: string, contact: string, twoStep: boolean): string {
   return `<h1>سياسة الخصوصية</h1>
 <p class="meta">الإصدار ${LEGAL_VERSION}</p>
 <p>توضّح هذه السياسة البيانات الشخصية التي يجمعها ${brand}، ولماذا، ومدة الاحتفاظ بها، ومع من تُشارك، وكيف تمارس حقوقك وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية. ${brand} هو جهة التحكم في هذه البيانات. للتواصل: ${contact}.</p>
@@ -135,6 +136,7 @@ ${table(
     ['رموز تسجيل الدخول وبلد الطلب', 'يوم واحد'],
     ['الإشعارات', '90 يومًا'],
     ['الملاحظات', 'حتى تُعالج، وسنة واحدة كحد أقصى'],
+    ['سجل الأمان (إجراءات المشرف وتنزيل البيانات وحذفها)', 'سنة واحدة'],
     ['الحساب والملف والمنشورات والتعليقات والرصيد', 'حتى تحذف حسابك'],
     ['سجلات الدفع', 'المدة التي يشترطها النظام للمحاسبة'],
   ],
@@ -157,7 +159,7 @@ ${table(PROCESSORS.ar, ['الخدمة', 'ما تفعله ببياناتك', 'ا�
 <p>إن رأيت أننا لم نحترم حقوقك، يمكنك تقديم شكوى إلى الهيئة السعودية للبيانات والذكاء الاصطناعي (سدايا).</p>
 
 <h2>6. الأمان</h2>
-<p>جميع الاتصالات عبر HTTPS. قاعدة البيانات والملفات المحفوظة مشفّرة أثناء التخزين لدى مزوّد الاستضافة. الفيديوهات ليست في مخزن عام: تُقدَّم فقط عبر ${brand}، والملفات الخاصة تستخدم روابط تنتهي صلاحيتها. لا توجد كلمات مرور قد تتسرب: تسجّل الدخول برابط بريد لمرة واحدة أو بحساب Google أو تيليجرام. وصول المشرف محمي.</p>
+<p>جميع الاتصالات عبر HTTPS. قاعدة البيانات والملفات المحفوظة مشفّرة أثناء التخزين لدى مزوّد الاستضافة. الفيديوهات ليست في مخزن عام: تُقدَّم فقط عبر ${brand}، والملفات الخاصة تستخدم روابط تنتهي صلاحيتها. لا توجد كلمات مرور قد تتسرب: تسجّل الدخول برابط بريد لمرة واحدة أو بحساب Google أو تيليجرام. يتطلب وصول المشرف كلمة مرور${twoStep ? ' ورمزًا لمرة واحدة من تطبيق مصادقة' : ''}، وتُسجَّل الإجراءات الحساسة (دخول المشرف وتغييراته وتنزيل البيانات وحذفها).</p>
 <p>إن عرّض اختراقٌ بياناتك للخطر، نُبلغ سدايا خلال 72 ساعة من اكتشافه كما يشترط النظام، ونُبلغك دون تأخير غير مبرر إن كان قد يضرك.</p>
 
 <h2>7. الأطفال</h2>
@@ -206,7 +208,7 @@ ${chromeCss}
 <body>
 <main>
 ${brandHeader(brand, logo, logoSize(settings))}
-${lang === 'ar' ? arabic(brand, contact) : english(brand, contact)}
+${lang === 'ar' ? arabic(brand, contact, Boolean(env.ADMIN_TOTP_SECRET)) : english(brand, contact, Boolean(env.ADMIN_TOTP_SECRET))}
 </main>
 </body>
 </html>`;

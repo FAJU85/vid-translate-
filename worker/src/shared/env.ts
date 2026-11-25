@@ -11,6 +11,12 @@ export interface Env {
   TELEGRAM_API_BASE?: string;
   /** Password for the website's /admin page (at least 8 characters). Unset: the page stays locked. */
   ADMIN_PASSWORD?: string;
+  /**
+   * Two-step sign-in for /admin: a base32 secret shared with an authenticator app (Google
+   * Authenticator, 1Password, Authy…). Set: signing in needs the password and the app's 6-digit
+   * code. Make one with `node scripts/admin-2fa-secret.mjs`.
+   */
+  ADMIN_TOTP_SECRET?: string;
   /** Public origin of this Worker, if it differs from the request origin. */
   PUBLIC_URL?: string;
   /** Comma-separated origins allowed to call /api (the Pages site). Default: any. */
@@ -37,6 +43,12 @@ export interface Env {
   MEDIA?: R2Bucket;
   /** The website's files (web/dist), for every page the Worker does not answer itself. */
   ASSETS?: Fetcher;
+  /** The server's own settings, before the admin page's values were filled in (features brick). */
+  SERVER_ENV?: Env;
+  /** "1" when the admin page's saved settings could not be read: admin sign-in is refused, not weakened. */
+  FEATURES_UNAVAILABLE?: string;
+  /** Changes every time two-step sign-in is turned on or off from the admin page: ends every earlier sign-in. */
+  ADMIN_TOKEN_EPOCH?: string;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);

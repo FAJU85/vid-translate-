@@ -27,10 +27,9 @@ BACKEND_URL = "https://vooom-kavox.hf.space"
 # Your Cloudflare Pages site (comma-separated list), or "*" to allow any website.
 ALLOWED_ORIGINS = "*"
 DEFAULT_TARGET_LANG = "ar"
-MAX_JOBS_PER_HOUR = "5"
-MAX_UPLOAD_MB = "500"
-# "1" to count and charge credits (see README → Accounts and credits). Off until free allowances and payments exist.
-CREDITS_ENABLED = "0"
+# Credits (off), videos per hour (5) and the largest upload (500 MB) are switched on and changed on
+# the /admin page → Features. Setting CREDITS_ENABLED, MAX_JOBS_PER_HOUR or MAX_UPLOAD_MB here (or as
+# a secret) would override that page.
 # Telegram Stars per US dollar for prices in the bot (packs and plans).
 STARS_PER_USD = "50"
 # Optional: restrict the bot to these Telegram chat ids (comma-separated).

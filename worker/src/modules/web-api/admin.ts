@@ -128,7 +128,7 @@ async function siteStats(env: Env) {
 
 /** /api/admin/jobs[/<id>]: the jobs dashboard on the /admin page. Needs the admin password. */
 export async function handleAdminJobs(request: Request, env: Env, ctx: ExecutionContext, path: string): Promise<Response> {
-  if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
+  if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
 
   const one = path.match(/^\/api\/admin\/jobs\/([0-9a-f-]{36})$/);
   if (one && request.method === 'GET') {

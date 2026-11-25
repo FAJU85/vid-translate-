@@ -1,0 +1,34 @@
+# Security
+
+## Reporting a vulnerability
+
+Please report security problems privately, not in a public issue:
+
+- to the contact email shown on the site's `/privacy` page (set on `/admin` → Settings); or
+- through GitHub's private vulnerability reporting (**Security → Report a vulnerability**), when
+  the repository owner has turned it on (repository **Settings → Code security → Private
+  vulnerability reporting → Enable**).
+
+Owner: keep at least one of the two working. Until the contact email is set, turn the GitHub
+channel on.
+
+Include what you found and how to reproduce it.
+We aim to answer within a few days and to fix confirmed problems quickly.
+
+## What is in place
+
+- **HTTPS only:** plain HTTP is redirected by the Worker; on a custom domain, also turn on
+  Cloudflare's **SSL/TLS → Edge Certificates → Always Use HTTPS**, so the home page and the
+  website's own files (served before the Worker runs) are never sent over HTTP; `Strict-Transport-Security` and other security
+  headers on every response (Worker and `web/public/_headers`).
+- **Encryption at rest:** the D1 database and R2 storage are encrypted at rest by Cloudflare.
+- **Files:** videos are not in a public bucket. R2 is reached only through the Worker; private
+  job files on the translation server use links signed with an expiry.
+- **Sign-in:** users have no passwords (one-time email link, Google, or Telegram). Session
+  tokens are stored as SHA-256 hashes. The admin page needs `ADMIN_PASSWORD` and, with
+  `ADMIN_TOTP_SECRET` set, a 6-digit authenticator code; it gives a 12-hour signed token, never
+  keeps the password, and blocks a connection after repeated failures.
+- **Audit log:** admin sign-ins (failed ones too) and changes, admins opening an account, and
+  people downloading or deleting their data, kept a year (`/admin` → Audit).
+- **Data minimisation:** connections are kept as keyed fingerprints, never IP addresses.
+- **Breach response:** see [docs/INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md).
