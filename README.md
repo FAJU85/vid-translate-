@@ -442,7 +442,13 @@ choose **Lyrics video** on the website, or **🎵 Lyrics video** in the bot.
 - Main text: the translation, or the original words (karaoke). With "show the other text too",
   both lines are shown, the second one smaller.
 - Shapes: vertical 9:16 (Reels, TikTok, Shorts), square 1:1, wide 16:9, all 720 px on the short side.
-- Edited lyrics can be rendered again, like any subtitled video.
+- Title card: the song's title and artist at the top, from its own tags (most MP3s and Telegram
+  audio have them), or typed on the website. A thin bar along the bottom fills as it plays. Both
+  can be switched off (website and the bot's /style).
+- Your logo: switch on **Your logo on lyrics videos** on the admin Features page; the logo saved in
+  Settings goes small in the top corner (PNG, JPEG or WebP; an SVG cannot be drawn on a video).
+- Edited lyrics can be rendered again for free, like any subtitled video: fix a line with the
+  pencil on the result screen, then **Render video with my edits**.
 - At most 15 minutes of sound (Space setting `VISUAL_MAX_MIN`): drawing every frame takes time.
 - Song lyrics are recognised less well than speech (the music covers the voice): check them in
   the editor before sharing. Post only songs you have the right to share.

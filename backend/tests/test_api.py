@@ -1,3 +1,4 @@
+import base64
 import shutil
 import subprocess
 import time
@@ -146,9 +147,13 @@ def test_audio_only_hard_mode_makes_a_visualizer_video(client, tmp_path):
     job = JOB.format(5)
     clip = make_clip(tmp_path, video=False)
     client.put(f"/upload/{job}", params=signed(f"upload:{job}"), content=clip)
-    style = {"look": "neon", "backdrop": "sunset", "frame": "square", "lines": "original", "animation": "highlight"}
+    style = {"look": "neon", "backdrop": "sunset", "frame": "square", "lines": "original", "animation": "highlight",
+             "title": "My song", "artist": "Me"}
+    logo = tmp_path / "logo.png"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=64x64", "-frames:v", "1", str(logo)], check=True)
     body = {"job_id": job, "source_kind": "upload", "subtitle_mode": "hard", "tgt_lang": "ar", "subtitle_style": style}
-    client.post("/invoke", json=body, headers=AUTH)
+    assert client.post("/invoke", json={**body, "logo": "not base64!"}, headers=AUTH).status_code == 400
+    client.post("/invoke", json={**body, "logo": base64.b64encode(logo.read_bytes()).decode()}, headers=AUTH)
     data = wait_done(client, job)
     assert data["status"] == "done", data
     assert {"mp4", "thumb", "srt"} <= set(data["outputs"])
@@ -159,6 +164,9 @@ def test_audio_only_hard_mode_makes_a_visualizer_video(client, tmp_path):
     probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                             "-of", "csv=p=0", str(path)], capture_output=True, text=True)
     assert probe.stdout.strip() == "720,720"  # the square frame chosen
+    corner = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", "1", "-i", str(path), "-frames:v", "1", "-vf", "crop=2:2:650:60",
+                             "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
+    assert corner[0] > 180 and corner[1] < 90  # the logo sent with the job, top right
     # Edited lyrics are rendered again onto the kept sound (an id no other test uses: they share one queue).
     again = "0a0a0a0a-0000-4000-8000-0000000000a5"
     body = {"job_id": again, "source_kind": "rerender", "parent_job_id": job, "tgt_lang": "ar", "subtitle_mode": "hard",

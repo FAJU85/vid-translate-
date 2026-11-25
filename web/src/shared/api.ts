@@ -24,6 +24,11 @@ export interface SubtitleStyle {
   look?: 'wave' | 'neon' | 'bars';
   backdrop?: 'kavox' | 'night' | 'sunset' | 'forest' | 'cover';
   frame?: 'vertical' | 'square' | 'wide';
+  /** Sound alone: the title card (typed here, or from the song's own tags) and the progress bar. */
+  title_card?: boolean;
+  title?: string;
+  artist?: string;
+  bar?: boolean;
 }
 
 export interface Job {
@@ -414,6 +419,8 @@ export interface AdminFeatures {
   unreadable: string[];
   two_step: { on: boolean; source: FeatureSource };
   credits: { on: boolean; source: FeatureSource };
+  /** The site's logo on lyrics videos: the switch, and whether the saved logo can be drawn (an SVG cannot). */
+  lyrics_logo: { on: boolean; logo: 'none' | 'drawable' | 'svg'; source: FeatureSource };
   limits: { max_jobs_per_hour: number; max_upload_mb: number; source: FeatureSource };
   email: { ready: boolean; from: string; key: string | null; source: FeatureSource };
   google: { ready: boolean; client_id: string; secret: string | null; redirect_uri: string; source: FeatureSource };

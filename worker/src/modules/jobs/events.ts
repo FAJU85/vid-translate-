@@ -111,6 +111,29 @@ export async function downloadPlan(env: Env, job: JobRow): Promise<string[] | nu
   }
 }
 
+/**
+ * Port through which another brick (settings) supplies the site's logo for lyrics videos (sound
+ * alone made into a video): base64 image bytes, or null when it is switched off or there is none.
+ */
+export type LogoProvider = (env: Env) => Promise<string | null>;
+
+let logoProvider: LogoProvider | null = null;
+
+export function registerLogoProvider(provider: LogoProvider): void {
+  logoProvider = provider;
+}
+
+/** The logo for a job's lyrics video; none when switched off, missing or unreadable. */
+export async function logoFor(env: Env, job: JobRow): Promise<string | null> {
+  if (!logoProvider || job.mode !== 'hard') return null;
+  try {
+    return await logoProvider(env);
+  } catch (err) {
+    console.error('reading the logo failed for', job.id, (err as Error).stack ?? err);
+    return null;
+  }
+}
+
 /** The ending for a job; the KAVOX one when nothing else is chosen or the choice fails. */
 export async function chooseOutro(env: Env, job: JobRow): Promise<OutroChoice> {
   if (!outroChooser) return { kind: 'kavox' };

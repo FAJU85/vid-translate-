@@ -28,6 +28,8 @@ export interface Env {
   DEFAULT_TARGET_LANG?: string;
   /** "1": count and charge credits (1 credit = 60 seconds of video). Off by default. */
   CREDITS_ENABLED?: string;
+  /** "1": the site's logo goes in the corner of lyrics videos (switched on from the Features page). */
+  LYRICS_LOGO?: string;
   /** Email sign-in links through Resend (resend.com): its API key and the sender address. */
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;

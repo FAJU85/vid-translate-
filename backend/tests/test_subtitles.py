@@ -62,11 +62,30 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     assert style.to_dict() == {
         "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False, "voice": "female", "animation": "none",
         "lines": "translation", "look": "wave", "backdrop": "kavox", "frame": "vertical",
+        "title_card": True, "title": "", "artist": "", "bar": True,
     }
     assert SubtitleStyle.from_dict({"bilingual": "yes"}).bilingual is False  # only a real true turns it on
     sound = SubtitleStyle.from_dict({"look": "neon", "backdrop": "cover", "frame": "wide", "lines": "original"})
     assert (sound.look, sound.backdrop, sound.frame, sound.lines) == ("neon", "cover", "wide", "original")
     assert SubtitleStyle.from_dict({"look": "x", "frame": 3}) == SubtitleStyle()
+
+
+def test_title_card_text_is_one_short_line():
+    style = SubtitleStyle.from_dict({"title": "  My\nsong\x00 " + "x" * 200, "artist": 5, "title_card": False, "bar": False})
+    assert style.title.startswith("My song ") and len(style.title) == 80
+    assert style.artist == "" and style.title_card is False and style.bar is False
+
+
+def test_to_ass_title_card_at_the_top_in_each_script():
+    cues = [Cue(1, 0, 2, "Hello", "مرحبا")]
+    out = to_ass(cues, "ar", SubtitleStyle(), "en", heading=("ليلة {سعيدة}", "The Band"))
+    title, artist = [line for line in out.splitlines() if line.startswith(("Style: Title", "Style: Artist"))]
+    assert "Noto Sans Arabic" in title and ",8,16,16,14," in title  # top centre, Arabic font for an Arabic title
+    assert "Noto Sans," in artist
+    events = [line for line in out.splitlines() if line.startswith("Dialogue:")]
+    assert events[0].endswith(",Title,,0,0,0,,ليلة (سعيدة)")  # no override blocks from typed text
+    assert events[1].endswith(",Artist,,0,0,0,,The Band")
+    assert "Style: Title" not in to_ass(cues, "ar", SubtitleStyle(), "en", heading=("", ""))
 
 
 def test_to_ass_original_lines_put_the_original_first():

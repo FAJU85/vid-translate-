@@ -21,6 +21,12 @@ export interface SubtitleStyle {
   look: 'wave' | 'neon' | 'bars';
   backdrop: 'kavox' | 'night' | 'sunset' | 'forest' | 'cover';
   frame: 'vertical' | 'square' | 'wide';
+  /** Sound alone: the song's title and artist at the top; typed here, or (empty) from the song's own tags. */
+  title_card: boolean;
+  title: string;
+  artist: string;
+  /** Sound alone: a bar along the bottom fills as it plays. */
+  bar: boolean;
 }
 
 export const SUBTITLE_SIZES = ['small', 'medium', 'large', 'xlarge'] as const;
@@ -33,7 +39,7 @@ export const VISUAL_LOOKS = ['wave', 'neon', 'bars'] as const;
 export const VISUAL_BACKDROPS = ['kavox', 'night', 'sunset', 'forest', 'cover'] as const;
 export const VISUAL_FRAMES = ['vertical', 'square', 'wide'] as const;
 /** The parts a ready-made design leaves as they are: what to show and, for sound alone, its picture. */
-const KEEP = { lines: 'translation', look: 'wave', backdrop: 'kavox', frame: 'vertical' } as const;
+const KEEP = { lines: 'translation', look: 'wave', backdrop: 'kavox', frame: 'vertical', title_card: true, title: '', artist: '', bar: true } as const;
 export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', bilingual: false, voice: 'female', animation: 'none', ...KEEP };
 
 /** Ready-made designs: one tap sets every field. */
@@ -43,6 +49,10 @@ export const STYLE_PRESETS: Record<'cinema' | 'boldbox' | 'elegant' | 'social', 
   elegant: { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', bilingual: false, voice: 'female', animation: 'none', ...KEEP },
   social: { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', bilingual: false, voice: 'female', animation: 'pop', ...KEEP },
 };
+
+/** A title or artist someone typed: one line (control characters removed), at most 80 characters. */
+const shortText = (value: unknown) =>
+  typeof value === 'string' ? value.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) : '';
 
 const pick = <T extends string>(allowed: readonly T[], value: unknown, fallback: T): T =>
   allowed.includes(value as T) ? (value as T) : fallback;
@@ -64,6 +74,10 @@ export function parseSubtitleStyle(input: unknown): SubtitleStyle {
     look: pick(VISUAL_LOOKS, raw.look, DEFAULT_STYLE.look),
     backdrop: pick(VISUAL_BACKDROPS, raw.backdrop, DEFAULT_STYLE.backdrop),
     frame: pick(VISUAL_FRAMES, raw.frame, DEFAULT_STYLE.frame),
+    title_card: raw.title_card !== false,
+    title: shortText(raw.title),
+    artist: shortText(raw.artist),
+    bar: raw.bar !== false,
   };
 }
 

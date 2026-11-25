@@ -1,11 +1,12 @@
 """A picture for sound alone: a song or a podcast becomes a video with a moving visualizer.
 
 Everything is drawn by ffmpeg (no other tools, no models): a background (a colour gradient, or
-the file's own cover art blurred), the sound drawn as it plays, and the styled subtitles (the
-lyrics) burned on top, in one pass.
+the file's own cover art blurred), the sound drawn as it plays, a bar filling as it plays, the
+site's logo in a corner, and the styled subtitles (the lyrics and the title card) on top, in one pass.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -26,6 +27,30 @@ BACKDROPS = {
 COVER = "cover"  # the file's own picture (album art), blurred; a gradient when it has none
 FPS = 25
 BACKGROUND_FILE = "visual_bg.png"
+BAR_COLOUR = "0xFBBF24"  # the progress bar (KAVOX amber)
+
+
+def tags(src: Path) -> dict[str, str]:
+    """A song's own title and artist, from its tags (ID3 and the like); empty when it has none."""
+    proc = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format_tags=title,artist,album_artist", "-of", "json", str(src)],
+        capture_output=True, text=True, timeout=60,
+    )
+    try:
+        found = {k.lower(): str(v).strip() for k, v in (json.loads(proc.stdout or "{}").get("format", {}).get("tags") or {}).items()}
+    except ValueError:
+        return {}
+    out = {"title": found.get("title", ""), "artist": found.get("artist") or found.get("album_artist", "")}
+    return {k: v[:80] for k, v in out.items() if v}
+
+
+def _usable_image(path: Path | None) -> bool:
+    """A logo ffmpeg can draw (PNG, JPEG, WebP...; not SVG)."""
+    if not path or not path.is_file():
+        return False
+    proc = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width",
+                           "-of", "csv=p=0", str(path)], capture_output=True, text=True, timeout=30)
+    return proc.returncode == 0 and proc.stdout.strip().isdigit()
 
 
 def _has_cover(src: Path) -> bool:
@@ -72,10 +97,11 @@ def _visualizer(look: str, w: int, band: int) -> str:
 
 
 def audio_video(src: Path, ass_name: str, dest: Path, duration: float, look: str, backdrop: str, frame: str,
-                cancelled: CancelFn, progress: ProgressFn) -> None:
+                cancelled: CancelFn, progress: ProgressFn, bar: bool = True, logo: Path | None = None) -> None:
     """Make a video from sound alone: background, visualizer and the subtitles (an .ass file in
     dest's folder), with the original sound. `look`, `backdrop`, `frame`: LOOKS, BACKDROPS (or
-    "cover"), FRAMES; anything unknown takes the first."""
+    "cover"), FRAMES; anything unknown takes the first. `bar`: a thin bar along the bottom fills
+    as the sound plays. `logo`: an image put small in the top corner (skipped if unreadable)."""
     w, h = FRAMES.get(frame, FRAMES["vertical"])
     look = look if look in LOOKS else LOOKS[0]
     work = dest.parent
@@ -83,13 +109,28 @@ def audio_video(src: Path, ass_name: str, dest: Path, duration: float, look: str
     band = round(h * (0.22 if h > w else 0.3)) // 2 * 2
     try:
         _background(src, bg, backdrop, w, h)
-        graph = ";".join([
+        steps = [
             _visualizer(look, w, band),
             # The background comes from inside the graph, one frame each time one is needed: as a
             # looped input it was read ahead of the visualizer without limit.
             f"movie={bg.name}:loop=0,setpts=N/({FPS}*TB)[bg]",
-            f"[bg][vis]overlay=0:(H-h)/2:shortest=1,ass={ass_name}:shaping=complex,format=yuv420p[v]",
-        ])
+            "[bg][vis]overlay=0:(H-h)/2:shortest=1[pic]",
+        ]
+        last = "pic"
+        if bar and duration > 0:
+            # A strip as wide as the picture slides in from the left: fully in at the end of the sound.
+            thick = max(4, h // 160)
+            steps += [f"color=c={BAR_COLOUR}:s={w}x{thick}:r={FPS}[strip]",
+                      f"[{last}][strip]overlay=x='-w+W*min(t/{duration:.3f},1)':y=H-h:shortest=1[barred]"]
+            last = "barred"
+        if _usable_image(logo):
+            size = round(min(w, h) * 0.16)
+            steps += [f"movie={logo.name},scale={size}:{size}:force_original_aspect_ratio=decrease,format=rgba,"
+                      f"colorchannelmixer=aa=0.85[logo]",
+                      f"[{last}][logo]overlay=x=W-w-{round(w * 0.04)}:y={round(w * 0.04)}[logoed]"]
+            last = "logoed"
+        steps.append(f"[{last}]ass={ass_name}:shaping=complex,format=yuv420p[v]")
+        graph = ";".join(steps)
         _run_ffmpeg(
             ["-i", str(src), "-filter_complex", graph,
              "-map", "[v]", "-map", "0:a:0", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-r", str(FPS),
