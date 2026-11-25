@@ -41,7 +41,10 @@ Do what applies, and write down each step and its time:
   `TELEGRAM_WEBHOOK_SECRET`, `RESEND_API_KEY`, `GOOGLE_CLIENT_SECRET`, `STRIPE_*`, and any
   Cloudflare or Hugging Face token that may be exposed.
 - **Content:** remove exposed files from R2; take a page offline if needed.
-- Keep evidence: export the audit log (Audit workspace) and Cloudflare logs before they age out.
+- Keep evidence before it ages out (the audit log keeps a year): save the whole audit log and
+  the sign-in counters from D1 to a file, and keep it with the incident record:
+  `npx wrangler d1 execute DB --remote --json --command "SELECT * FROM audit_log ORDER BY id" > audit-log.json`
+  and the same for `admin_login_tries`. Download the Worker's logs from the Cloudflare dashboard.
 
 ## 3. Assess (within 24 hours)
 
@@ -53,14 +56,17 @@ Do what applies, and write down each step and its time:
 ## 4. Notify (within 72 hours)
 
 - **SDAIA:** notify through the channel SDAIA designates, within 72 hours of learning of the
-  breach, unless it is unlikely to harm anyone (write down why if you decide not to notify).
-  Include: what happened and when, the data and number of people affected, likely consequences,
-  what was done and will be done, and a contact person. If not everything is known yet, notify
-  with what is known and send the rest later.
-- **Affected people:** when the breach may harm them, tell them without undue delay, in Arabic
-  and English, in plain words: what happened, what data, what we did, what they can do (for
-  example, watch for phishing emails), and how to reach us. Use the email on their account,
-  the Telegram bot, and a notice on the site.
+  breach, when it could harm the personal data, harm the people it is about, or conflict with
+  their rights or interests (Article 24 of the PDPL). Deciding **not** to notify needs all three
+  ruled out, the reasons written in the incident record, and a review of that decision with legal
+  counsel. Include: what happened and when, the data and number of people affected, likely
+  consequences, what was done and will be done, and a contact person. If not everything is
+  known yet, notify with what is known and send the rest later.
+- **Affected people:** when the breach could harm their data, harm them, or conflict with their
+  rights or interests, tell them without undue delay, in Arabic and English, in plain words:
+  what happened, what data, what we did, what they can do (for example, watch for phishing
+  emails), and how to reach us. Use the email on their account, the Telegram bot, and a notice
+  on the site.
 - **Providers:** tell the affected provider if the breach came through them.
 
 ## 5. Recover and learn (within 2 weeks)
@@ -79,7 +85,7 @@ Do what applies, and write down each step and its time:
 ## ملخص بالعربية: خطة الاستجابة لتسرّب البيانات الشخصية
 
 1. **الرصد والتسجيل:** عند الاشتباه بتسرّب، سجّل فورًا وقت العلم به ومصدره؛ تبدأ مهلة الـ72 ساعة من هذه اللحظة.
-2. **الاحتواء:** غيّر كلمة مرور المشرف ورمز التحقق بخطوتين، وأنهِ جلسات المستخدمين، وبدّل الأسرار والمفاتيح المعرّضة، واحذف الملفات المكشوفة، واحفظ سجل التدقيق والسجلات كدليل.
+2. **الاحتواء:** غيّر كلمة مرور المشرف ورمز التحقق بخطوتين، وأنهِ جلسات المستخدمين، وبدّل الأسرار والمفاتيح المعرّضة، واحذف الملفات المكشوفة، واحفظ سجل التدقيق كاملًا من قاعدة البيانات (الأمر أعلاه) وسجلات Cloudflare كدليل.
 3. **التقييم (خلال 24 ساعة):** ما البيانات المتأثرة، وكم شخصًا، ومنذ متى، وما الضرر المحتمل.
-4. **الإبلاغ (خلال 72 ساعة):** أبلغ الهيئة السعودية للبيانات والذكاء الاصطناعي (سدايا) عبر القناة التي تحددها، وأبلغ المتأثرين دون تأخير غير مبرر إن كان التسرّب قد يضرّهم، بلغة واضحة بالعربية والإنجليزية.
+4. **الإبلاغ (خلال 72 ساعة):** أبلغ الهيئة السعودية للبيانات والذكاء الاصطناعي (سدايا) عبر القناة التي تحددها إن كان التسرّب قد يُلحق ضررًا بالبيانات الشخصية أو بأصحابها أو يتعارض مع حقوقهم أو مصالحهم (المادة 24 من النظام). وقرار عدم الإبلاغ يتطلب استبعاد الحالات الثلاث، وتوثيق الأسباب، ومراجعته مع المستشار القانوني. وأبلغ المتأثرين دون تأخير غير مبرر في الحالات نفسها، بلغة واضحة بالعربية والإنجليزية.
 5. **التعافي والتعلّم:** عالج السبب، وراقب سجل التدقيق، واكتب مراجعة قصيرة وحدّث هذه الخطة.

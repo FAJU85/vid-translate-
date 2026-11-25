@@ -135,6 +135,9 @@ export function clientId(): string {
 }
 let sessionId: string | undefined;
 
+/** Fired when the server refuses the admin sign-in token (the /admin page shows the sign-in form). */
+export const ADMIN_SIGNED_OUT = 'kavox-admin-signed-out';
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -146,6 +149,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError('E_NETWORK', t('Could not reach the server. Check your connection and try again.'));
   }
   const data = await res.json().catch(() => null);
+  // An admin sign-in that ended (12 hours, or the password changed): the /admin page asks again.
+  if (res.status === 401 && path.startsWith('/api/admin/') && path !== '/api/admin/login' && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ADMIN_SIGNED_OUT));
+  }
   // The server's messages are in English: shown in the interface language when translated (i18n/ar.ts).
   if (!res.ok) throw new ApiError(data?.error_code ?? 'E_HTTP', data?.message ? t(data.message) : t('Request failed ({n}).', { n: res.status }));
   return data as T;

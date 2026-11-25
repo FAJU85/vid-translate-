@@ -547,29 +547,49 @@ export async function handleApi(request: Request, env: Env, ctx: ExecutionContex
   const adminChange = path.startsWith('/api/admin/') && request.method !== 'GET' && path !== '/api/admin/login';
   const adminViewsAccount = request.method === 'GET' && /^\/api\/admin\/accounts\/[^/]+$/.test(path);
   const videoDeleted = request.method === 'DELETE' && path.startsWith('/api/shares/');
-  const summary = adminChange ? auditSummary(await request.clone().json().catch(() => null)) : null;
-  const res = await route(request, env, ctx, url, api);
+  const summaries = adminChange ? auditSummaries(await request.clone().json().catch(() => null)) : [];
+  const action = `admin.${request.method.toLowerCase()}`;
+  let res: Response;
+  try {
+    res = await route(request, env, ctx, url, api);
+  } catch (err) {
+    // A batch that failed half-way may have changed some of it: keep that it was tried.
+    if (adminChange) {
+      const conn = await connectionKey(env.SHARED_SECRET, request);
+      for (const detail of summaries) await audit(env, { actor: 'admin', action, target: path, detail: { ...detail, outcome: 'error, may be partly done' }, conn });
+    }
+    throw err;
+  }
   if (res.ok && (adminChange || adminViewsAccount || videoDeleted)) {
     const conn = await connectionKey(env.SHARED_SECRET, request);
-    const entry = adminChange
-      ? { actor: 'admin', action: `admin.${request.method.toLowerCase()}`, target: path, detail: summary, conn }
+    const entries = adminChange
+      ? summaries.map((detail) => ({ actor: 'admin', action, target: path, detail, conn }))
       : adminViewsAccount
-        ? { actor: 'admin', action: 'admin.view_account', target: path.split('/').pop()!, conn }
-        : { actor: 'user', action: 'video.delete', target: path.split('/')[3] ?? null, conn };
-    ctx.waitUntil(audit(env, entry));
+        ? [{ actor: 'admin', action: 'admin.view_account', target: path.split('/').pop()!, conn }]
+        : [{ actor: 'user', action: 'video.delete', target: path.split('/')[3] ?? null, conn }];
+    ctx.waitUntil(Promise.all(entries.map((e) => audit(env, e))));
   }
   for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
   return res;
 }
 
-/** What an admin change was about, for the audit log: ids and actions, never logos or long texts. */
-function auditSummary(body: unknown): Record<string, unknown> | null {
-  if (!body || typeof body !== 'object') return null;
-  const keep = ['action', 'id', 'ids', 'kind', 'target', 'account_id', 'bucket', 'seconds', 'days', 'status', 'reason'];
+/**
+ * What an admin change was about, for the audit log: ids and actions, never logos, free text
+ * (such as a block reason) or long texts. A batch of ids is split over several entries so every
+ * id is kept.
+ */
+function auditSummaries(body: unknown): Record<string, unknown>[] {
+  if (!body || typeof body !== 'object') return [{}];
+  const keep = ['action', 'id', 'kind', 'target', 'account_id', 'bucket', 'seconds', 'days', 'status'];
   const out: Record<string, unknown> = {};
+  let ids: unknown[] = [];
   for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
-    if (keep.includes(k)) out[k] = Array.isArray(v) ? v.slice(0, 50) : typeof v === 'string' ? v.slice(0, 200) : v;
+    if (k === 'ids' && Array.isArray(v)) ids = v.map((x) => String(x).slice(0, 64));
+    else if (keep.includes(k)) out[k] = typeof v === 'string' ? v.slice(0, 200) : v;
     else out[k] = '(changed)';
   }
-  return out;
+  if (!ids.length) return [out];
+  const parts: Record<string, unknown>[] = [];
+  for (let i = 0; i < ids.length; i += 25) parts.push({ ...out, ids: ids.slice(i, i + 25), part: `${i / 25 + 1}/${Math.ceil(ids.length / 25)}` });
+  return parts;
 }

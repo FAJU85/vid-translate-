@@ -1,19 +1,51 @@
 import { connectionKey, hmacHex, safeEqual } from '../../shared/crypto';
 import { now, type Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
-import { audit, recentAudit } from '../audit';
+import { audit } from '../audit';
 
 /** An admin sign-in lasts this long; then the page asks again. */
 const TOKEN_TTL = 12 * 3600;
-/** At most this many failed sign-ins per connection in 15 minutes. */
-const MAX_FAILS = 8;
+/** At most this many sign-in tries per connection in 15 minutes (a success starts the count again). */
+const MAX_TRIES = 8;
+const WINDOW = 900;
+
+/** Sign-in tries per connection, counted atomically before the password is even looked at. */
+export const ADMIN_AUTH_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS admin_login_tries (
+    conn TEXT PRIMARY KEY,
+    window_start INTEGER NOT NULL,
+    tries INTEGER NOT NULL
+  )`,
+];
+
+/**
+ * Count this try (one SQL statement, so tries sent at the same moment are all counted) and say
+ * whether it is over the limit. A failed write throws: no sign-in is checked without counting.
+ */
+async function countTry(env: Env, conn: string): Promise<number> {
+  const ts = now();
+  const row = await env.DB.prepare(
+    `INSERT INTO admin_login_tries (conn, window_start, tries) VALUES (?1, ?2, 1)
+     ON CONFLICT (conn) DO UPDATE SET
+       tries = CASE WHEN window_start < ?3 THEN 1 ELSE tries + 1 END,
+       window_start = CASE WHEN window_start < ?3 THEN ?2 ELSE window_start END
+     RETURNING tries`,
+  )
+    .bind(conn, ts, ts - WINDOW)
+    .first<{ tries: number }>();
+  if (!row) throw new Error('could not count the sign-in try');
+  return row.tries;
+}
 
 const passwordOk = (env: Env, given: string) => {
   const password = env.ADMIN_PASSWORD ?? '';
   return password.length >= 8 && safeEqual(given, password); // unset or too short: the admin page stays locked
 };
-/** Tokens are signed with the password and the shared secret: changing either signs everyone out. */
-const tokenKey = (env: Env) => `admin|${env.ADMIN_PASSWORD ?? ''}|${env.SHARED_SECRET ?? ''}`;
+/**
+ * Tokens are signed with the password, the shared secret and the two-step secret: changing any of
+ * them (turning two-step sign-in on included) signs everyone out.
+ */
+const tokenKey = (env: Env) => `admin|${env.ADMIN_PASSWORD ?? ''}|${env.SHARED_SECRET ?? ''}|${env.ADMIN_TOTP_SECRET ?? ''}`;
 
 async function makeToken(env: Env): Promise<{ token: string; expires_at: number }> {
   const exp = now() + TOKEN_TTL;
@@ -86,8 +118,8 @@ export async function isAdmin(request: Request, env: Env): Promise<boolean> {
  */
 export async function handleAdminLogin(request: Request, env: Env): Promise<Response> {
   if (!env.ADMIN_PASSWORD) return apiError(503, 'E_ADMIN_DISABLED', 'Set the ADMIN_PASSWORD secret to enable this page.');
-  const conn = await connectionKey(env.SHARED_SECRET, request);
-  if ((await recentAudit(env, 'admin.login_failed', 900, conn)) >= MAX_FAILS) {
+  const conn = (await connectionKey(env.SHARED_SECRET, request)) ?? 'unknown';
+  if ((await countTry(env, conn)) > MAX_TRIES) {
     return apiError(429, 'E_SLOW_DOWN', 'Too many failed sign-ins. Try again in 15 minutes.');
   }
   const given = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
@@ -103,6 +135,7 @@ export async function handleAdminLogin(request: Request, env: Env): Promise<Resp
     await audit(env, { actor: 'admin', action: 'admin.login_failed', detail: 'code', conn });
     return apiError(401, 'E_2FA_WRONG', 'That code is not right. Use the newest one in your app.');
   }
+  await env.DB.prepare('DELETE FROM admin_login_tries WHERE conn = ?').bind(conn).run();
   await audit(env, { actor: 'admin', action: 'admin.login', detail: twoStep ? 'password + code' : 'password', conn });
   return json({ ok: true, two_factor: twoStep, ...(await makeToken(env)) });
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, ScrollText, Settings, ShieldAlert, Users } from 'lucide-react';
-import { ApiError, adminApi, api } from '../../shared/api';
+import { ADMIN_SIGNED_OUT, ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
 import { AccountsPanel } from './AccountsPanel';
@@ -94,6 +94,17 @@ export function AdminView() {
       setBusy(false);
     }
   }
+
+  // The server refused the token (it ended, or the password or two-step secret changed): sign in again.
+  useEffect(() => {
+    const ended = () => {
+      signOut();
+      setError('Your sign-in ended. Sign in again.');
+    };
+    window.addEventListener(ADMIN_SIGNED_OUT, ended);
+    return () => window.removeEventListener(ADMIN_SIGNED_OUT, ended);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Signed in earlier in this tab (and the sign-in has not ended): go straight in.
   useEffect(() => {

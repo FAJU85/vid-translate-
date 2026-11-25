@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { ApiError, adminApi, type AuditItem } from '../../shared/api';
 
@@ -34,18 +34,26 @@ export function AuditPanel({ password }: { password: string }) {
   const [next, setNext] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the newest request counts: an answer for a filter no longer chosen is dropped.
+  const latest = useRef(0);
 
   const load = (before: number | null) => {
+    const id = ++latest.current;
     setLoading(true);
     adminApi
       .audit(password, filter, before)
       .then((r) => {
+        if (id !== latest.current) return;
         setItems((prev) => (before ? [...prev, ...r.items] : r.items));
         setNext(r.next);
         setError(null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the audit log.'))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (id === latest.current) setError(err instanceof ApiError ? err.message : 'Could not load the audit log.');
+      })
+      .finally(() => {
+        if (id === latest.current) setLoading(false);
+      });
   };
   useEffect(() => load(null), [password, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 

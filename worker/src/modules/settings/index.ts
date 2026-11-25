@@ -7,4 +7,4 @@ export { LOGO_SIZE, SETTINGS_SCHEMA, logoSize, type Settings } from './store';
 export { handleTermsPage } from './terms';
 export { LEGAL_VERSION, handlePrivacyPage } from './privacy';
 export { handleAdminSettings, instanceId, publicOrigin, publicSettings, serveInstance, serveLogo, welcomeOverride } from './handlers';
-export { handleAdminLogin, isAdmin, totpOk } from './admin-auth';
+export { ADMIN_AUTH_SCHEMA, handleAdminLogin, isAdmin, totpOk } from './admin-auth';

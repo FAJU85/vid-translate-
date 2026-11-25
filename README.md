@@ -523,6 +523,9 @@ See [SECURITY.md](SECURITY.md) for what is in place, and
   minutes. Until the secret is set, `/admin` shows a reminder.
 - **Audit log** (`/admin` → Audit): admin sign-ins (failed ones too), every admin change, an
   admin opening an account, and people downloading or deleting their data or videos. Kept a year.
+- **Custom domain:** turn on Cloudflare's **Always Use HTTPS** (SSL/TLS → Edge Certificates) for
+  it: the website's own files are served before the Worker runs, so only the edge can redirect
+  them. (`*.workers.dev` is HTTPS-only already.)
 - **Headers:** HTTPS only (HTTP is redirected; HSTS), no framing, no MIME sniffing, a strict
   referrer, and no camera, microphone or location, on the Worker's answers and on the website's
   files (`web/public/_headers`).
