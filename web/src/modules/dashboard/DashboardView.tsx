@@ -203,6 +203,11 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
 
 /** Your account at a glance: balance, numbers, the ending of your videos, and every video you translated. */
 type Section = 'videos' | 'analytics' | 'profile';
+const SECTIONS: readonly [Section, string][] = [
+  ['videos', 'Videos'],
+  ['analytics', 'Analytics'],
+  ['profile', 'Profile'],
+];
 
 export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing, onTranslate }: {
   me: Me | null;
@@ -304,17 +309,23 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
       {/* The three parts of the dashboard, one at a time. */}
       {me?.account && (
         <div role="tablist" aria-label="Dashboard" className="sticky top-[61px] z-30 -mx-4 px-4 py-2 bg-slate-950/90 backdrop-blur-xl flex gap-1 text-sm">
-          {(
-            [
-              ['videos', 'Videos'],
-              ['analytics', 'Analytics'],
-              ['profile', 'Profile'],
-            ] as const
-          ).map(([id, label]) => (
+          {SECTIONS.map(([id, label], i) => (
             <button
               key={id}
+              id={`dash-tab-${id}`}
               role="tab"
               aria-selected={section === id}
+              aria-controls={`dash-panel-${id}`}
+              // One Tab stop for the row; the arrow keys move between tabs (and wrap around).
+              tabIndex={section === id ? 0 : -1}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+                e.preventDefault();
+                const n = SECTIONS.length;
+                const to = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + n) % n;
+                setSection(SECTIONS[to][0]);
+                document.getElementById(`dash-tab-${SECTIONS[to][0]}`)?.focus();
+              }}
               onClick={() => setSection(id)}
               className={`px-4 py-1.5 rounded-full ${section === id ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
             >
@@ -324,8 +335,11 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         </div>
       )}
 
-      {(section === 'videos' || !me?.account) && (
-        <>
+      {/* Every panel stays on the page and the inactive ones are hidden, so nothing is lost on a switch. */}
+      <div
+        className="space-y-6"
+        {...(me?.account ? { role: 'tabpanel', id: 'dash-panel-videos', 'aria-labelledby': 'dash-tab-videos', hidden: section !== 'videos' } : {})}
+      >
       {/* Signed in: the numbers are in Analytics; here, one line. */}
       {s && me?.account && (
         <p className="text-sm text-slate-400">
@@ -377,11 +391,10 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
           </p>
         )}
       </section>
-        </>
-      )}
+      </div>
 
-      {section === 'analytics' && me?.account && (
-        <>
+      {me?.account && (
+        <div role="tabpanel" id="dash-panel-analytics" aria-labelledby="dash-tab-analytics" hidden={section !== 'analytics'} className="space-y-6">
           <AnalyticsCard key={`a-${me.account.id}`} />
           {s && (
         <section className="space-y-3">
@@ -417,11 +430,11 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         </section>
       )}
 
-        </>
+        </div>
       )}
 
-      {section === 'profile' && me?.account && (
-        <>
+      {me?.account && (
+        <div role="tabpanel" id="dash-panel-profile" aria-labelledby="dash-tab-profile" hidden={section !== 'profile'} className="space-y-6">
           <ProfileCard key={me.account.id} />
       {me?.outro && (
         <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900">
@@ -429,7 +442,7 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         </section>
       )}
 
-        </>
+        </div>
       )}
     </div>
   );
