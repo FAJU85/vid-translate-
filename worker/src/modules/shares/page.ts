@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
 import { MESSAGES, htmlAttrs, languageName, pageLang, plural, translator, type PageLang } from '../../shared/page-i18n';
-import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
+import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, shareCss, shareRow, tileCss, videoTile } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
@@ -63,6 +63,9 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
 <meta property="og:video" content="${esc(files)}/video.mp4">
 <meta property="og:video:type" content="video/mp4">
 <meta name="twitter:card" content="${thumb ? 'summary_large_image' : 'summary'}">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(description)}">
+${thumb ? `<meta name="twitter:image" content="${esc(thumb)}">` : ''}
 ${posted ? `<link rel="canonical" href="${esc(url)}">
 <script type="application/ld+json">${ldJson}</script>` : '<meta name="robots" content="noindex">'}
 <style>
@@ -83,6 +86,7 @@ ${chromeCss}
   .link:hover { color: #E2D6C6; text-decoration: underline; }
   .more h2 { font-size: 17px; color: #F9EBD6; margin: 28px 0 0; }
 ${tileCss}
+${shareCss}
 ${ctaCss}
   #comment-list li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
   #comment-list .av { width: 32px; height: 32px; border-radius: 50%; background: #223052; color: #F9EBD6; display: grid; place-items: center; font-weight: 700; font-size: 13px; text-decoration: none; }
@@ -124,6 +128,7 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
     <a class="btn" href="/v/${share.id}/video.mp4?download=1">${tr('Download')}</a>
     <button class="link" type="button" onclick="kavoxReport('video', ${esc(JSON.stringify(share.id))})">${tr('Report')}</button>
   </div>
+  ${shareRow(url, share.title || tr('Watch this video in your language'), tr)}
   <section id="comments" hidden>
     <h2>${tr('Comments')} <span id="comment-count"></span></h2>
     <form id="comment-form" hidden><textarea id="comment-text" rows="2" maxlength="500" placeholder="${tr('Add a comment')}"></textarea><button class="btn primary" type="submit">${tr('Post')}</button></form>

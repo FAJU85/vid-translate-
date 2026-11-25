@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Loader2, Send, Trash2, X } from 'lucide-react';
 import { ApiError, REPORT_REASONS, socialApi, type Comment, type ReportKind, type ReportReason } from '../../shared/api';
 import { formatDate, t } from '../../shared/i18n';
+import { ShareButtons } from '../../shared/share';
 
 const REPORT_TITLE: Record<ReportKind, string> = { video: 'Report this video', comment: 'Report this comment', profile: 'Report this profile' };
 
@@ -191,6 +192,23 @@ export function ReportSheet({ kind, target, onClose }: { kind: ReportKind; targe
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+/** Share a video: WhatsApp, X, Telegram, copy the link, or the phone's share sheet. */
+export function ShareSheet({ url, text, onClose }: { url: string; text: string; onClose: () => void }) {
+  return (
+    <div className={panel} role="dialog" aria-label={t("Share")} onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+        <span className="font-semibold text-sm">{t("Share")}</span>
+        <button onClick={onClose} aria-label={t("Close")} className="p-1 text-slate-400 hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="p-4 pb-6">
+        <ShareButtons url={url} text={text} />
+      </div>
     </div>
   );
 }

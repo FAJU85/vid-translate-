@@ -334,7 +334,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                 </span>
               </span>
             </div>
-            {job.share_url && <ShareLink url={job.share_url} />}
+            {job.share_url && <ShareLink url={job.share_url} title={job.title} />}
             {job.share_url && <PostToProfile shareUrl={job.share_url} signedIn={signedIn} onSignIn={onSignIn} />}
             <div className="flex flex-wrap gap-2">
               {downloads.map(
