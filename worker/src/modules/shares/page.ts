@@ -1,11 +1,11 @@
 import { LANGUAGES } from '../../shared/languages';
 import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
-import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
+import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
-import { countView, getShare, viewerLang, type ShareRow } from './store';
+import { countView, getShare, listPublicShares, viewerLang, type ShareRow } from './store';
 
 const langName = (code: string, _ui: 'en') => LANGUAGES.find((l) => l.code === code)?.en ?? code;
 
@@ -30,6 +30,8 @@ async function page(env: Env, share: ShareRow, origin: string): Promise<Response
   const langs = `${from}${langName(share.tgt_lang, 'en')}`;
   const description = `${what} in ${langName(share.tgt_lang, 'en')} with ${brand}.`;
   const thumb = share.has_thumb ? `${files}/thumb.jpg` : '';
+  // More from the same creator (a posted video only): up to six of their other posted videos.
+  const more = creator && share.account_id ? (await listPublicShares(env, share.account_id, 7)).filter((v) => v.id !== share.id).slice(0, 6) : [];
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -58,7 +60,17 @@ ${chromeCss}
   .player { background: #000; border-radius: 14px; overflow: hidden; display: flex; justify-content: center; }
   video { width: 100%; max-height: 75vh; display: block; background: #000; }
   h1 { font-size: 20px; margin: 16px 0 4px; color: #F9EBD6; overflow-wrap: anywhere; }
-  .creator { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: #F9EBD6; text-decoration: none; font-weight: 600; }
+  .byline { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .creator { display: inline-flex; align-items: center; gap: 8px; color: #F9EBD6; text-decoration: none; font-weight: 600; }
+  #follow { padding: 6px 14px; border-radius: 999px; }
+  #follow.on { background: transparent; color: #F9EBD6; border-color: #2E3D63; }
+  .link { background: none; border: 0; padding: 8px 4px; color: #8F8B88; font: inherit; font-size: 13px; cursor: pointer; }
+  .link:hover { color: #E2D6C6; text-decoration: underline; }
+  .more h2 { font-size: 17px; color: #F9EBD6; margin: 28px 0 0; }
+${tileCss}
+${ctaCss}
+  #comment-list li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
+  #comment-list .av { width: 32px; height: 32px; border-radius: 50%; background: #223052; color: #F9EBD6; display: grid; place-items: center; font-weight: 700; font-size: 13px; text-decoration: none; }
   .creator .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-weight: 800; }
   .creator:hover span:last-child { text-decoration: underline; }
   .meta { color: #ABA59E; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
@@ -88,14 +100,14 @@ ${chromeCss}
 ${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
-  ${creator ? `<a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span>@${esc(creator.handle)}</span></a>` : ''}
+  ${creator ? `<div class="byline"><a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span>@${esc(creator.handle)}</span></a><button class="btn primary" id="follow" type="button" hidden>Follow</button></div>` : ''}
   <h1>${tagLinks(esc(title))}</h1>
   <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${share.views + 1} view${share.views ? 's' : ''}</span></div>
   <div class="actions">
     <button class="btn" id="like" type="button" hidden aria-pressed="false">♡ <span id="likes">0</span></button>
     <button class="btn primary" id="copy" type="button">Copy link</button>
     <a class="btn" href="/v/${share.id}/video.mp4?download=1">Download</a>
-    <button class="btn" type="button" onclick="kavoxReport('video', ${esc(JSON.stringify(share.id))})">Report</button>
+    <button class="link" type="button" onclick="kavoxReport('video', ${esc(JSON.stringify(share.id))})">Report</button>
   </div>
   <section id="comments" hidden>
     <h2>Comments <span id="comment-count"></span></h2>
@@ -104,9 +116,30 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
     <ul id="comment-list"></ul>
     <button class="btn" id="comment-more" type="button" hidden>More comments</button>
   </section>
+  ${more.length ? `<section class="more"><h2>More from @${esc(creator!.handle)}</h2><div class="grid">${more.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang, 'en') })).join('')}</div></section>` : ''}
+  ${makeYourOwn(esc(brand))}
 </main>
 <footer>Translated with <a href="/">${esc(brand)}</a>: subtitles and dubbing for any video, in minutes. · <a href="/terms">Terms</a></footer>
 ${reportDialog('video', share.id)}
+${creator ? `<script>
+  // Follow the creator from their video (hidden on your own video); signing in happens on the site.
+  (() => {
+    const btn = document.getElementById('follow');
+    const api = ${JSON.stringify(`/api/follows/${creator.handle}`)};
+    let state = null;
+    const show = (s) => { btn.hidden = s.self; btn.textContent = s.following ? 'Following' : 'Follow'; btn.classList.toggle('on', s.following); };
+    fetch(api, { credentials: 'same-origin' }).then((r) => r.json()).then((s) => { state = s; show(s); }).catch(() => {});
+    btn.addEventListener('click', async () => {
+      if (!state) return;
+      if (!state.signed_in) { location.href = '/?tab=dashboard'; return; }
+      btn.disabled = true;
+      try {
+        const r = await fetch(api, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ following: !state.following }) });
+        if (r.ok) { state = { ...state, ...(await r.json()) }; show(state); }
+      } finally { btn.disabled = false; }
+    });
+  })();
+</script>` : ''}
 <script>
   // Likes (a posted video only): shown once we know who is looking; signing in happens on the site.
   (() => {
@@ -139,7 +172,15 @@ ${reportDialog('video', share.id)}
     $('comments').hidden = false;
     $('comment-form').hidden = !signedIn;
     if (!signedIn) note.innerHTML = '<a href="/?tab=dashboard" style="color:var(--accent)">Sign in</a> to comment.';
-    const when = (t) => new Date(t * 1000).toLocaleDateString();
+    // "now", "5m", "3h", "2d", then the date.
+    const when = (t) => {
+      const d = Date.now() / 1000 - t;
+      if (d < 60) return 'now';
+      if (d < 3600) return Math.floor(d / 60) + 'm';
+      if (d < 86400) return Math.floor(d / 3600) + 'h';
+      if (d < 7 * 86400) return Math.floor(d / 86400) + 'd';
+      return new Date(t * 1000).toLocaleDateString();
+    };
     const row = (c) => {
       const li = document.createElement('li');
       const who = document.createElement('div'); who.className = 'who';
@@ -157,7 +198,9 @@ ${reportDialog('video', share.id)}
         who.append(del);
       }
       const p = document.createElement('p'); p.textContent = c.text;
-      li.append(who, p);
+      const av = document.createElement('a'); av.className = 'av'; av.href = '/@' + c.author.handle; av.textContent = c.author.handle[0].toUpperCase(); av.setAttribute('aria-hidden', 'true');
+      const body = document.createElement('div'); body.append(who, p);
+      li.append(av, body);
       return li;
     };
     const load = async (reset) => {

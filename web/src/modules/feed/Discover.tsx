@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
-import { Flame, Hash, Heart, Loader2, Search, Users, X } from 'lucide-react';
+import { Flame, Hash, Heart, Loader2, Play, Search, Users, X } from 'lucide-react';
 import { ApiError, discoverApi, type CreatorHit, type FeedItem } from '../../shared/api';
 
 const TAG = /#([\p{L}\p{N}_]{1,50})/gu;
@@ -36,7 +36,14 @@ function Grid({ videos, badge }: { videos: (FeedItem & { week_likes?: number })[
     <div className="grid grid-cols-3 gap-1.5">
       {videos.map((v) => (
         <a key={v.id} href={v.url} className="relative aspect-[9/16] rounded-lg overflow-hidden bg-slate-900 block group">
-          {v.thumb_url ? <img src={v.thumb_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full" />}
+          {v.thumb_url ? (
+            <img src={v.thumb_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+          ) : (
+            // No picture: a soft brand gradient with a play mark (the caption is shown below).
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-400/20 via-slate-900 to-rose-400/15">
+              <Play className="w-8 h-8 p-2 rounded-full bg-slate-100/10 text-slate-100" />
+            </div>
+          )}
           <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/85 to-transparent text-[11px] text-white">
             <div dir="auto" className="line-clamp-2 leading-tight">{v.title || 'Untitled'}</div>
             <div className="mt-0.5 flex items-center gap-1 text-slate-300">

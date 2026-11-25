@@ -194,7 +194,7 @@ function Site() {
           <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} onPaymentStarted={() => setAwaitingSince(Date.now())} />
         )}
       </main>
-      <footer className="border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500">
+      <footer className={`${tab === 'feed' ? 'hidden sm:block ' : ''}border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500`}>
         {SITE.brand.footer} ·{' '}
         <a href="/terms" className="hover:text-slate-300 underline-offset-2 hover:underline">
           Terms
