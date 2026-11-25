@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import { BarChart3, Eye, Heart, Languages, Loader2, MessageCircle, UserPlus } from 'lucide-react';
 import { ApiError, analyticsApi, type Analytics, type Metric } from '../../shared/api';
+import { LOCALE, plural, t } from '../../shared/i18n';
 
 const METRICS: { id: Metric; label: string; icon: typeof Eye; one: string; many: string }[] = [
-  { id: 'views', label: 'Views', icon: Eye, one: 'view', many: 'views' },
-  { id: 'likes', label: 'Likes', icon: Heart, one: 'like', many: 'likes' },
-  { id: 'comments', label: 'Comments', icon: MessageCircle, one: 'comment', many: 'comments' },
-  { id: 'followers', label: 'New followers', icon: UserPlus, one: 'new follower', many: 'new followers' },
+  { id: 'views', label: t("Views"), icon: Eye, one: '{n} view', many: '{n} views' },
+  { id: 'likes', label: t("Likes"), icon: Heart, one: '{n} like', many: '{n} likes' },
+  { id: 'comments', label: t("Comments"), icon: MessageCircle, one: '{n} comment', many: '{n} comments' },
+  { id: 'followers', label: t("New followers"), icon: UserPlus, one: '{n} new follower', many: '{n} new followers' },
 ];
 
 const compact = (n: number) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : n.toLocaleString());
-const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 /** One metric per day over the period: one series, bars on a shared baseline, a hover readout. */
 function Bars({ series, metric }: { series: Analytics['series']; metric: (typeof METRICS)[number] }) {
@@ -22,9 +23,9 @@ function Bars({ series, metric }: { series: Analytics['series']; metric: (typeof
   return (
     <figure className="space-y-2">
       <figcaption className="flex items-baseline justify-between gap-2 text-xs text-slate-400">
-        <span>{metric.label} per day</span>
+        <span>{metric.label}{' '}{t("per day")}</span>
         <span className="tabular-nums text-slate-200" aria-live="polite">
-          {dayLabel(series[shown].day)}: {n} {n === 1 ? metric.one : metric.many}
+          {dayLabel(series[shown].day)}: {plural(n, metric.one, metric.many)}
         </span>
       </figcaption>
       <div className="flex items-end gap-px h-28 border-b border-slate-700" onMouseLeave={() => setHover(null)} aria-hidden>
@@ -42,7 +43,7 @@ function Bars({ series, metric }: { series: Analytics['series']; metric: (typeof
         <span>{dayLabel(series[series.length - 1].day)}</span>
       </div>
       <table className="sr-only">
-        <caption>{metric.label} per day</caption>
+        <caption>{metric.label}{' '}{t("per day")}</caption>
         <tbody>
           {series.map((d) => (
             <tr key={d.day}>
@@ -74,7 +75,7 @@ export function AnalyticsCard() {
     analyticsApi
       .get(days)
       .then((r) => current && setData(r))
-      .catch((err) => current && setError(err instanceof ApiError ? err.message : 'Your numbers could not be loaded.'))
+      .catch((err) => current && setError(err instanceof ApiError ? err.message : t("Your numbers could not be loaded.")))
       .finally(() => current && setLoading(false));
     return () => {
       current = false;
@@ -86,10 +87,10 @@ export function AnalyticsCard() {
     <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-white flex items-center gap-1.5">
-          <BarChart3 className="w-4 h-4 text-amber-400" /> Creator analytics
+          <BarChart3 className="w-4 h-4 text-amber-400" />{' '}{t("Creator analytics")}
           {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
         </h2>
-        <div className="flex rounded-lg border border-slate-700 p-0.5 text-xs" role="group" aria-label="Period">
+        <div className="flex rounded-lg border border-slate-700 p-0.5 text-xs" role="group" aria-label={t("Period")}>
           {[7, 30, 90].map((d) => (
             <button
               key={d}
@@ -97,7 +98,7 @@ export function AnalyticsCard() {
               aria-pressed={days === d}
               className={`px-2.5 py-1 rounded-md ${days === d ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:text-white'}`}
             >
-              {d} days
+              {d}{' '}{t("days")}
             </button>
           ))}
         </div>
@@ -112,14 +113,14 @@ export function AnalyticsCard() {
                 key={m.id}
                 onClick={() => setMetric(m.id)}
                 aria-pressed={metric === m.id}
-                className={`text-left p-3 rounded-xl border ${metric === m.id ? 'border-amber-400/70 bg-amber-400/10' : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'}`}
+                className={`text-start p-3 rounded-xl border ${metric === m.id ? 'border-amber-400/70 bg-amber-400/10' : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'}`}
               >
                 <span className="flex items-center gap-1.5 text-xs text-slate-400">
                   <m.icon className="w-3.5 h-3.5" /> {m.label}
                 </span>
                 <span className="block mt-1 text-2xl font-bold text-white tabular-nums">{compact(data.period[m.id])}</span>
                 <span className="block text-[11px] text-slate-500 tabular-nums">
-                  {m.id === 'followers' ? `${compact(data.totals.followers)} in all` : `${compact(data.totals[m.id])} all time`}
+                  {m.id === 'followers' ? t('{n} in all', { n: compact(data.totals.followers) }) : t('{n} all time', { n: compact(data.totals[m.id]) })}
                 </span>
               </button>
             ))}
@@ -130,7 +131,7 @@ export function AnalyticsCard() {
           {data.languages.length > 0 && (
             <div className="space-y-2">
               <h3 className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
-                <Languages className="w-3.5 h-3.5 text-sky-300" /> Your viewers' languages ({data.days} days)
+                <Languages className="w-3.5 h-3.5 text-sky-300" />{' '}{t("Your viewers' languages ({n} days)", { n: data.days })}
               </h3>
               <ul className="space-y-1.5">
                 {data.languages.map((l) => (
@@ -139,11 +140,11 @@ export function AnalyticsCard() {
                     <span className="h-2 rounded-full bg-slate-800 overflow-hidden">
                       <span className="block h-full rounded-full bg-sky-400/80" style={{ width: `${Math.max(2, l.share * 100)}%` }} />
                     </span>
-                    <span className="text-right tabular-nums text-slate-400">{Math.round(l.share * 100)}%</span>
+                    <span className="text-end tabular-nums text-slate-400">{Math.round(l.share * 100)}%</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-[11px] text-slate-500">From each viewer's browser language. Views before this chart existed are only in the totals.</p>
+              <p className="text-[11px] text-slate-500">{t("From each viewer's browser language. Views before this chart existed are only in the totals.")}</p>
             </div>
           )}
 
@@ -151,12 +152,12 @@ export function AnalyticsCard() {
             <div className="overflow-x-auto -mx-1">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-slate-500 text-left">
-                    <th className="font-medium px-1 py-1.5">Video</th>
-                    <th className="font-medium px-1 py-1.5 text-right">{data.days}d views</th>
-                    <th className="font-medium px-1 py-1.5 text-right hidden sm:table-cell">All views</th>
-                    <th className="font-medium px-1 py-1.5 text-right">Likes</th>
-                    <th className="font-medium px-1 py-1.5 text-right hidden sm:table-cell">Comments</th>
+                  <tr className="text-slate-500 text-start">
+                    <th className="font-medium px-1 py-1.5">{t("Video")}</th>
+                    <th className="font-medium px-1 py-1.5 text-end">{t('{n}d views', { n: data.days })}</th>
+                    <th className="font-medium px-1 py-1.5 text-end hidden sm:table-cell">{t("All views")}</th>
+                    <th className="font-medium px-1 py-1.5 text-end">{t("Likes")}</th>
+                    <th className="font-medium px-1 py-1.5 text-end hidden sm:table-cell">{t("Comments")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -165,21 +166,21 @@ export function AnalyticsCard() {
                       <td className="px-1 py-1.5 max-w-0 w-full">
                         <a href={v.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-0 hover:text-white text-slate-200">
                           {v.thumb_url ? <img src={v.thumb_url} alt="" className="w-6 h-9 rounded object-cover shrink-0 bg-slate-950" /> : <span className="w-6 h-9 rounded bg-slate-800 shrink-0" />}
-                          <span className="truncate">{v.title || 'Untitled video'}</span>
-                          {v.visibility === 'public' && <span className="hidden sm:inline shrink-0 px-1 rounded bg-amber-400/15 text-amber-300 text-[10px]">posted</span>}
+                          <span className="truncate">{v.title || t("Untitled video")}</span>
+                          {v.visibility === 'public' && <span className="hidden sm:inline shrink-0 px-1 rounded bg-amber-400/15 text-amber-300 text-[10px]">{t("posted")}</span>}
                         </a>
                       </td>
-                      <td className="px-1 py-1.5 text-right tabular-nums text-white">{compact(v.period_views)}</td>
-                      <td className="px-1 py-1.5 text-right tabular-nums text-slate-300 hidden sm:table-cell">{compact(v.views)}</td>
-                      <td className="px-1 py-1.5 text-right tabular-nums text-slate-300">{compact(v.likes)}</td>
-                      <td className="px-1 py-1.5 text-right tabular-nums text-slate-300 hidden sm:table-cell">{compact(v.comments)}</td>
+                      <td className="px-1 py-1.5 text-end tabular-nums text-white">{compact(v.period_views)}</td>
+                      <td className="px-1 py-1.5 text-end tabular-nums text-slate-300 hidden sm:table-cell">{compact(v.views)}</td>
+                      <td className="px-1 py-1.5 text-end tabular-nums text-slate-300">{compact(v.likes)}</td>
+                      <td className="px-1 py-1.5 text-end tabular-nums text-slate-300 hidden sm:table-cell">{compact(v.comments)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="text-sm text-slate-400">Share or post a video to see its numbers here.</p>
+            <p className="text-sm text-slate-400">{t("Share or post a video to see its numbers here.")}</p>
           )}
         </>
       )}

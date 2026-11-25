@@ -1,5 +1,5 @@
 import type { Env } from '../../shared/env';
-import { LANGUAGES } from '../../shared/languages';
+import { htmlAttrs, languageName, pageLang, plural, translator } from '../../shared/page-i18n';
 import { reportDialog } from '../../shared/report-dialog';
 import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, tileCss, videoTile } from '../../shared/page-chrome';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
@@ -7,7 +7,6 @@ import { listPublicShares, publicTotals } from '../shares';
 import { followCounts, isBlocked, profileByHandle } from './store';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-const langName = (code: string) => LANGUAGES.find((l) => l.code === code)?.en ?? code;
 
 /** A profile's address: /@<handle>. */
 export const PROFILE_PATH = /^\/@([A-Za-z0-9_.]{1,40})\/?$/;
@@ -21,6 +20,9 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   // One address per profile: lower case, on the public address.
   if (m[1] !== handle || new URL(request.url).host !== new URL(base).host) return Response.redirect(`${base}/@${handle}`, 301);
 
+  const lang = pageLang(request);
+  const tr = translator(lang);
+  const langName = (code: string) => languageName(code, lang);
   const site = await publicSettings(env).catch(() => null);
   const brand = site?.name || 'KAVOX';
   const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#2AB8A1';
@@ -28,7 +30,7 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   const found = await profileByHandle(env, handle);
   const profile = found && !(await isBlocked(env, found.account_id)) ? found : null;
   if (!profile) {
-    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not found · ${esc(brand)}</title><style>body{background:#131C31;color:#E2D6C6;font:16px ${FONT};padding:40px;text-align:center}</style><body><p>No one is called @${esc(handle)} on ${esc(brand)}.</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
+    return new Response(`<!doctype html><html ${htmlAttrs(lang)}><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${tr('Not found')} · ${esc(brand)}</title><style>body{background:#131C31;color:#E2D6C6;font:16px ${FONT};padding:40px;text-align:center}</style><body><p>${tr('No one is called {handle} on {brand}.', { handle: `<bdi dir="ltr">@${esc(handle)}</bdi>`, brand: esc(brand) })}</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
       status: 404,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
@@ -39,15 +41,15 @@ export async function handleProfilePage(request: Request, env: Env, path: string
   const views = totals.views;
   const name = profile.display_name || `@${profile.handle}`;
   const url = `${base}/@${profile.handle}`;
-  const tiles = videos.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang) })).join('');
+  const tiles = videos.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang) }, tr)).join('');
   const html = `<!doctype html>
-<html lang="en">
+<html ${htmlAttrs(lang)}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(name)} (@${esc(profile.handle)}) · ${esc(brand)}</title>
 ${headLinks(logo)}
-<meta name="description" content="${esc(profile.bio || `Translated and dubbed videos by @${profile.handle} on ${brand}.`)}">
+<meta name="description" content="${esc(profile.bio || tr('Translated and dubbed videos by @{handle} on {brand}.', { handle: profile.handle, brand }))}">
 <meta property="og:type" content="profile">
 <meta property="og:site_name" content="${esc(brand)}">
 <meta property="og:title" content="${esc(name)} (@${esc(profile.handle)})">
@@ -88,24 +90,24 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
     <div class="avatar">${esc(profile.handle[0].toUpperCase())}</div>
     <div>
       <h1>${esc(name)}</h1>
-      <div class="handle">@${esc(profile.handle)}</div>
-      <div class="stats"><span><b>${totals.videos}</b> video${totals.videos === 1 ? '' : 's'}</span><span><b id="followers">${follows.followers}</b> follower${follows.followers === 1 ? '' : 's'}</span><span><b>${follows.following}</b> following</span><span><b>${views}</b> view${views === 1 ? '' : 's'}</span></div>
+      <div class="handle"><bdi dir="ltr">@${esc(profile.handle)}</bdi></div>
+      <div class="stats"><span>${plural(tr, totals.videos, '{n} video', '{n} videos').replace(String(totals.videos), `<b>${totals.videos}</b>`)}</span><span>${plural(tr, follows.followers, '{n} follower', '{n} followers').replace(String(follows.followers), `<b id="followers">${follows.followers}</b>`)}</span><span>${tr('{n} following', { n: `<b>${follows.following}</b>` })}</span><span>${plural(tr, views, '{n} view', '{n} views').replace(String(views), `<b>${views}</b>`)}</span></div>
     </div>
   </div>
   ${profile.bio ? `<p class="bio">${esc(profile.bio)}</p>` : ''}
-  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>Follow</button> <button class="btn" id="copy" type="button">Copy profile link</button> <button class="link" type="button" onclick="kavoxReport('profile', ${esc(JSON.stringify(profile.handle))})">Report</button></div>
-  ${videos.length ? `<div class="grid">${tiles}</div>` : '<p class="empty">No videos posted yet.</p>'}
-  ${makeYourOwn(esc(brand))}
+  <div class="actions"><button class="btn primary" id="follow" type="button" hidden>${tr('Follow')}</button> <button class="btn" id="copy" type="button">${tr('Copy profile link')}</button> <button class="link" type="button" onclick="kavoxReport('profile', ${esc(JSON.stringify(profile.handle))})">${tr('Report')}</button></div>
+  ${videos.length ? `<div class="grid">${tiles}</div>` : `<p class="empty">${tr('No videos posted yet.')}</p>`}
+  ${makeYourOwn(esc(brand), tr)}
 </main>
-<footer>Made with <a href="/">${esc(brand)}</a> · <a href="/terms">Terms</a></footer>
-${reportDialog('profile', profile.handle)}
+<footer>${tr('Made with {brand}', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a></footer>
+${reportDialog('profile', profile.handle, tr)}
 <script>
   // Follow: shown once we know who is looking (not on your own profile); signing in happens on the site.
   const followBtn = document.getElementById('follow');
   const api = ${JSON.stringify(`/api/follows/${profile.handle}`)};
   const show = (s) => {
     followBtn.hidden = s.self;
-    followBtn.textContent = s.following ? 'Following' : 'Follow';
+    followBtn.textContent = s.following ? ${JSON.stringify(tr('Following'))} : ${JSON.stringify(tr('Follow'))};
     followBtn.classList.toggle('on', s.following);
     document.getElementById('followers').textContent = s.followers;
   };
@@ -121,8 +123,8 @@ ${reportDialog('profile', profile.handle)}
     } finally { followBtn.disabled = false; }
   });
   document.getElementById('copy').addEventListener('click', async (e) => {
-    try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = 'Copied'; }
-    catch { prompt('Copy this link', ${JSON.stringify(url)}); }
+    try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = ${JSON.stringify(tr('Copied'))}; }
+    catch { prompt(${JSON.stringify(tr('Copy this link'))}, ${JSON.stringify(url)}); }
   });
 </script>
 </body>

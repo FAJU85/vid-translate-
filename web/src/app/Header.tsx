@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react';
 import { Bot, Clapperboard, Languages, LayoutDashboard, Tag } from 'lucide-react';
 import { SITE, logoSize } from '../shared/content';
+import { LANG, setLang } from '../shared/i18n';
+import { t } from '../shared/i18n';
 
 export type NavTab = 'translate' | 'feed' | 'dashboard' | 'telegram' | 'pricing';
 
 /** `short`: the label under the icon in the phone tab bar. */
 const TABS: { id: NavTab; label: string; short: string; icon: typeof Bot }[] = [
-  { id: 'translate', label: 'Translate', short: 'Translate', icon: Languages },
-  { id: 'feed', label: 'Feed', short: 'Feed', icon: Clapperboard },
-  { id: 'dashboard', label: 'Dashboard', short: 'Mine', icon: LayoutDashboard },
-  { id: 'telegram', label: 'Telegram bot', short: 'Bot', icon: Bot },
-  { id: 'pricing', label: 'Pricing', short: 'Pricing', icon: Tag },
+  { id: 'translate', label: t("Translate"), short: t("Translate"), icon: Languages },
+  { id: 'feed', label: t("Feed"), short: t("Feed"), icon: Clapperboard },
+  { id: 'dashboard', label: t("Dashboard"), short: t("Mine"), icon: LayoutDashboard },
+  { id: 'telegram', label: t("Telegram bot"), short: t("Bot"), icon: Bot },
+  { id: 'pricing', label: t("Pricing"), short: t("Pricing"), icon: Tag },
 ];
 
 export function Header({ tab, onTab, account, showPricing = false }: {
@@ -40,7 +42,7 @@ export function Header({ tab, onTab, account, showPricing = false }: {
           <span className="text-lg font-extrabold tracking-[0.14em] text-slate-100">{SITE.brand.name}</span>
         </button>
         {/* Tablets and computers: the tabs in the header. */}
-        <nav aria-label="Main" className="hidden sm:flex items-center gap-1 text-sm min-w-0">
+        <nav aria-label={t("Main")} className="hidden sm:flex items-center gap-1 text-sm min-w-0">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -52,16 +54,28 @@ export function Header({ tab, onTab, account, showPricing = false }: {
             >
               <Icon className="w-4 h-4" aria-hidden />
               <span className={id === 'telegram' ? 'hidden md:inline' : undefined}>{label}</span>
-              {id === 'telegram' && <span className="md:hidden">Bot</span>}
+              {id === 'telegram' && <span className="md:hidden">{t("Bot")}</span>}
             </button>
           ))}
         </nav>
-        <div className="flex items-center gap-1 shrink-0">{account}</div>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* The other language, in its own script: "ع" switches to Arabic, "EN" back to English. */}
+          <button
+            onClick={() => setLang(LANG === 'ar' ? 'en' : 'ar')}
+            aria-label={LANG === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
+            title={LANG === 'ar' ? 'English' : 'العربية'}
+            lang={LANG === 'ar' ? 'en' : 'ar'}
+            className="h-8 min-w-8 px-2 rounded-lg border border-slate-700 text-sm font-bold text-slate-200 hover:bg-slate-800"
+          >
+            {LANG === 'ar' ? 'EN' : 'ع'}
+          </button>
+          {account}
+        </div>
       </div>
     </header>
     {/* Phones: a tab bar at the bottom, in reach of the thumb, with labels (as in most phone apps). */}
     <nav
-      aria-label="Main"
+      aria-label={t("Main")}
       className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex">

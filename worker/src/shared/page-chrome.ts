@@ -3,6 +3,8 @@
  * the KAVOX palette, the fonts, the tab icon and the header with the logo.
  */
 
+import { english, type Tr } from './page-i18n';
+
 /** The approved palette, and the shades between Deep Navy and Warm Cream the pages use. */
 export const PALETTE = {
   navy: '#131C31', // Deep Navy: the background
@@ -27,7 +29,7 @@ export const headLinks = (logo = DEFAULT_LOGO) => `<link rel="icon" href="${logo
 <meta name="theme-color" content="${PALETTE.navy}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">`;
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">`;
 
 /** The page font stack (Arabic falls back to Noto Sans Arabic). */
 export const FONT = `"Plus Jakarta Sans", "Noto Sans Arabic", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
@@ -58,12 +60,12 @@ export interface TileVideo {
   language: string;
 }
 const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-export const videoTile = (v: TileVideo) => {
-  const title = escHtml(v.title || 'Translated video');
+export const videoTile = (v: TileVideo, tr: Tr = english) => {
+  const title = escHtml(v.title || tr('Translated video'));
   const picture = v.has_thumb
     ? `<img src="/v/${v.id}/thumb.jpg" alt="" loading="lazy">`
     : `<span class="blank"><span class="play">▶</span><span class="t" dir="auto">${title}</span></span>`;
-  return `<a class="tile" href="/${v.id}" title="${title}">${picture}<span class="badge">${v.mode === 'dub' ? 'Dubbed' : 'Subtitled'} · ${escHtml(v.language)}</span><span class="views">▶ ${v.views}</span></a>`;
+  return `<a class="tile" href="/${v.id}" title="${title}">${picture}<span class="badge">${tr(v.mode === 'dub' ? 'Dubbed' : 'Subtitled')} · ${escHtml(v.language)}</span><span class="views">▶ ${v.views}</span></a>`;
 };
 export const tileCss = `
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; }
@@ -75,15 +77,15 @@ export const tileCss = `
     background: linear-gradient(160deg, rgba(42,184,161,.22), rgba(25,36,62,.9) 55%, rgba(232,124,106,.18)); }
   .tile .play { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(249,235,214,.12); color: ${PALETTE.cream}; font-size: 14px; }
   .tile .t { color: ${PALETTE.cream}; font-size: 12px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .badge, .views { position: absolute; left: 6px; font-size: 11px; color: ${PALETTE.cream}; text-shadow: 0 1px 2px #000; }
+  .badge, .views { position: absolute; inset-inline-start: 6px; font-size: 11px; color: ${PALETTE.cream}; text-shadow: 0 1px 2px #000; }
   .badge { top: 6px; background: rgba(19,28,49,.7); padding: 1px 6px; border-radius: 6px; }
   .views { bottom: 6px; font-weight: 700; }`;
 
 /** The invitation every public page ends with: make your own translated video. */
-export const makeYourOwn = (brand: string) => `<a class="kx-cta" href="/">
+export const makeYourOwn = (brand: string, tr: Tr = english) => `<a class="kx-cta" href="/">
   <span class="kx-cta-icon">✦</span>
-  <span><b>Watch any video in your language</b><span>Paste a link or upload a file: ${brand} adds subtitles or a dubbed voice in minutes.</span></span>
-  <span class="kx-cta-go">Try it →</span>
+  <span><b>${tr('Watch any video in your language')}</b><span>${tr('Paste a link or upload a file: {brand} adds subtitles or a dubbed voice in minutes.', { brand })}</span></span>
+  <span class="kx-cta-go">${tr('Try it →')}</span>
 </a>`;
 export const ctaCss = `
   .kx-cta { display: flex; align-items: center; gap: 14px; margin-top: 28px; padding: 16px; border-radius: 16px; text-decoration: none; color: ${PALETTE.text};
@@ -92,4 +94,4 @@ export const ctaCss = `
   .kx-cta b { display: block; color: ${PALETTE.cream}; font-size: 15px; }
   .kx-cta > span > span { display: block; font-size: 13px; color: ${PALETTE.muted}; margin-top: 2px; }
   .kx-cta-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: ${PALETTE.teal}; color: ${PALETTE.navy}; font-size: 18px; }
-  .kx-cta-go { margin-left: auto; flex: none; color: ${PALETTE.teal}; font-weight: 700; font-size: 14px; }`;
+  .kx-cta-go { margin-inline-start: auto; flex: none; color: ${PALETTE.teal}; font-weight: 700; font-size: 14px; }`;

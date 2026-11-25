@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { SubtitleStyle } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 export const DEFAULT_STYLE: SubtitleStyle = { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'modern', animation: 'none' };
 
 /** Ready-made designs (the same four as the Telegram bot's /style). */
-const PRESETS: [string, string, SubtitleStyle][] = [
-  ['cinema', '🎬 Cinema', DEFAULT_STYLE],
-  ['boldbox', '🟨 Bold box', { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', animation: 'none' }],
-  ['elegant', '✒️ Elegant', { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', animation: 'none' }],
-  ['social', '📱 Social', { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', animation: 'pop' }],
+const PRESETS: [string, string, string, SubtitleStyle][] = [
+  ['cinema', '🎬', 'Cinema', DEFAULT_STYLE],
+  ['boldbox', '🟨', 'Bold box', { size: 'large', position: 'bottom', color: '#FFD400', background: 'box', font: 'bold', animation: 'none' }],
+  ['elegant', '✒️', 'Elegant', { size: 'medium', position: 'bottom', color: '#FFFFFF', background: 'outline', font: 'classic', animation: 'none' }],
+  ['social', '📱', 'Social', { size: 'xlarge', position: 'middle', color: '#FFFFFF', background: 'box', font: 'bold', animation: 'pop' }],
 ];
 
 const STORAGE_KEY = 'tarjim_subtitle_style';
@@ -46,29 +47,29 @@ export function remember(style: SubtitleStyle): void {
 }
 
 const SIZES: [SubtitleStyle['size'], string][] = [
-  ['small', 'Small'],
-  ['medium', 'Medium'],
-  ['large', 'Large'],
-  ['xlarge', 'Extra large'],
+  ['small', t("Small")],
+  ['medium', t("Medium")],
+  ['large', t("Large")],
+  ['xlarge', t("Extra large")],
 ];
 const POSITIONS: [SubtitleStyle['position'], string][] = [
-  ['bottom', 'Bottom'],
-  ['middle', 'Middle'],
-  ['top', 'Top'],
+  ['bottom', t("Bottom")],
+  ['middle', t("Middle")],
+  ['top', t("Top")],
 ];
 const BACKGROUNDS: [SubtitleStyle['background'], string][] = [
-  ['outline', 'Outline'],
-  ['box', 'Dark box'],
+  ['outline', t("Outline")],
+  ['box', t("Dark box")],
 ];
 const FONTS: [SubtitleStyle['font'], string][] = [
-  ['modern', 'Modern'],
-  ['classic', 'Classic'],
-  ['bold', 'Bold'],
+  ['modern', t("Modern")],
+  ['classic', t("Classic")],
+  ['bold', t("Bold")],
 ];
 const ANIMATIONS: [NonNullable<SubtitleStyle['animation']>, string][] = [
-  ['none', 'Static'],
-  ['highlight', 'Word highlight'],
-  ['pop', 'Pop-up words'],
+  ['none', t("Static")],
+  ['highlight', t("Word highlight")],
+  ['pop', t("Pop-up words")],
 ];
 const COLORS = ['#FFFFFF', '#FFD400', '#38BDF8', '#4ADE80', '#FB923C', '#F472B6'];
 
@@ -147,12 +148,12 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
 
   return (
     <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-4">
-      <div className="text-sm font-medium text-slate-200">Subtitle style</div>
+      <div className="text-sm font-medium text-slate-200">{t("Subtitle style")}</div>
 
       <div
         className="relative w-full aspect-video rounded-lg overflow-hidden bg-gradient-to-br from-slate-600 via-slate-700 to-slate-900"
         style={{ containerType: 'inline-size' }}
-        aria-label="Subtitle preview"
+        aria-label={t("Subtitle preview")}
       >
         <div
           className={`absolute inset-x-0 flex items-center gap-[0.6cqw] px-[4%] ${style.position === 'top' ? 'flex-col' : 'flex-col-reverse'}`}
@@ -208,9 +209,9 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
       </div>
 
       <div>
-        <div className="text-xs text-slate-400 mb-1.5">Ready-made designs</div>
+        <div className="text-xs text-slate-400 mb-1.5">{t("Ready-made designs")}</div>
         <div className="flex flex-wrap gap-2">
-          {PRESETS.map(([id, label, preset]) => (
+          {PRESETS.map(([id, icon, label, preset]) => (
             <button
               key={id}
               type="button"
@@ -220,7 +221,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
                 same(style, preset) ? 'border-amber-400 bg-amber-400/10 text-white' : 'border-slate-700 text-slate-300 hover:border-slate-500'
               }`}
             >
-              {label}
+              {icon} {t(label)}
             </button>
           ))}
         </div>
@@ -228,30 +229,30 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <div className="text-xs text-slate-400 mb-1.5">Font</div>
+          <div className="text-xs text-slate-400 mb-1.5">{t("Font")}</div>
           <Segmented value={style.font} options={FONTS} onChange={(font) => update({ font })} />
         </div>
         <div>
-          <div className="text-xs text-slate-400 mb-1.5">Size</div>
+          <div className="text-xs text-slate-400 mb-1.5">{t("Size")}</div>
           <Segmented value={style.size} options={SIZES} onChange={(size) => update({ size })} />
         </div>
         <div>
-          <div className="text-xs text-slate-400 mb-1.5">Position</div>
+          <div className="text-xs text-slate-400 mb-1.5">{t("Position")}</div>
           <Segmented value={style.position} options={POSITIONS} onChange={(position) => update({ position })} />
         </div>
         <div>
-          <div className="text-xs text-slate-400 mb-1.5">Background</div>
+          <div className="text-xs text-slate-400 mb-1.5">{t("Background")}</div>
           <Segmented value={style.background} options={BACKGROUNDS} onChange={(background) => update({ background })} />
         </div>
         <div className="sm:col-span-2">
-          <div className="text-xs text-slate-400 mb-1.5">Words</div>
+          <div className="text-xs text-slate-400 mb-1.5">{t("Words")}</div>
           <Segmented value={animation} options={ANIMATIONS} onChange={(a) => update({ animation: a })} />
           <p className="mt-1 text-xs text-slate-500">
             {animation === 'highlight'
-              ? 'Each word lights up as it is spoken.'
+              ? t("Each word lights up as it is spoken.")
               : animation === 'pop'
-                ? 'A few words at a time, popping in as they are spoken: the short-video look.'
-                : 'The whole line appears at once.'}
+                ? t("A few words at a time, popping in as they are spoken: the short-video look.")
+                : t("The whole line appears at once.")}
           </p>
         </div>
         <label className="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer select-none sm:col-span-2">
@@ -261,10 +262,10 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
             onChange={(e) => update({ bilingual: e.target.checked })}
             className="w-4 h-4 accent-amber-400"
           />
-          Show the original text too, in smaller letters
+          {t("Show the original text too, in smaller letters")}
         </label>
         <div>
-          <div className="text-xs text-slate-400 mb-1.5">Text colour</div>
+          <div className="text-xs text-slate-400 mb-1.5">{t("Text colour")}</div>
           <div className="flex flex-wrap items-center gap-2">
             {COLORS.map((c) => (
               <button
@@ -281,7 +282,7 @@ export function StylePicker({ style, onChange, lang }: { style: SubtitleStyle; o
               type="color"
               value={style.color}
               onChange={(e) => update({ color: e.target.value.toUpperCase() })}
-              aria-label="Custom colour"
+              aria-label={t("Custom colour")}
               className="w-10 h-8 rounded-lg border border-slate-700 bg-slate-950 cursor-pointer"
             />
           </div>

@@ -1,6 +1,7 @@
 import type { Env } from '../../shared/env';
 import { logoSize, readSettings } from './store';
 import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
+import { htmlAttrs, pageLang } from '../../shared/page-i18n';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -10,6 +11,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
  */
 export async function handleTermsPage(request: Request, env: Env, path: string): Promise<Response | null> {
   if (path !== '/terms' || (request.method !== 'GET' && request.method !== 'HEAD')) return null;
+  const lang = pageLang(request);
   const settings = (await readSettings(env).catch(() => null))?.settings;
   const brand = esc(settings?.name || 'KAVOX');
   const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent ?? '') ? settings!.accent : '#2AB8A1';
@@ -17,13 +19,15 @@ export async function handleTermsPage(request: Request, env: Env, path: string):
   const email = settings?.takedown_email || '';
   const contact = email
     ? `<a href="mailto:${esc(email)}">${esc(email)}</a>`
-    : 'the address the platform publishes here (not set yet)';
+    : lang === 'ar'
+      ? 'العنوان الذي تنشره المنصة هنا (لم يُحدَّد بعد)'
+      : 'the address the platform publishes here (not set yet)';
   const html = `<!doctype html>
-<html lang="en">
+<html ${htmlAttrs(lang)}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Terms of use · ${brand}</title>
+<title>${lang === 'ar' ? 'شروط الاستخدام' : 'Terms of use'} · ${brand}</title>
 ${headLinks(logo)}
 <style>
   :root { color-scheme: dark; --accent: ${accent}; }
@@ -37,7 +41,15 @@ ${chromeCss}
 <body>
 <main>
 ${brandHeader(brand, logo, logoSize(settings))}
-<h1>Terms of use</h1>
+${lang === 'ar' ? arabic(brand, contact) : english(brand, contact)}
+</main>
+</body>
+</html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
+/** The terms in English (`brand` and `contact` are already HTML). */
+const english = (brand: string, contact: string) => `<h1>Terms of use</h1>
 <p>${brand} translates, subtitles and dubs videos, and lets people post the results on their profile. By using it, and above all by posting a video or a comment, you agree to these terms.</p>
 
 <h2>Your content and other people's rights</h2>
@@ -59,8 +71,29 @@ ${brandHeader(brand, logo, logoSize(settings))}
 <p>${brand} keeps what it needs to run: your account, the videos you translate (for a limited time unless you keep them), what you post, like, follow and report. Reports made while signed out are linked to a keyed fingerprint of the connection, never the address itself. Posted videos, comments and profiles are public; link-only videos are seen only by people with the link.</p>
 
 <p style="margin-top:32px"><a href="/">Back to ${brand}</a></p>
-</main>
-</body>
-</html>`;
-  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
-}
+`;
+
+/** The same terms in Arabic. */
+const arabic = (brand: string, contact: string) => `<h1>شروط الاستخدام</h1>
+<p>يترجم ${brand} الفيديوهات ويضيف إليها الترجمة النصية والدبلجة، ويتيح للناس نشر النتائج في ملفاتهم الشخصية. باستخدامه، وخاصةً عند نشر فيديو أو تعليق، فأنت توافق على هذه الشروط.</p>
+
+<h2>محتواك وحقوق الآخرين</h2>
+<p>لا تترجم أو تنشر أو تشارك إلا الفيديوهات التي يحق لك استخدامها: فيديوهاتك أنت، أو فيديوهات يسمح أصحابها بذلك (أو يسمح بها قانون بلدك). أنت مسؤول عمّا ترفعه أو تربطه أو تنشره أو تعلّق به. ترجمة فيديو لا تجعله ملكًا لك.</p>
+
+<h2>ما هو غير مسموح</h2>
+<p>لا محتوى يستغل القاصرين جنسيًا؛ ولا محتوى جنسي دون موافقة؛ ولا تحرّش أو تهديد أو كراهية ضد أشخاص بسبب هويتهم؛ ولا تحريض على العنف؛ ولا إزعاج أو احتيال أو انتحال شخصية (التظاهر بأنك شخص أو علامة تجارية أو من فريق ${brand})؛ ولا أي شيء مخالف للقانون حيث تعيش أو حيث يعمل ${brand}.</p>
+
+<h2>البلاغات والإشراف</h2>
+<p>لكل فيديو منشور وتعليق وملف شخصي زر <b>إبلاغ</b>. يراجع ${brand} البلاغات، وقد يخفي المحتوى أو يحذفه ويحظر الحسابات المخالفة لهذه الشروط دون إشعار. الفيديوهات المحذوفة تُمحى.</p>
+
+<h2>حقوق النشر وطلبات الإزالة</h2>
+<p>إن كان فيديو أو تعليق على ${brand} يستخدم عملك دون إذن، فراسل ${contact} مع: رابط المحتوى، والعمل الذي تملكه، وبيانات التواصل معك، وإقرار بأنك تعتقد بحسن نية أن الاستخدام غير مصرّح به وأن طلبك دقيق. يزيل ${brand} المحتوى بعد تأكيد الطلب، ويحظر الحسابات التي تنشر أعمال الآخرين مرارًا.</p>
+
+<h2>دون ضمان</h2>
+<p>الترجمة والترجمة النصية والدبلجة تُصنع آليًا وقد تحتوي أخطاء. يُقدَّم ${brand} كما هو، دون أي ضمان، وقد يغيّر الميزات أو يحدّها أو يوقفها في أي وقت.</p>
+
+<h2>الخصوصية</h2>
+<p>يحتفظ ${brand} بما يحتاجه ليعمل: حسابك، والفيديوهات التي تترجمها (لمدة محدودة ما لم تحتفظ بها)، وما تنشره وتعجب به وتتابعه وتبلّغ عنه. البلاغات المرسلة دون تسجيل دخول تُربط ببصمة مشفّرة للاتصال، لا بالعنوان نفسه أبدًا. الفيديوهات والتعليقات والملفات المنشورة عامة؛ والفيديوهات ذات الرابط فقط لا يراها إلا من لديه الرابط.</p>
+
+<p style="margin-top:32px"><a href="/">العودة إلى ${brand}</a></p>
+`;

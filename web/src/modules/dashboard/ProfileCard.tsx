@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { AtSign, Check, ExternalLink, Loader2, Pencil } from 'lucide-react';
 import { ApiError, socialApi, type Profile } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 const HANDLE = /^(?=.{3,24}$)[a-z0-9_](?:[a-z0-9_]|\.(?!\.))*[a-z0-9_]$/;
 const REASON: Record<string, string> = {
-  invalid: '3 to 24 letters, digits, "_" or "." (not at the start or end)',
-  reserved: 'reserved: choose another one',
-  taken: 'taken: choose another one',
+  invalid: t('3 to 24 letters, digits, "_" or "." (not at the start or end)'),
+  reserved: t('reserved: choose another one'),
+  taken: t('taken: choose another one'),
 };
 
 /**
@@ -54,7 +55,7 @@ export function ProfileCard() {
     const timer = setTimeout(() => {
       socialApi
         .handle(wanted)
-        .then((r) => current && setCheck({ handle: wanted, ok: r.available, text: r.available ? 'available' : REASON[r.reason ?? 'taken'] }))
+        .then((r) => current && setCheck({ handle: wanted, ok: r.available, text: r.available ? t('available') : REASON[r.reason ?? 'taken'] }))
         .catch(() => {});
     }, 400);
     return () => {
@@ -72,7 +73,7 @@ export function ProfileCard() {
       setProfile(r.profile);
       setEditing(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save your profile.');
+      setError(err instanceof ApiError ? err.message : t("Could not save your profile."));
     } finally {
       setBusy(false);
     }
@@ -81,9 +82,9 @@ export function ProfileCard() {
   if (loadError) {
     return (
       <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-3 text-sm">
-        <span className="text-rose-300">Your profile could not be loaded.</span>
+        <span className="text-rose-300">{t("Your profile could not be loaded.")}</span>
         <button onClick={load} className="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800">
-          Try again
+          {t("Try again")}
         </button>
       </section>
     );
@@ -95,7 +96,7 @@ export function ProfileCard() {
     <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-white flex items-center gap-1.5">
-          <AtSign className="w-4 h-4 text-amber-400" /> Your profile
+          <AtSign className="w-4 h-4 text-amber-400" />{' '}{t("Your profile")}
         </h2>
         {profile && !editing && (
           <div className="flex gap-2">
@@ -105,10 +106,10 @@ export function ProfileCard() {
               rel="noreferrer"
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 hover:bg-slate-800"
             >
-              <ExternalLink className="w-3.5 h-3.5" /> View profile
+              <ExternalLink className="w-3.5 h-3.5" />{' '}{t("View profile")}
             </a>
             <button onClick={startEdit} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 hover:bg-slate-800">
-              <Pencil className="w-3.5 h-3.5" /> Edit
+              <Pencil className="w-3.5 h-3.5" />{' '}{t("Edit")}
             </button>
           </div>
         )}
@@ -117,30 +118,30 @@ export function ProfileCard() {
       {profile && !editing && (
         <div className="text-sm">
           <div className="text-white font-medium">{profile.display_name || `@${profile.handle}`}</div>
-          <div className="text-slate-400">@{profile.handle}</div>
+          <div className="text-slate-400"><bdi dir="ltr">@{profile.handle}</bdi></div>
           {profile.bio && <p className="mt-1 text-slate-300 whitespace-pre-wrap break-words">{profile.bio}</p>}
           <p className="mt-2 text-xs text-slate-500">
-            Videos you post ("Post to profile" on a video below) appear on your profile, in the feed, and can get likes and comments. By posting you agree to the{' '}
+            {t("Videos you post (\"Post to profile\" on a video below) appear on your profile, in the feed, and can get likes and comments. By posting you agree to the")}{' '}
             <a href="/terms" target="_blank" rel="noreferrer" className="underline hover:text-slate-300">
-              Terms
+              {t("Terms")}
             </a>
-            : post only videos you have the right to share.
+            {t(": post only videos you have the right to share.")}
           </p>
         </div>
       )}
 
       {editing && (
         <form onSubmit={save} className="space-y-3">
-          {!profile && <p className="text-sm text-slate-400">Choose a unique @handle to post your translated videos on your own page.</p>}
+          {!profile && <p className="text-sm text-slate-400">{t("Choose a unique @handle to post your translated videos on your own page.")}</p>}
           <label className="block">
-            <span className="block text-xs text-slate-400 mb-1">Handle</span>
+            <span className="block text-xs text-slate-400 mb-1">{t("Handle")}</span>
             <div className="flex items-center gap-1">
               <span className="text-slate-500">@</span>
               <input
                 required
                 value={form.handle}
                 onChange={(e) => setForm({ ...form, handle: e.target.value })}
-                placeholder="yourname"
+                placeholder={t("yourname")}
                 spellCheck={false}
                 autoCapitalize="off"
                 maxLength={25}
@@ -149,17 +150,17 @@ export function ProfileCard() {
             </div>
             {check && check.handle === wanted && (
               <span className={`block mt-1 text-xs ${check.ok ? 'text-status-done' : 'text-rose-300'}`}>
-                @{check.handle}: {check.text}
+                <bdi dir="ltr">@{check.handle}</bdi>: {check.text}
               </span>
             )}
-            {profile && <span className="block mt-1 text-xs text-slate-500">You can change your handle once every {changeDays} days.</span>}
+            {profile && <span className="block mt-1 text-xs text-slate-500">{t("You can change your handle once every")}{' '}{changeDays}{' '}{t("days.")}</span>}
           </label>
           <label className="block">
-            <span className="block text-xs text-slate-400 mb-1">Name (optional)</span>
+            <span className="block text-xs text-slate-400 mb-1">{t("Name (optional)")}</span>
             <input value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} maxLength={40} className={input} />
           </label>
           <label className="block">
-            <span className="block text-xs text-slate-400 mb-1">Bio (optional)</span>
+            <span className="block text-xs text-slate-400 mb-1">{t("Bio (optional)")}</span>
             <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} maxLength={160} rows={2} className={input} />
           </label>
           {error && <p className="text-sm text-rose-300">{error}</p>}
@@ -168,11 +169,11 @@ export function ProfileCard() {
               disabled={busy || (check !== null && check.handle === wanted && !check.ok)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-sm font-semibold text-slate-950"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {profile ? 'Save' : 'Create my profile'}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {profile ? t("Save") : t("Create my profile")}
             </button>
             {profile && (
               <button type="button" onClick={() => setEditing(false)} className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white">
-                Cancel
+                {t("Cancel")}
               </button>
             )}
           </div>

@@ -21,5 +21,20 @@
   <p>KAVOX needs a connection to translate and play videos. Check your connection and try again.</p>
   <button onclick="location.reload()">Try again</button>
 </main>
+<script>
+  // Arabic when the visitor chose it on the site (or the browser asks for it).
+  var lang = '';
+  try { lang = localStorage.getItem('kavox_lang') || ''; } catch (e) {}
+  if (!lang) lang = (document.cookie.match(/(?:^|;\s*)kavox_lang=(ar|en)\b/) || [])[1] || '';
+  if (!lang) lang = (navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en';
+  if (lang === 'ar') {
+    document.documentElement.lang = 'ar';
+    document.documentElement.dir = 'rtl';
+    document.title = 'غير متصل · KAVOX';
+    document.querySelector('h1').textContent = 'أنت غير متصل';
+    document.querySelector('p').textContent = 'يحتاج KAVOX إلى اتصال لترجمة الفيديوهات وتشغيلها. تحقق من اتصالك وحاول مرة أخرى.';
+    document.querySelector('button').textContent = 'حاول مرة أخرى';
+  }
+</script>
 </body>
 </html>

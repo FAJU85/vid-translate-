@@ -1,6 +1,7 @@
 import { Bot, ExternalLink } from 'lucide-react';
 import type { AppConfig } from '../../shared/api';
 import { SITE } from '../../shared/content';
+import { t } from '../../shared/i18n';
 
 
 export function TelegramView({ config }: { config: AppConfig | null }) {
@@ -20,12 +21,12 @@ export function TelegramView({ config }: { config: AppConfig | null }) {
           className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold"
         >
           <Bot className="w-5 h-5" />
-          Open @{username}
+          {t("Open @")}{username}
           <ExternalLink className="w-4 h-4" />
         </a>
       ) : (
         <p className="p-3 text-sm rounded-xl border border-slate-800 bg-slate-900 text-slate-300">
-          {config ? 'The Telegram bot is not connected yet.' : 'Loading…'}
+          {config ? t("The Telegram bot is not connected yet.") : t("Loading…")}
         </p>
       )}
 
@@ -44,9 +45,8 @@ export function TelegramView({ config }: { config: AppConfig | null }) {
       </ol>
 
       <div className="text-sm text-slate-400">
-        Commands: <code className="text-amber-300">/lang</code> target language ·{' '}
-        <code className="text-amber-300">/status</code> recent jobs · <code className="text-amber-300">/cancel</code> stop
-        the running job
+        {t("Commands:")}{' '}<code className="text-amber-300">{t("/lang")}</code>{' '}{t("target language ·")}{' '}
+        <code className="text-amber-300">{t("/status")}</code>{' '}{t("recent jobs ·")}{' '}<code className="text-amber-300">{t("/cancel")}</code>{' '}{t("stop the running job")}
       </div>
     </div>
   );

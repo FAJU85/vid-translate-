@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bell, Heart, Loader2, MessageCircle, Send, UserPlus, Video, X } from 'lucide-react';
 import { ApiError, notificationsApi, type Inbox, type Notification } from '../../shared/api';
+import { formatDate, t } from '../../shared/i18n';
 
 /** How often the bell asks for the unread count while the page is open. */
 const POLL_MS = 60_000;
 
 function ago(sec: number): string {
   const d = Date.now() / 1000 - sec;
-  if (d < 60) return 'now';
-  if (d < 3600) return `${Math.floor(d / 60)}m`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h`;
-  if (d < 7 * 86400) return `${Math.floor(d / 86400)}d`;
-  return new Date(sec * 1000).toLocaleDateString();
+  if (d < 60) return t('now');
+  if (d < 3600) return t('{n}m', { n: Math.floor(d / 60) });
+  if (d < 86400) return t('{n}h', { n: Math.floor(d / 3600) });
+  if (d < 7 * 86400) return t('{n}d', { n: Math.floor(d / 86400) });
+  return formatDate(sec);
 }
 
 const ICON = { follow: UserPlus, like: Heart, comment: MessageCircle, post: Video } as const;
@@ -20,7 +21,7 @@ const TONE = { follow: 'text-sky-300', like: 'text-rose-400', comment: 'text-amb
 function Row({ n, isNew }: { n: Notification; isNew: boolean }) {
   const Icon = ICON[n.kind];
   const what =
-    n.kind === 'follow' ? 'started following you' : n.kind === 'like' ? 'liked your video' : n.kind === 'comment' ? 'commented' : 'posted a new video';
+    t(n.kind === 'follow' ? 'started following you' : n.kind === 'like' ? 'liked your video' : n.kind === 'comment' ? 'commented' : 'posted a new video');
   const href = n.kind === 'follow' ? `/@${n.actor.handle}` : (n.video?.url ?? `/@${n.actor.handle}`);
   return (
     <li>
@@ -30,14 +31,14 @@ function Row({ n, isNew }: { n: Notification; isNew: boolean }) {
         </span>
         <span className="min-w-0 flex-1 text-sm">
           <span className="text-slate-200">
-            <b className="text-white">@{n.actor.handle}</b> {what}
+            <b className="text-white"><bdi dir="ltr">@{n.actor.handle}</bdi></b> {what}
             {n.video?.title && n.kind !== 'follow' ? <>: <span className="text-slate-300">{n.video.title}</span></> : null}
           </span>
           {n.text && <span className="block mt-0.5 text-slate-400 line-clamp-2 break-words">“{n.text}”</span>}
           <span className="block mt-0.5 text-xs text-slate-500">{ago(n.created_at)}</span>
         </span>
         {n.video?.thumb && <img src={n.video.thumb} alt="" className="w-9 h-14 rounded object-cover bg-slate-950 shrink-0" />}
-        {isNew && <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-400 shrink-0" aria-label="new" />}
+        {isNew && <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-400 shrink-0" aria-label={t("new")} />}
       </a>
     </li>
   );
@@ -98,7 +99,7 @@ export function NotificationBell() {
         setInbox((prev) => (before && prev ? { ...r, seen_id: prev.seen_id, items: [...prev.items, ...r.items] } : r));
         if (!before && r.unread) notificationsApi.read().then(() => setUnread(0)).catch(() => {});
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Your notifications could not be loaded.'))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("Your notifications could not be loaded.")))
       .finally(() => setLoading(false));
   }
   function toggle() {
@@ -112,7 +113,7 @@ export function NotificationBell() {
       const r = await notificationsApi.telegram(on);
       setInbox((prev) => (prev ? { ...prev, telegram: r.telegram } : prev));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That did not work.');
+      setError(err instanceof ApiError ? err.message : t("That did not work."));
     } finally {
       setTgBusy(false);
     }
@@ -122,22 +123,22 @@ export function NotificationBell() {
     <div ref={box} className="relative shrink-0">
       <button
         onClick={toggle}
-        aria-label={unread ? `Notifications, ${unread} new` : 'Notifications'}
+        aria-label={unread ? t('Notifications, {n} new', { n: unread }) : t("Notifications")}
         aria-expanded={open}
         className="relative flex items-center px-2 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"
       >
         <Bell className="w-4 h-4" />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-[10px] font-bold leading-[1.1rem] text-white text-center">
+          <span className="absolute -top-0.5 -end-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-[10px] font-bold leading-[1.1rem] text-white text-center">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>
       {open && (
-        <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 max-h-[75vh] flex flex-col rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/50 z-50">
+        <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-96 max-h-[75vh] flex flex-col rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/50 z-50">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-            <span className="font-semibold text-white text-sm">Notifications</span>
-            <button onClick={() => setOpen(false)} aria-label="Close notifications" className="p-1 text-slate-400 hover:text-white">
+            <span className="font-semibold text-white text-sm">{t("Notifications")}</span>
+            <button onClick={() => setOpen(false)} aria-label={t("Close notifications")} className="p-1 text-slate-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -145,7 +146,7 @@ export function NotificationBell() {
             {inbox?.items.map((n) => <Row key={n.id} n={n} isNew={n.id > inbox.seen_id} />)}
             {!loading && !error && inbox && inbox.items.length === 0 && (
               <li className="px-4 py-10 text-center text-sm text-slate-400">
-                Nothing yet. New followers, likes and comments on your videos, and new videos from creators you follow, show here.
+                {t("Nothing yet. New followers, likes and comments on your videos, and new videos from creators you follow, show here.")}
               </li>
             )}
             {loading && (
@@ -156,7 +157,7 @@ export function NotificationBell() {
             {!loading && inbox?.next && (
               <li className="py-2 text-center">
                 <button onClick={() => load(inbox.next)} className="text-xs text-slate-300 hover:text-white">
-                  Older
+                  {t("Older")}
                 </button>
               </li>
             )}
@@ -167,13 +168,13 @@ export function NotificationBell() {
               {inbox.telegram.linked ? (
                 <label className="flex items-center justify-between gap-3 cursor-pointer">
                   <span className="flex items-center gap-1.5">
-                    <Send className="w-3.5 h-3.5 text-sky-400" /> Also send them to me on Telegram
+                    <Send className="w-3.5 h-3.5 text-sky-400" />{' '}{t("Also send them to me on Telegram")}
                   </span>
                   <input type="checkbox" checked={inbox.telegram.on} disabled={tgBusy} onChange={(e) => telegram(e.target.checked)} className="accent-amber-400 w-4 h-4" />
                 </label>
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <Send className="w-3.5 h-3.5 text-sky-400" /> Telegram messages need an account that signs in with Telegram.
+                  <Send className="w-3.5 h-3.5 text-sky-400" />{' '}{t("Telegram messages need an account that signs in with Telegram.")}
                 </span>
               )}
             </div>

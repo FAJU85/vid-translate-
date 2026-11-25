@@ -3,6 +3,7 @@ import { Bot, CheckCircle2, Loader2, LogOut, Mail, X } from 'lucide-react';
 import { ApiError, accountApi, type LedgerEntry, type Me } from '../../shared/api';
 import { BUCKET_LABEL, creditsText, timeText } from './format';
 import { OutroSettings } from './OutroSettings';
+import { formatDate, t } from '../../shared/i18n';
 
 const POLL_MS = 2000;
 const POLL_FOR_MS = 5 * 60 * 1000;
@@ -63,7 +64,7 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
       }
     } catch (err) {
       tab?.close();
-      setError(err instanceof ApiError ? err.message : 'Could not start Telegram sign-in.');
+      setError(err instanceof ApiError ? err.message : t("Could not start Telegram sign-in."));
     } finally {
       setWaitingTelegram(false);
     }
@@ -77,7 +78,7 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
       await accountApi.email(email);
       setEmailSent(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not send the email.');
+      setError(err instanceof ApiError ? err.message : t("Could not send the email."));
     } finally {
       setBusy(false);
     }
@@ -97,13 +98,12 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#2AABEE] hover:bg-[#229ED9] text-white font-semibold disabled:opacity-70"
         >
           {waitingTelegram ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-          {waitingTelegram ? 'Confirm in Telegram…' : account ? 'Link Telegram' : 'Continue with Telegram'}
+          {waitingTelegram ? t("Confirm in Telegram…") : account ? t("Link Telegram") : t("Continue with Telegram")}
         </button>
       )}
       {waitingTelegram && (
         <p className="text-xs text-slate-400 text-center">
-          Telegram opened in a new tab. Press <b>Start</b>, then <b>Yes, sign me in</b>, and come back: this page signs you in by
-          itself.
+          {t("Telegram opened in a new tab. Press")}{' '}<b>{t("Start")}</b>{t(", then")}{' '}<b>{t("Yes, sign me in")}</b>{t(", and come back: this page signs you in by itself.")}
         </p>
       )}
       {me.sign_in.google && !account?.linked.google && (
@@ -111,26 +111,27 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           href={accountApi.googleUrl()}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white hover:bg-slate-100 text-slate-900 font-semibold"
         >
-          <GoogleMark /> {account ? 'Link Google' : 'Continue with Google'}
+          <GoogleMark /> {account ? t("Link Google") : t("Continue with Google")}
         </a>
       )}
       {me.sign_in.email && !account?.linked.email && (
         emailSent ? (
           <p className="flex items-start gap-2 p-3 rounded-lg border border-emerald-800 bg-emerald-950/50 text-sm text-emerald-200">
-            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" /> Check your inbox: we sent a sign-in link to {email}. It works for 15 minutes.
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />{' '}{t("Check your inbox: we sent a sign-in link to")}{' '}{email}{t(". It works for 15 minutes.")}
           </p>
         ) : (
           <form onSubmit={sendEmail} className="flex gap-2">
             <input
               type="email"
+              dir="ltr"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={t("you@example.com")}
               className="flex-1 min-w-0 px-3 py-2 text-sm rounded-lg bg-slate-950 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
             <button disabled={busy} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-600 text-sm text-slate-100 hover:bg-slate-800 disabled:opacity-60">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} {account ? 'Link' : 'Email me a link'}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} {account ? t("Link") : t("Email me a link")}
             </button>
           </form>
         )
@@ -143,20 +144,20 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={account ? 'Your account' : 'Sign in'}
+        aria-label={account ? t("Your account") : t("Sign in")}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 space-y-4 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-white">{account ? account.name || account.email || 'Your account' : 'Sign in'}</h2>
+            <h2 className="text-lg font-bold text-white">{account ? account.name || account.email || t("Your account") : t("Sign in")}</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {account
                 ? [account.linked.telegram && 'Telegram', account.linked.google && 'Google', account.linked.email && account.email].filter(Boolean).join(' · ')
-                : 'One account for the website and the Telegram bot.'}
+                : t("One account for the website and the Telegram bot.")}
             </p>
           </div>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} aria-label={t("Close")} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -166,8 +167,8 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
 
         {me.credits_enabled && me.balance && (
           <section className="p-4 rounded-xl border border-slate-800 bg-slate-950">
-            <div className="text-2xl font-bold text-white tabular-nums">{creditsText(me.balance.total_seconds)} credits</div>
-            <div className="text-xs text-slate-400">{timeText(me.balance.total_seconds)} of translation · 1 credit = 1 minute (dubbing: 2)</div>
+            <div className="text-2xl font-bold text-white tabular-nums">{creditsText(me.balance.total_seconds)}{' '}{t("credits")}</div>
+            <div className="text-xs text-slate-400">{timeText(me.balance.total_seconds)}{' '}{t("of translation · 1 credit = 1 minute (dubbing: 2)")}</div>
             {me.balance.buckets.some((b) => b.seconds > 0) && (
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                 {me.balance.buckets
@@ -175,9 +176,9 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
                   .map((b) => (
                     <div key={b.bucket} className="contents">
                       <dt className="text-slate-400">{BUCKET_LABEL[b.bucket]}</dt>
-                      <dd className="text-right text-slate-200 tabular-nums">
+                      <dd className="text-end text-slate-200 tabular-nums">
                         {creditsText(b.seconds)}
-                        {b.expires_at && <span className="text-slate-500"> · until {new Date(b.expires_at * 1000).toLocaleDateString()}</span>}
+                        {b.expires_at && <span className="text-slate-500">{' '}{t("· until")}{' '}{formatDate(b.expires_at)}</span>}
                       </dd>
                     </div>
                   ))}
@@ -190,16 +191,16 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           <>
             {(me.sign_in.telegram && !account.linked.telegram) || (me.sign_in.google && !account.linked.google) || (me.sign_in.email && !account.linked.email) ? (
               <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Add another way to sign in</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("Add another way to sign in")}</h3>
                 {methods}
               </section>
             ) : null}
           </>
         ) : (
           <section className="space-y-3">
-            {me.sign_in.telegram || me.sign_in.google || me.sign_in.email ? methods : <p className="text-sm text-slate-400">Signing in is not available yet.</p>}
+            {me.sign_in.telegram || me.sign_in.google || me.sign_in.email ? methods : <p className="text-sm text-slate-400">{t("Signing in is not available yet.")}</p>}
             <p className="text-xs text-slate-500">
-              Without an account, your translations and credits stay in this browser only.
+              {t("Without an account, your translations and credits stay in this browser only.")}
             </p>
           </section>
         )}
@@ -214,12 +215,12 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
 
         {me.credits_enabled && history && history.length > 0 && (
           <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Usage</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("Usage")}</h3>
             <ul className="divide-y divide-slate-800 text-sm">
               {history.slice(0, 30).map((h) => (
                 <li key={h.id} className="flex items-center justify-between gap-3 py-1.5">
                   <span className="min-w-0 truncate text-slate-300">
-                    {h.kind === 'reserve' ? 'Translation' : h.kind === 'refund' ? 'Refunded' : h.kind === 'grant' ? 'Credits added' : 'Credits removed'}
+                    {h.kind === 'reserve' ? t("Translation") : h.kind === 'refund' ? t("Refunded") : h.kind === 'grant' ? t("Credits added") : t("Credits removed")}
                     {h.detail && <span className="text-slate-500"> · {h.detail}</span>}
                   </span>
                   <span className={`shrink-0 tabular-nums ${h.seconds >= 0 ? 'text-emerald-400' : 'text-slate-300'}`}>
@@ -242,17 +243,17 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
                 else window.location.href = url; // no new tab allowed: open it here (nothing is lost)
               } catch (err) {
                 tab?.close();
-                setError(err instanceof ApiError ? err.message : 'Could not open the subscription page.');
+                setError(err instanceof ApiError ? err.message : t("Could not open the subscription page."));
               }
             }}
             className="block text-sm text-amber-300 hover:underline"
           >
-            Manage subscription and invoices
+            {t("Manage subscription and invoices")}
           </button>
         )}
         {account && (
           <button onClick={signOut} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white">
-            <LogOut className="w-4 h-4" /> Sign out
+            <LogOut className="w-4 h-4" />{' '}{t("Sign out")}
           </button>
         )}
       </div>

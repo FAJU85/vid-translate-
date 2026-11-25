@@ -3,6 +3,7 @@ import { Check, Flag, Heart, Link2, Loader2, MessageCircle, Plus, Search, Volume
 import { ApiError, socialApi, type AppConfig, type FeedItem, type FeedTab, type ReportKind } from '../../shared/api';
 import { CommentsSheet, ReportSheet } from './Sheets';
 import { Discover, TagText } from './Discover';
+import { languageName, t } from '../../shared/i18n';
 
 /** One video, full height: it plays while on screen, with its creator and actions on top. */
 function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onTag }: {
@@ -69,7 +70,7 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
       const r = await socialApi.follow(item.creator.handle, !item.following);
       onChange({ following: r.following });
     } catch (err) {
-      window.alert(err instanceof ApiError ? err.message : 'That did not work.');
+      window.alert(err instanceof ApiError ? err.message : t("That did not work."));
     } finally {
       setBusy(null);
     }
@@ -105,12 +106,12 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
         className="absolute inset-0 w-full h-full object-contain"
       />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-      <div className="absolute left-3 right-20 bottom-4 text-white space-y-1">
+      <div className="absolute start-3 end-20 bottom-4 text-white space-y-1">
         <a href={`/@${item.creator.handle}`} className="inline-flex items-center gap-2 font-bold drop-shadow hover:underline">
           <span className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 text-sm font-extrabold flex items-center justify-center ring-2 ring-slate-950/40">
             {item.creator.handle[0].toUpperCase()}
           </span>
-          @{item.creator.handle}
+          <bdi dir="ltr">@{item.creator.handle}</bdi>
         </a>
         {item.title && (
           <p className="text-sm leading-snug line-clamp-2 drop-shadow pointer-events-auto">
@@ -118,40 +119,40 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
           </p>
         )}
         <p className="text-xs text-slate-200 drop-shadow">
-          {item.mode === 'dub' ? 'Dubbed' : 'Subtitled'} · {from}
+          {item.mode === 'dub' ? t("Dubbed") : t("Subtitled")} · {from}
           {lang(item.tgt_lang)}
         </p>
       </div>
-      <div className="absolute right-2 bottom-6 flex flex-col items-center gap-4">
+      <div className="absolute end-2 bottom-6 flex flex-col items-center gap-4">
         {!item.mine && (
-          <button onClick={follow} disabled={busy === 'follow'} aria-label={item.following ? `Unfollow @${item.creator.handle}` : `Follow @${item.creator.handle}`} className={action}>
+          <button onClick={follow} disabled={busy === 'follow'} aria-label={t(item.following ? 'Unfollow @{handle}' : 'Follow @{handle}', { handle: item.creator.handle })} className={action}>
             <span className={`${round} ${item.following ? '' : 'bg-amber-400/90 text-slate-950'}`}>
               {busy === 'follow' ? <Loader2 className="w-5 h-5 animate-spin" /> : item.following ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
             </span>
-            {item.following ? 'Following' : 'Follow'}
+            {item.following ? t("Following") : t("Follow")}
           </button>
         )}
-        <button onClick={like} disabled={busy === 'like'} aria-pressed={item.liked} aria-label="Like" className={action}>
+        <button onClick={like} disabled={busy === 'like'} aria-pressed={item.liked} aria-label={t("Like")} className={action}>
           <span className={round}>
             <Heart className={`w-6 h-6 ${item.liked ? 'fill-rose-500 text-rose-500' : ''}`} />
           </span>
           {item.likes}
         </button>
-        <button onClick={() => setSheet('comments')} aria-label="Comments" className={action}>
+        <button onClick={() => setSheet('comments')} aria-label={t("Comments")} className={action}>
           <span className={round}>
             <MessageCircle className="w-6 h-6" />
           </span>
           {item.comments}
         </button>
-        <button onClick={share} aria-label="Share" className={action}>
+        <button onClick={share} aria-label={t("Share")} className={action}>
           <span className={round}>{copied ? <Check className="w-5 h-5" /> : <Link2 className="w-5 h-5" />}</span>
-          {copied ? 'Copied' : 'Share'}
+          {copied ? t("Copied") : t("Share")}
         </button>
-        <button onClick={onMute} aria-label={muted ? 'Sound on' : 'Sound off'} className={action}>
+        <button onClick={onMute} aria-label={muted ? t("Sound on") : t("Sound off")} className={action}>
           <span className={round}>{muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}</span>
         </button>
         {!item.mine && (
-          <button onClick={() => setSheet({ kind: 'video', target: item.id })} aria-label="Report" className={action}>
+          <button onClick={() => setSheet({ kind: 'video', target: item.id })} aria-label={t("Report")} className={action}>
             <span className={round}>
               <Flag className="w-4 h-4" />
             </span>
@@ -220,7 +221,7 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
           setNext(r.next);
           setDone(!r.next);
         })
-        .catch((err) => id === request.current && setError(err instanceof ApiError ? err.message : 'The feed could not be loaded.'))
+        .catch((err) => id === request.current && setError(err instanceof ApiError ? err.message : t("The feed could not be loaded.")))
         .finally(() => id === request.current && setLoading(false));
     },
     [tab],
@@ -241,7 +242,7 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
     return () => near.disconnect();
   }, [load, loading, done, next]);
 
-  const lang = (code: string | null) => (code && config?.languages.find((l) => l.code === code)?.en) || code || '';
+  const lang = (code: string | null) => languageName(code, config?.languages.find((l) => l.code === code));
   const patch = (id: string) => (p: Partial<FeedItem>) =>
     setItems((list) =>
       list.map((i) => {
@@ -255,17 +256,17 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
   return (
     <div className="-mx-4 -my-8 sm:mx-0 sm:my-0">
       <div className="flex justify-center gap-1 py-2 text-sm">
-        {(['foryou', 'following'] as const).map((t) => (
+        {(['foryou', 'following'] as const).map((id) => (
           <button
-            key={t}
+            key={id}
             onClick={() => {
-              setTab(t);
+              setTab(id);
               setDiscover(false);
             }}
-            aria-pressed={!discover && tab === t}
-            className={`px-3 py-1.5 rounded-lg ${!discover && tab === t ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
+            aria-pressed={!discover && tab === id}
+            className={`px-3 py-1.5 rounded-lg ${!discover && tab === id ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
           >
-            {t === 'foryou' ? 'For you' : 'Following'}
+            {id === 'foryou' ? t("For you") : t("Following")}
           </button>
         ))}
         <button
@@ -273,7 +274,7 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
           aria-pressed={discover}
           className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg ${discover ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
         >
-          <Search className="w-3.5 h-3.5" /> Discover
+          <Search className="w-3.5 h-3.5" />{' '}{t("Discover")}
         </button>
       </div>
       {discover && <Discover tag={tag} onTag={openTag} />}
@@ -298,23 +299,23 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
             <>
               <span className="text-rose-300">{error}</span>
               <button onClick={() => load(next, items.length === 0)} className="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200">
-                Try again
+                {t("Try again")}
               </button>
             </>
           )}
           {!loading && !error && needsSignIn && (
             <>
-              Sign in to see videos from the creators you follow.
+              {t("Sign in to see videos from the creators you follow.")}
               <button onClick={onSignIn} className="px-3 py-1.5 rounded-lg bg-amber-400 font-semibold text-slate-950">
-                Sign in
+                {t("Sign in")}
               </button>
             </>
           )}
           {!loading && !error && !needsSignIn && done && (items.length
-            ? "You're all caught up."
+            ? t("You're all caught up.")
             : tab === 'following'
-              ? 'No videos yet from the creators you follow. Find some in "For you".'
-              : 'No videos posted yet. Translate one and post it to your profile from the Dashboard.')}
+              ? t("No videos yet from the creators you follow. Find some in \"For you\".")
+              : t("No videos posted yet. Translate one and post it to your profile from the Dashboard."))}
         </div>
       </div>
     </div>

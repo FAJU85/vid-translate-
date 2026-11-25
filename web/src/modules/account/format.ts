@@ -1,4 +1,5 @@
 import type { Bucket } from '../../shared/api';
+import { t } from '../../shared/i18n';
 
 const SECONDS_PER_CREDIT = 60;
 
@@ -9,12 +10,12 @@ export const creditsText = (seconds: number) => (seconds / SECONDS_PER_CREDIT).t
 export function timeText(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
-  return m ? `${m} min${s ? ` ${s} s` : ''}` : `${s} s`;
+  return m ? t('{n} min', { n: m }) + (s ? ' ' + t('{n} s', { n: s }) : '') : t('{n} s', { n: s });
 }
 
 export const BUCKET_LABEL: Record<Bucket, string> = {
-  daily: 'Free today',
-  monthly: 'This month’s plan',
-  bonus: 'Bonus',
-  topup: 'Bought credits',
+  daily: t("Free today"),
+  monthly: t("This month’s plan"),
+  bonus: t("Bonus"),
+  topup: t("Bought credits"),
 };

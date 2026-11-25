@@ -4,6 +4,7 @@
  */
 import site from '../../../content/site.json';
 import type { SiteSettings } from './api';
+import { RTL } from './i18n';
 
 export interface SiteContent {
   brand: { name: string; mark: string; logo: string; accent: string; footer: string; logoSize?: number };
@@ -13,9 +14,18 @@ export interface SiteContent {
   telegram: { title: string; intro: string; steps: { title: string; body: string }[] };
 }
 
+/** The defaults in the interface language: content/site.json, with its "ar" texts in Arabic. */
+function inLanguage(base: typeof site): SiteContent {
+  const ar = (base as { ar?: Partial<Record<keyof SiteContent, object>> }).ar;
+  if (!RTL || !ar) return base;
+  const out = structuredClone(base) as unknown as Record<string, object>;
+  for (const [k, v] of Object.entries(ar)) out[k] = { ...out[k], ...v };
+  return out as unknown as SiteContent;
+}
+
 // A copy, so the defaults stay available when a saved value is cleared.
-const DEFAULTS: SiteContent = site;
-export const SITE: SiteContent = structuredClone(site);
+const DEFAULTS: SiteContent = inLanguage(site);
+export const SITE: SiteContent = structuredClone(DEFAULTS);
 /** The built-in logo (content/site.json), shown when no logo is uploaded on the /admin page. */
 export const DEFAULT_LOGO = DEFAULTS.brand.logo;
 /** The logo's height in the headers, in pixels: the admin chooses it within these bounds. */

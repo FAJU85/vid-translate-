@@ -5,6 +5,7 @@ import { ShareLink } from './ShareLink';
 import { Progress } from './Progress';
 import { PostToProfile } from './PostToProfile';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
+import { languageName, plural, t } from '../../shared/i18n';
 
 interface Props {
   jobId: string;
@@ -25,9 +26,9 @@ function waitLine(job: Job): string | null {
   if (!job.eta_seconds) return null;
   const min = Math.max(1, Math.round(job.eta_seconds / 60));
   if (job.status === 'queued' && job.queue_position && job.queue_position >= 1) {
-    return `You're #${job.queue_position} in line · about ${min} min`;
+    return t("You're #{pos} in line · about {n} min", { pos: job.queue_position, n: min });
   }
-  return job.status === 'running' ? `About ${min} min left` : null;
+  return job.status === 'running' ? t('About {n} min left', { n: min }) : null;
 }
 
 export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, signedIn = false, onSignIn }: Props) {
@@ -85,7 +86,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
         if (ACTIVE.has(next.status)) timer = setTimeout(tick, 2500);
       } catch (err) {
         if (stopped) return;
-        setLoadError(err instanceof Error ? err.message : 'Could not load this translation.');
+        setLoadError(err instanceof Error ? err.message : t("Could not load this translation."));
         timer = setTimeout(tick, 6000);
       }
     };
@@ -105,7 +106,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
       .catch(() => setCues([]));
   }, [cuesUrl]);
 
-  const langName = (code: string | null) => config?.languages.find((l) => l.code === code)?.en ?? code ?? '';
+  const langName = (code: string | null) => languageName(code, config?.languages.find((l) => l.code === code));
   const dir = job && RTL.has(job.tgt_lang) ? 'rtl' : 'ltr';
   const videoUrl = job?.outputs.mp4_url ?? job?.outputs.dubbed_url ?? localVideoUrl;
   const burnedIn = Boolean(job?.outputs.mp4_url);
@@ -183,7 +184,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
             <button
               type="button"
               onClick={() => seek(times[i][0])}
-              title={`Play from ${timestamp(times[i][0], '.').slice(3, 8)}`}
+              title={t('Play from {time}', { time: timestamp(times[i][0], '.').slice(3, 8) })}
               className={`rounded px-0.5 -mx-0.5 transition-colors hover:bg-slate-700 ${
                 i === at ? 'bg-amber-400 text-slate-950' : q && w.toLowerCase().includes(q) ? 'bg-sky-500/30' : ''
               }`}
@@ -207,21 +208,21 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
     return (
       <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 text-sm text-slate-300 flex items-center gap-2">
         {loadError ? <AlertCircle className="w-4 h-4 text-rose-400" /> : <Loader2 className="w-4 h-4 animate-spin" />}
-        {loadError ?? 'Loading…'}
+        {loadError ?? t("Loading…")}
       </section>
     );
   }
 
   const active = ACTIVE.has(job.status);
-  const title = job.title ?? job.source_url ?? 'Video';
+  const title = job.title ?? job.source_url ?? t("Video");
   const downloads: [string, string | undefined][] = [
-    [`Subtitles (.srt)`, job.outputs.srt_url],
-    ['Subtitles (.vtt)', job.outputs.vtt_url],
-    ['Original transcript (.srt)', job.outputs.original_srt_url],
-    ['Both languages (.srt)', job.outputs.bilingual_srt_url],
-    ['Transcript (.txt)', job.outputs.transcript_url],
-    ['Subtitled video (.mp4)', job.outputs.mp4_url],
-    ['Dubbed video (.mp4)', job.outputs.dubbed_url],
+    [t("Subtitles (.srt)"), job.outputs.srt_url],
+    [t("Subtitles (.vtt)"), job.outputs.vtt_url],
+    [t("Original transcript (.srt)"), job.outputs.original_srt_url],
+    [t("Both languages (.srt)"), job.outputs.bilingual_srt_url],
+    [t("Transcript (.txt)"), job.outputs.transcript_url],
+    [t("Subtitled video (.mp4)"), job.outputs.mp4_url],
+    [t("Dubbed video (.mp4)"), job.outputs.dubbed_url],
   ];
 
   return (
@@ -231,7 +232,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
           <div className="min-w-0">
             <h2 className="font-semibold text-white truncate">{title}</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {job.detected_lang ? `${langName(job.detected_lang)} → ` : 'To '}
+              {job.detected_lang ? `${langName(job.detected_lang)} → ` : t("To ")}
               {langName(job.tgt_lang)}
               {job.duration ? ` · ${Math.floor(job.duration / 60)}:${String(Math.round(job.duration % 60)).padStart(2, '0')}` : ''}
             </p>
@@ -247,9 +248,9 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
               className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
-              {copied ? 'Copied' : 'Copy link'}
+              {copied ? t("Copied") : t("Copy link")}
             </button>
-            <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">
+            <button onClick={onClose} aria-label={t("Close")} className="p-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -276,12 +277,12 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
             </div>
             {waitLine(job) && <p className="text-sm text-slate-300">{waitLine(job)}</p>}
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>You can leave this page open or come back later from your Dashboard.</span>
+              <span>{t("You can leave this page open or come back later from your Dashboard.")}</span>
               <button
                 onClick={() => api.cancel(job.id).then(setJob).catch(() => {})}
                 className="text-slate-300 hover:text-white underline"
               >
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </div>
@@ -290,7 +291,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
         {(job.status === 'failed' || job.status === 'cancelled') && (
           <div role="alert" className="flex items-start gap-2 p-3 text-sm rounded-lg border border-rose-800 bg-rose-950/60 text-rose-200">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span className="flex-1">{job.status === 'cancelled' ? 'This translation was cancelled.' : jobError(job)}</span>
+            <span className="flex-1">{job.status === 'cancelled' ? t("This translation was cancelled.") : jobError(job)}</span>
             {job.can_retry ? (
               <button
                 disabled={retrying}
@@ -300,18 +301,18 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                   api
                     .retry(job.id)
                     .then((next) => onRetried(next.id))
-                    .catch((err) => setRetryError(err instanceof Error ? err.message : 'Could not try again.'))
+                    .catch((err) => setRetryError(err instanceof Error ? err.message : t("Could not try again.")))
                     .finally(() => setRetrying(false));
                 }}
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 text-xs font-semibold"
               >
                 {retrying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                Try again
+                {t("Try again")}
               </button>
             ) : (
               job.source_url === null && (
                 <button onClick={onClose} className="shrink-0 px-3 py-1 rounded-lg border border-rose-700 text-xs text-rose-100 hover:bg-rose-900/50">
-                  Upload again
+                  {t("Upload again")}
                 </button>
               )
             )}
@@ -327,9 +328,9 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
               </span>
               <span>
                 {/* Subtitle files from a link have no video to watch here: say what there is. */}
-                <span className="block font-semibold text-slate-100">{videoUrl ? 'Your video is ready' : 'Your subtitles are ready'}</span>
+                <span className="block font-semibold text-slate-100">{videoUrl ? t("Your video is ready") : t("Your subtitles are ready")}</span>
                 <span className="block text-xs text-slate-400">
-                  {videoUrl ? 'Watch it below.' : 'Download the files below.'} Files stay available for 24 hours.
+                  {videoUrl ? t("Watch it below.") : t("Download the files below.")}{' '}{t("Files stay available for 24 hours.")}
                 </span>
               </span>
             </div>
@@ -359,7 +360,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                   className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-semibold border border-amber-400/60 text-amber-300 hover:bg-amber-400/10"
                 >
                   <Download className="w-4 h-4" />
-                  Edited subtitles (.srt)
+                  {t("Edited subtitles (.srt)")}
                 </a>
               )}
             </div>
@@ -367,16 +368,16 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
               <p className="text-xs text-slate-400">
                 {taught.signed_in
                   ? taught.learned
-                    ? `Thank you: ${taught.learned} correction${taught.learned === 1 ? '' : 's'} counted. When enough people make the same correction, KAVOX learns it for everyone.`
-                    : 'Thank you. Corrections to the words heard or the translation (not the timing) teach KAVOX.'
-                  : 'Sign in so your corrections teach KAVOX to translate better for everyone.'}
+                    ? plural(taught.learned, 'Thank you: {n} correction counted. When enough people make the same correction, KAVOX learns it for everyone.', 'Thank you: {n} corrections counted. When enough people make the same correction, KAVOX learns it for everyone.')
+                    : t("Thank you. Corrections to the words heard or the translation (not the timing) teach KAVOX.")
+                  : t("Sign in so your corrections teach KAVOX to translate better for everyone.")}
               </p>
             )}
             {job.status === 'done' && <Rating job={job} onCorrect={() => setEditing(cues?.[0]?.index ?? null)} />}
             {edited && cues && job.can_rerender && (
               <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-amber-400/40 bg-amber-400/5">
                 <span className="flex-1 min-w-[12rem] text-sm text-amber-100">
-                  You changed the subtitles. Render the video again with your changes (only the burn-in runs, so it is quick).
+                  {t("You changed the subtitles. Render the video again with your changes (only the burn-in runs, so it is quick).")}
                 </span>
                 <button
                   disabled={rendering}
@@ -387,19 +388,19 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                     api
                       .render(job.id, cues)
                       .then((next) => onRetried(next.id))
-                      .catch((err) => setRenderError(err instanceof Error ? err.message : 'Could not start the render.'))
+                      .catch((err) => setRenderError(err instanceof Error ? err.message : t("Could not start the render.")))
                       .finally(() => setRendering(false));
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 text-sm font-semibold"
                 >
                   {rendering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />}
-                  Render video with my edits
+                  {t("Render video with my edits")}
                 </button>
                 {renderError && <p className="w-full text-xs text-rose-300">{renderError}</p>}
               </div>
             )}
             {((job.mode === 'hard' && !job.outputs.mp4_url) || (job.mode === 'dub' && !job.outputs.dubbed_url)) && (
-              <p className="text-xs text-slate-400">The source has no picture, so only subtitle files were produced.</p>
+              <p className="text-xs text-slate-400">{t("The source has no picture, so only subtitle files were produced.")}</p>
             )}
           </>
         )}
@@ -439,14 +440,14 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
         <div className="border-t border-slate-800 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-white">
-              Interactive transcript <span className="text-slate-500 font-normal">({cues.length} lines)</span>
+              {t("Interactive transcript")}{' '}<span className="text-slate-500 font-normal">({cues.length}{' '}{t("lines)")}</span>
             </h3>
             <div className="inline-flex p-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs">
               {(
                 [
-                  ['both', 'Both'],
-                  ['translation', 'Translation'],
-                  ['original', 'Original'],
+                  ['both', t("Both")],
+                  ['translation', t("Translation")],
+                  ['original', t("Original")],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -462,27 +463,26 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Click any word to play from there. Fix a line with the pencil, then download the edited .srt or, for a video with
-            burned-in subtitles, render it again.
+            {t("Click any word to play from there. Fix a line with the pencil, then download the edited .srt or, for a video with burned-in subtitles, render it again.")}
           </p>
           <div className="mt-3 mb-3 flex items-center gap-2">
             <label className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search the transcript"
-                className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg bg-slate-950 border border-slate-800 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                placeholder={t("Search the transcript")}
+                className="w-full ps-8 pe-3 py-1.5 text-sm rounded-lg bg-slate-950 border border-slate-800 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
             </label>
-            {q && <span className="text-xs text-slate-400 tabular-nums">{shownCues.length} found</span>}
+            {q && <span className="text-xs text-slate-400 tabular-nums">{shownCues.length}{' '}{t("found")}</span>}
             {!follow && videoUrl && (
               <button
                 type="button"
                 onClick={() => setFollow(true)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 text-slate-200 hover:bg-slate-800"
               >
-                <Crosshair className="w-3.5 h-3.5" /> Follow video
+                <Crosshair className="w-3.5 h-3.5" />{' '}{t("Follow video")}
               </button>
             )}
           </div>
@@ -494,7 +494,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
               clearTimeout(scrollTimer.current);
               scrollTimer.current = setTimeout(() => (programmaticScroll.current = false), 150);
             }}
-            className="relative space-y-2 max-h-[28rem] overflow-y-auto pr-1"
+            className="relative space-y-2 max-h-[28rem] overflow-y-auto pe-1"
           >
             {shownCues.map(([cue, i]) => {
               const isCurrent = current?.index === cue.index;
@@ -511,7 +511,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                       {timestamp(cue.start, '.').slice(0, 8)} – {timestamp(cue.end, '.').slice(0, 8)}
                     </button>
                     <button
-                      aria-label={editing === cue.index ? 'Finish editing' : 'Edit line'}
+                      aria-label={editing === cue.index ? t("Finish editing") : t("Edit line")}
                       onClick={() => setEditing(editing === cue.index ? null : cue.index)}
                       className="p-1 text-slate-400 hover:text-white"
                     >
@@ -524,7 +524,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                         // Correcting a misheard word teaches KAVOX's speech fixes.
                         <textarea
                           dir="auto"
-                          aria-label="What was said"
+                          aria-label={t("What was said")}
                           rows={2}
                           value={cue.text}
                           onChange={(e) => {
@@ -540,7 +540,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                       (editing === cue.index ? (
                         <textarea
                           dir={dir}
-                          aria-label="Translation"
+                          aria-label={t("Translation")}
                           autoFocus
                           rows={2}
                           value={cue.translation}
@@ -557,7 +557,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                 </li>
               );
             })}
-            {q && shownCues.length === 0 && <li className="text-sm text-slate-500 py-4 text-center">No line contains “{query}”.</li>}
+            {q && shownCues.length === 0 && <li className="text-sm text-slate-500 py-4 text-center">{t("No line contains “")}{query}”.</li>}
           </ul>
         </div>
       )}
@@ -575,8 +575,8 @@ function Rating({ job, onCorrect }: { job: Job; onCorrect: () => void }) {
   // One rating is saved at a time, so the last one pressed is the one kept.
   const [saving, setSaving] = useState(false);
   const aspects: { key: RatingAspect; label: string }[] = [
-    { key: 'translation', label: 'Translation' },
-    ...(job.mode === 'dub' ? [{ key: 'voice' as const, label: 'Voice' }] : []),
+    { key: 'translation', label: t("Translation") },
+    ...(job.mode === 'dub' ? [{ key: 'voice' as const, label: t("Voice") }] : []),
   ];
   const send = (aspect: RatingAspect, value: 1 | -1) => {
     if (saving) return;
@@ -601,7 +601,7 @@ function Rating({ job, onCorrect }: { job: Job; onCorrect: () => void }) {
           {([1, -1] as const).map((v) => (
             <button
               key={v}
-              aria-label={`${label}: ${v === 1 ? 'good' : 'needs work'}`}
+              aria-label={`${label}: ${v === 1 ? t('good') : t('needs work')}`}
               aria-pressed={ratings[key] === v}
               disabled={saving}
               onClick={() => send(key, v)}
@@ -614,10 +614,10 @@ function Rating({ job, onCorrect }: { job: Job; onCorrect: () => void }) {
       ))}
       {ratings.translation === -1 && (
         <button onClick={onCorrect} className="text-xs text-amber-300 underline underline-offset-2">
-          Correct the lines below: your corrections teach KAVOX
+          {t("Correct the lines below: your corrections teach KAVOX")}
         </button>
       )}
-      {failed && <span className="text-xs text-red-400">Your rating was not saved. Try again.</span>}
+      {failed && <span className="text-xs text-red-400">{t("Your rating was not saved. Try again.")}</span>}
     </div>
   );
 }

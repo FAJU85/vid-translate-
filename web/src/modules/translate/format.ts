@@ -1,4 +1,5 @@
 import type { Cue, Job } from '../../shared/api';
+import { RTL as UI_RTL, t } from '../../shared/i18n';
 
 export const RTL = new Set(['ar', 'fa', 'ur', 'he']);
 
@@ -14,41 +15,42 @@ export function cuesToSrt(cues: Cue[]): string {
 }
 
 export const STAGE_LABEL: Record<string, string> = {
-  awaiting_upload: 'Uploading…',
-  queued: 'Waiting in the queue…',
-  waking: 'Waking up the translation server (can take a couple of minutes)…',
-  downloading: 'Downloading the video…',
-  transcribing: 'Transcribing speech…',
-  translating: 'Translating…',
-  rendering: 'Burning subtitles into the video…',
-  dubbing: 'Recording the translated voice…',
-  done: 'Done',
+  awaiting_upload: t("Uploading…"),
+  queued: t("Waiting in the queue…"),
+  waking: t("Waking up the translation server (can take a couple of minutes)…"),
+  downloading: t("Downloading the video…"),
+  transcribing: t("Transcribing speech…"),
+  translating: t("Translating…"),
+  rendering: t("Burning subtitles into the video…"),
+  dubbing: t("Recording the translated voice…"),
+  done: t("Done"),
 };
 
 const ERROR_TEXT: Record<string, string> = {
-  E_URL_INVALID: 'That link is not supported.',
-  E_YOUTUBE_UNSUPPORTED:
-    "YouTube blocks our server, so YouTube links can't be downloaded. Upload the video file instead: if the video is yours, download it from YouTube Studio (Content → ⋮ → Download). Facebook, Instagram and TikTok links work.",
+  E_URL_INVALID: t("That link is not supported."),
+  E_YOUTUBE_UNSUPPORTED: t(
+    "YouTube blocks our server, so YouTube links can't be downloaded. Upload the video file instead: if the video is yours, download it from YouTube Studio (Content → ⋮ → Download). Facebook, Instagram and TikTok links work."),
   E_SITE_BLOCKED:
-    'The site refused our server (bot check or login required). Download the video yourself and upload the file instead.',
-  E_DOWNLOAD_FAILED: 'The video could not be downloaded.',
-  E_VIDEO_TOO_LONG: 'The video is too long.',
-  E_FILE_TOO_LARGE: 'The file is too large.',
-  E_MEDIA_INVALID: 'The file is not a readable video or audio file.',
-  E_NO_SPEECH: 'No speech was detected in the video.',
-  E_ASR_FAILED: 'Speech recognition failed.',
-  E_NMT_FAILED: 'The translation step failed.',
-  E_RENDER_FAILED: 'The subtitled video could not be rendered.',
-  E_BACKEND_DOWN: 'The translation server is not responding. Please try again in a few minutes.',
-  E_BACKEND_RESTARTED: 'The translation server restarted in the middle of the job. Please submit the video again.',
-  E_TTS_FAILED: 'The translated voice could not be made.',
-  E_NO_VOICE: 'Dubbing is not available for this language yet. Choose subtitles instead.',
-  E_CANCELLED: 'Cancelled.',
+    t("The site refused our server (bot check or login required). Download the video yourself and upload the file instead."),
+  E_DOWNLOAD_FAILED: t("The video could not be downloaded."),
+  E_VIDEO_TOO_LONG: t("The video is too long."),
+  E_FILE_TOO_LARGE: t("The file is too large."),
+  E_MEDIA_INVALID: t("The file is not a readable video or audio file."),
+  E_NO_SPEECH: t("No speech was detected in the video."),
+  E_ASR_FAILED: t("Speech recognition failed."),
+  E_NMT_FAILED: t("The translation step failed."),
+  E_RENDER_FAILED: t("The subtitled video could not be rendered."),
+  E_BACKEND_DOWN: t("The translation server is not responding. Please try again in a few minutes."),
+  E_BACKEND_RESTARTED: t("The translation server restarted in the middle of the job. Please submit the video again."),
+  E_TTS_FAILED: t("The translated voice could not be made."),
+  E_NO_VOICE: t("Dubbing is not available for this language yet. Choose subtitles instead."),
+  E_CANCELLED: t("Cancelled."),
 };
 
 export function jobError(job: Job): string {
-  const base = ERROR_TEXT[job.error_code ?? ''] ?? 'Something went wrong.';
-  const detail = ['E_DOWNLOAD_FAILED', 'E_VIDEO_TOO_LONG', 'E_NMT_FAILED', 'E_TTS_FAILED'].includes(job.error_code ?? '') ? job.error_message : '';
+  const base = ERROR_TEXT[job.error_code ?? ''] ?? t("Something went wrong.");
+  // The server writes the detail in English: shown in the English interface only.
+  const detail = UI_RTL ? '' : ['E_DOWNLOAD_FAILED', 'E_VIDEO_TOO_LONG', 'E_NMT_FAILED', 'E_TTS_FAILED'].includes(job.error_code ?? '') ? job.error_message : '';
   return detail ? `${base} ${detail}` : base;
 }
 
