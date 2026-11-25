@@ -1,8 +1,9 @@
 import { apiError, json } from '../../shared/http';
 import type { Env } from '../../shared/env';
+import { getAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { announcePost, deleteShare } from './service';
-import { getShare, listShares, setTitle, setVisibility, type ShareRow } from './store';
+import { getShare, listShares, setTitle, setVisibility, updateShare, type ShareRow } from './store';
 
 /** A caption's longest length (titles from the source video are cut to it when edited). */
 const MAX_TITLE = 150;
@@ -60,6 +61,15 @@ export async function handleShares(request: Request, env: Env, path: string, ori
     return json(publicShare({ ...share, title: title || null }, await publicOrigin(env, origin)));
   }
   if (body?.visibility !== 'link' && body?.visibility !== 'public') return apiError(400, 'E_BAD_REQUEST', 'visibility is link or public.');
+  // A video this browser made before signing in (no account, or this browser's guest account)
+  // becomes the signed-in account's when it posts it: the browser proves it made it, as for deleting.
+  if (body.visibility === 'public' && viewer.signedIn && viewer.accountId && share.account_id !== viewer.accountId && viewer.owner && share.owner === viewer.owner) {
+    const before = share.account_id ? await getAccount(env, share.account_id) : null;
+    if (!share.account_id || before?.guest_client) {
+      await updateShare(env, share.id, { account_id: viewer.accountId });
+      share.account_id = viewer.accountId;
+    }
+  }
   // Posting puts the video on its account's profile: only that account, signed in, may do it (the
   // browser that made the video is not enough). Taking it back to link-only stays open to both.
   if (body.visibility === 'public' && (!share.account_id || viewer.accountId !== share.account_id || !viewer.signedIn)) {

@@ -326,8 +326,11 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                 <CheckCircle2 className="w-5 h-5" />
               </span>
               <span>
-                <span className="block font-semibold text-slate-100">Your video is ready</span>
-                <span className="block text-xs text-slate-400">Watch it below. Files stay available for 24 hours.</span>
+                {/* Subtitle files from a link have no video to watch here: say what there is. */}
+                <span className="block font-semibold text-slate-100">{videoUrl ? 'Your video is ready' : 'Your subtitles are ready'}</span>
+                <span className="block text-xs text-slate-400">
+                  {videoUrl ? 'Watch it below.' : 'Download the files below.'} Files stay available for 24 hours.
+                </span>
               </span>
             </div>
             {job.share_url && <ShareLink url={job.share_url} />}

@@ -301,28 +301,25 @@ export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPr
         </Step>
 
         <Step n={3} title="What you get">
+        {/* Native radio buttons inside the cards: one Tab stop, arrow keys move the choice. */}
         <div role="radiogroup" aria-label="Result" className="grid gap-2 sm:grid-cols-3">
           {RESULTS.map((r) => {
             const off = r.id === 'dub' && !canDub;
             const on = mode === r.id;
             return (
-              <button
+              <label
                 key={r.id}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={off}
-                onClick={() => setMode(r.id)}
-                className={`text-left p-3.5 rounded-xl border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  on ? 'border-amber-400 bg-amber-400/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'
-                }`}
+                className={`block p-3.5 rounded-xl border transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-amber-400 ${
+                  off ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                } ${on ? 'border-amber-400 bg-amber-400/10' : 'border-slate-700 bg-slate-950/50 hover:border-slate-500'}`}
               >
+                <input type="radio" name="result" value={r.id} checked={on} disabled={off} onChange={() => setMode(r.id)} className="sr-only" />
                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
                   <r.icon className={`w-4 h-4 ${on ? 'text-amber-300' : 'text-slate-400'}`} />
                   {r.title}
                 </span>
                 <span className="block mt-1 text-xs text-slate-400">{off ? 'Not available for this language yet.' : r.body}</span>
-              </button>
+              </label>
             );
           })}
         </div>
