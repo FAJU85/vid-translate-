@@ -159,8 +159,8 @@ def test_audio_only_hard_mode_makes_a_visualizer_video(client, tmp_path):
     probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                             "-of", "csv=p=0", str(path)], capture_output=True, text=True)
     assert probe.stdout.strip() == "720,720"  # the square frame chosen
-    # Edited lyrics are rendered again onto the kept sound.
-    again = JOB.format("d")
+    # Edited lyrics are rendered again onto the kept sound (an id no other test uses: they share one queue).
+    again = "0a0a0a0a-0000-4000-8000-0000000000a5"
     body = {"job_id": again, "source_kind": "rerender", "parent_job_id": job, "tgt_lang": "ar", "subtitle_mode": "hard",
             "cues": [{"start": 0.0, "end": 1.4, "text": "Hello there.", "translation": "مرحبا"}], "subtitle_style": style}
     client.post("/invoke", json=body, headers=AUTH)
