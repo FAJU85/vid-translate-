@@ -439,8 +439,11 @@ choose **Lyrics video** on the website, or **🎵 Lyrics video** in the bot.
 - The picture is drawn by ffmpeg on the Space (no extra models or services): a background (four
   colour gradients, or the file's own album art, blurred), the sound drawn as it plays (wave,
   neon or bars), and the words burned in with the usual subtitle style, lit word by word.
-- Main text: the translation, or the original words (karaoke). With "show the other text too",
-  both lines are shown, the second one smaller.
+- Two independent captions: the **lyrics** (the original words, in the chosen font, size, colour
+  and place; with word highlight each word lights up when it is really sung, from the
+  recognition's own word times) and the **translation** (its own place: top, middle or bottom,
+  plain and never lit). Either can be switched off; a song already in the chosen language shows
+  the lyrics only. Edited lyrics have no word times any more and are lit by their length.
 - Shapes: vertical 9:16 (Reels, TikTok, Shorts), square 1:1, wide 16:9, all 720 px on the short side.
 - Title card: the song's title and artist at the top, from its own tags (most MP3s and Telegram
   audio have them), or typed on the website. A thin bar along the bottom fills as it plays. Both

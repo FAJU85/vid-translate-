@@ -215,7 +215,10 @@ def _render(job: Job, workdir: Path, source: Path, info: dict, cues: list, src_l
         # Typed on the website first, then the song's own tags; a link's page title as the last resort.
         title = style.title or found.get("title") or (job.title if job.source_kind == "url" else "") or ""
         heading = (title, style.artist or found.get("artist", ""))
-    (workdir / BURN_FILE).write_text(subtitles.to_ass(cues, job.tgt_lang, style, src_lang, heading), encoding="utf-8")
+    # A lyrics video has two independent captions (the sung words, the translation); a video, subtitles.
+    text = (subtitles.to_ass(cues, job.tgt_lang, style, src_lang) if info["has_video"]
+            else subtitles.to_lyrics_ass(cues, src_lang, job.tgt_lang, style, heading))
+    (workdir / BURN_FILE).write_text(text, encoding="utf-8")
     dest = workdir / OUTPUT_FILES["mp4"]
     if info["has_video"]:
         media.burn_subtitles(source, BURN_FILE, dest, info["duration"], cancelled, report)

@@ -10,6 +10,7 @@ import {
   SUBTITLE_FONTS,
   SUBTITLE_POSITIONS,
   SUBTITLE_SIZES,
+  TRANSLATION_PLACES,
   VISUAL_BACKDROPS,
   VISUAL_FRAMES,
   VISUAL_LOOKS,
@@ -339,7 +340,7 @@ const STYLE_COLORS: Record<string, string> = {
 };
 
 /** What a ready-made design leaves as it is: the voice, which text is shown, and the picture for sound alone. */
-const OWN_CHOICES: (keyof SubtitleStyle)[] = ['bilingual', 'voice', 'lines', 'look', 'backdrop', 'frame', 'title_card', 'title', 'artist', 'bar'];
+const OWN_CHOICES: (keyof SubtitleStyle)[] = ['bilingual', 'voice', 'lines', 'look', 'backdrop', 'frame', 'title_card', 'title', 'artist', 'bar', 'karaoke', 'translation_at'];
 /** Same design (apart from OWN_CHOICES). */
 const sameStyle = (a: SubtitleStyle, b: SubtitleStyle) =>
   (Object.keys(a) as (keyof SubtitleStyle)[]).every((k) => OWN_CHOICES.includes(k) || a[k] === b[k]);
@@ -387,6 +388,9 @@ function styleMenu(ui: UiLang, style: SubtitleStyle): { text: string; keyboard: 
     VISUAL_BACKDROPS.slice(0, 3).map((v) => ({ text: mark(style.backdrop === v, t(ui, `backdrop_${v}`)), callback_data: `st:backdrop:${v}` })),
     VISUAL_BACKDROPS.slice(3).map((v) => ({ text: mark(style.backdrop === v, t(ui, `backdrop_${v}`)), callback_data: `st:backdrop:${v}` })),
     VISUAL_FRAMES.map((v) => ({ text: mark(style.frame === v, t(ui, `frame_${v}`)), callback_data: `st:frame:${v}` })),
+    [{ text: t(ui, style.karaoke ? 'karaoke_on' : 'karaoke_off'), callback_data: `st:karaoke:${style.karaoke ? 'off' : 'on'}` }],
+    TRANSLATION_PLACES.slice(0, 2).map((v) => ({ text: mark(style.translation_at === v, t(ui, `tr_at_${v}`)), callback_data: `st:translation_at:${v}` })),
+    TRANSLATION_PLACES.slice(2).map((v) => ({ text: mark(style.translation_at === v, t(ui, `tr_at_${v}`)), callback_data: `st:translation_at:${v}` })),
     [
       { text: t(ui, style.title_card ? 'title_card_on' : 'title_card_off'), callback_data: `st:title_card:${style.title_card ? 'off' : 'on'}` },
       { text: t(ui, style.bar ? 'bar_on' : 'bar_off'), callback_data: `st:bar:${style.bar ? 'off' : 'on'}` },
@@ -487,7 +491,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
               ...(STYLE_PRESETS[value as keyof typeof STYLE_PRESETS] ?? current),
               ...Object.fromEntries(OWN_CHOICES.map((k) => [k, current[k]])),
             })
-          : field === 'bilingual' || field === 'title_card' || field === 'bar'
+          : field === 'bilingual' || field === 'title_card' || field === 'bar' || field === 'karaoke'
             ? { ...current, [field]: value === 'on' }
             : parseSubtitleStyle({ ...current, [field]: field === 'color' ? STYLE_COLORS[value] : value });
       await updateChat(env, chatId, chat.tgt_lang, { style: JSON.stringify(next) });

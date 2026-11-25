@@ -139,7 +139,13 @@
     "title_card_on": "🏷 Title and artist: ✓ on",
     "title_card_off": "🏷 Title and artist: off",
     "bar_on": "▬ Progress bar: ✓ on",
-    "bar_off": "▬ Progress bar: off"
+    "bar_off": "▬ Progress bar: off",
+    "karaoke_on": "🎤 Lyrics, lit as sung: ✓ on",
+    "karaoke_off": "🎤 Lyrics, lit as sung: off",
+    "tr_at_top": "🌐 Translation: top",
+    "tr_at_middle": "🌐 Translation: middle",
+    "tr_at_bottom": "🌐 Translation: bottom",
+    "tr_at_off": "🌐 Translation: off"
   },
   "ar": {
     "welcome": "👋 <b>KAVOX</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
@@ -281,6 +287,12 @@
     "title_card_on": "🏷 العنوان والفنان: ✓ مفعّل",
     "title_card_off": "🏷 العنوان والفنان: متوقف",
     "bar_on": "▬ شريط التقدم: ✓ مفعّل",
-    "bar_off": "▬ شريط التقدم: متوقف"
+    "bar_off": "▬ شريط التقدم: متوقف",
+    "karaoke_on": "🎤 الكلمات تُضاء مع الغناء: ✓ مفعّل",
+    "karaoke_off": "🎤 الكلمات تُضاء مع الغناء: متوقف",
+    "tr_at_top": "🌐 الترجمة: أعلى",
+    "tr_at_middle": "🌐 الترجمة: وسط",
+    "tr_at_bottom": "🌐 الترجمة: أسفل",
+    "tr_at_off": "🌐 الترجمة: إيقاف"
   }
 }

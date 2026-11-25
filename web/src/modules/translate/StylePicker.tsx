@@ -41,6 +41,8 @@ export function rememberedStyle(): SubtitleStyle {
     frame: oneOf(FRAMES.map(([id]) => id), saved.frame, 'vertical'),
     title_card: saved.title_card !== false,
     bar: saved.bar !== false,
+    karaoke: saved.karaoke !== false,
+    translation_at: oneOf(TRANSLATION_AT.map(([id]) => id), saved.translation_at, 'top'),
   };
 }
 
@@ -82,6 +84,13 @@ const ANIMATIONS: [NonNullable<SubtitleStyle['animation']>, string][] = [
 const LINES: [NonNullable<SubtitleStyle['lines']>, string][] = [
   ['translation', t("The translation")],
   ['original', t("The original words")],
+];
+// A lyrics video's translation: its own caption, apart from the sung words.
+const TRANSLATION_AT: [NonNullable<SubtitleStyle['translation_at']>, string][] = [
+  ['top', t("Top")],
+  ['middle', t("Middle")],
+  ['bottom', t("Bottom")],
+  ['off', t("Off")],
 ];
 // Sound alone made into a video (backend media/visual.py): the same choices and colours.
 const LOOKS: [NonNullable<SubtitleStyle['look']>, string][] = [
@@ -176,19 +185,25 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
   };
   const apply = (preset: SubtitleStyle) => {
     // A design changes the text's look only: what is shown and the picture for sound alone stay.
-    const { bilingual, voice, lines, look, backdrop, frame } = style;
-    const next = { ...preset, bilingual, voice, lines, look, backdrop, frame };
+    const { bilingual, voice, lines, look, backdrop, frame, title_card, title, artist, bar, karaoke, translation_at } = style;
+    const next = { ...preset, bilingual, voice, lines, look, backdrop, frame, title_card, title, artist, bar, karaoke, translation_at };
     remember(next);
     onChange(next);
   };
   const lines = style.lines ?? 'translation';
   // The main line's language: the original is not known yet (shown in English, or Arabic for English).
-  const rtl = lines === 'original' ? lang === 'en' : RTL.has(lang);
+  // A lyrics video's main line is always the sung words, in the original language.
+  const rtl = sound || lines === 'original' ? lang === 'en' : RTL.has(lang);
+  const karaoke = style.karaoke !== false;
+  const translationAt = style.translation_at ?? 'top';
+  const translationRtl = RTL.has(lang);
   const frameShape = FRAMES.find(([id]) => id === (style.frame ?? 'vertical'))![2];
   const [fw, fh] = frameShape.split(' / ').map(Number);
   const height = sound ? (fh / fw) * 100 : 56.25;
   const backdropFill = BACKDROPS.find(([id]) => id === (style.backdrop ?? 'kavox'))![2];
-  const sample = rtl ? 'هذه معاينة لشكل الكلمات على الفيديو' : 'This is how the words will look';
+  const sample = sound
+    ? rtl ? 'هكذا تظهر كلمات الأغنية' : 'This is how the lyrics will look'
+    : rtl ? 'هذه معاينة لشكل الكلمات على الفيديو' : 'This is how the words will look';
   // Dynamic captions: step through the sample's words like a speaker would.
   const animation = style.animation ?? 'none';
   const [tick, setTick] = useState(0);
@@ -295,11 +310,37 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
             <div className="text-slate-300 truncate" style={{ fontSize: '0.75em' }}>{style.artist || t("Artist")}</div>
           </div>
         )}
+        {sound && translationAt !== 'off' && (
+          // The translation: its own caption, in its own place, steady (never lit).
+          <div
+            className="absolute inset-x-0 px-[4%] text-center leading-snug"
+            style={{
+              ...(translationAt === 'top'
+                ? { top: style.title_card !== false ? '13%' : '5%' }
+                : translationAt === 'middle'
+                  ? { top: '50%', transform: 'translateY(-50%)' }
+                  : { bottom: '7.6%' }),
+              ...(translationAt === style.position && karaoke && translationAt === 'bottom' ? { bottom: '16%' } : {}),
+            }}
+          >
+            <span
+              dir={translationRtl ? 'rtl' : 'ltr'}
+              style={{
+                color: '#E2E8F0',
+                fontSize: cqw(FONT_SIZE[style.size] * 0.8, translationRtl ? FONT_FAMILY[style.font].em : 1, height),
+                fontFamily: translationRtl ? FONT_FAMILY[style.font].arabic : FONT_FAMILY[style.font].latin,
+                textShadow: '0 0 2px #000, 0 0 2px #000, 0 0 3px #000',
+              }}
+            >
+              {translationRtl ? 'هذه هي الترجمة' : 'This is the translation'}
+            </span>
+          </div>
+        )}
         {sound && style.bar !== false && (
           <div className="absolute bottom-0 left-0 h-[0.6%] min-h-[3px] bg-amber-400 transition-all duration-300" style={{ width: `${((tick % 40) / 40) * 100}%` }} />
         )}
         <div
-          className={`absolute inset-x-0 flex items-center gap-[0.6cqw] px-[4%] ${style.position === 'top' ? 'flex-col' : 'flex-col-reverse'}`}
+          className={`absolute inset-x-0 flex items-center gap-[0.6cqw] px-[4%] ${style.position === 'top' ? 'flex-col' : 'flex-col-reverse'} ${sound && !karaoke ? 'hidden' : ''}`}
           style={placement}
         >
           {/* As on the video: the translation nearest the edge, the original beside it, smaller. */}
@@ -331,7 +372,7 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
               </span>
             )}
           </span>
-          {style.bilingual && (
+          {style.bilingual && !sound && (
             <span
               dir={originalRtl ? 'rtl' : 'ltr'}
               className="text-center leading-snug"
@@ -398,6 +439,20 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
                 : t("The whole line appears at once.")}
           </p>
         </div>
+        {sound ? (
+          <div className="sm:col-span-2 space-y-3">
+            <label className="flex items-center gap-2.5 text-sm text-slate-200 cursor-pointer select-none">
+              <input type="checkbox" checked={karaoke} onChange={(e) => update({ karaoke: e.target.checked })} className="w-4 h-4 accent-amber-400" />
+              {t("Lyrics: the sung words, each lit as it is sung")}
+            </label>
+            <div>
+              <div className="text-xs text-slate-400 mb-1.5">{t("Translation: its own caption")}</div>
+              <Segmented value={translationAt} options={TRANSLATION_AT} onChange={(v) => update({ translation_at: v })} />
+              <p className="mt-1 text-xs text-slate-500">{t("Kept apart from the lyrics, in its own place, and never lit.")}</p>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="sm:col-span-2">
           <div className="text-xs text-slate-400 mb-1.5">{t("Main text")}</div>
           <Segmented value={lines} options={LINES} onChange={(l) => update({ lines: l })} />
@@ -414,6 +469,8 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
           />
           {lines === 'original' ? t("Show the translation too, in smaller letters") : t("Show the original text too, in smaller letters")}
         </label>
+        </>
+        )}
         <div>
           <div className="text-xs text-slate-400 mb-1.5">{t("Text colour")}</div>
           <div className="flex flex-wrap items-center gap-2">

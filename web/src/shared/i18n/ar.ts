@@ -639,4 +639,8 @@ export const AR: Record<string, string> = {
   "Artist (from the song itself if empty)": "الفنان (من الأغنية نفسها إن تُرك فارغًا)",
   "Song title": "عنوان الأغنية",
   "Artist": "الفنان",
+  "Off": "إيقاف",
+  "Lyrics: the sung words, each lit as it is sung": "الكلمات: كلمات الأغنية، تُضاء كل كلمة عند غنائها",
+  "Translation: its own caption": "الترجمة: سطر مستقل",
+  "Kept apart from the lyrics, in its own place, and never lit.": "منفصلة عن كلمات الأغنية، في مكانها الخاص، ولا تُضاء أبدًا.",
 };
