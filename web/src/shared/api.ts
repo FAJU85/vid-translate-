@@ -400,6 +400,18 @@ export const feedbackApi = {
     call<{ ok: true }>('/api/feedback', { method: 'POST', body: JSON.stringify({ text, page, lang }) }),
 };
 
+type FeatureSource = 'server' | 'panel' | null;
+export interface AdminFeatures {
+  two_step: { on: boolean; source: FeatureSource };
+  credits: { on: boolean; source: FeatureSource };
+  limits: { max_jobs_per_hour: number; max_upload_mb: number; source: FeatureSource };
+  email: { ready: boolean; from: string; key: string | null; source: FeatureSource };
+  google: { ready: boolean; client_id: string; secret: string | null; redirect_uri: string; source: FeatureSource };
+  stripe: { ready: boolean; key: string | null; webhook_secret: string | null; webhook_url: string; source: FeatureSource };
+  telegram: { bot: string | null };
+  domain: { public_domain: string; https_note: boolean };
+}
+
 export interface AuditItem {
   id: number;
   at: number;
@@ -595,6 +607,9 @@ const auth = (password: string) => ({ Authorization: `Bearer ${password}` });
 export const adminApi = {
   login: (password: string, code = '') =>
     call<{ ok: true; token: string; expires_at: number; two_factor: boolean }>('/api/admin/login', { method: 'POST', headers: auth(password), body: JSON.stringify({ code }) }),
+  features: (password: string) => call<AdminFeatures>('/api/admin/features', { headers: auth(password) }),
+  feature: (password: string, body: Record<string, unknown>) =>
+    call<{ ok: true; token?: string; secret?: string; uri?: string; result?: unknown }>('/api/admin/features', { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
   audit: (password: string, action = '', before: number | null = null) =>
     call<{ items: AuditItem[]; next: number | null }>(`/api/admin/audit?action=${encodeURIComponent(action)}${before ? `&before=${before}` : ''}`, { headers: auth(password) }),
   load: (password: string) => call<AdminSettings>('/api/admin/settings', { headers: auth(password) }),

@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, ScrollText, Settings, ShieldAlert, Users } from 'lucide-react';
+import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, ScrollText, Settings, ToggleRight, ShieldAlert, Users } from 'lucide-react';
 import { ADMIN_SIGNED_OUT, ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
 import { AccountsPanel } from './AccountsPanel';
 import { FeedbackPanel } from './FeedbackPanel';
 import { AuditPanel } from './AuditPanel';
+import { FeaturesPanel } from './FeaturesPanel';
 import { InsightsPanel } from './InsightsPanel';
 import { LearningPanel } from './LearningPanel';
 import { ModerationPanel } from './ModerationPanel';
@@ -13,13 +14,14 @@ import { SettingsPanel } from './SettingsPanel';
 
 const TOKEN_KEY = 'kavox_admin_token';
 
-type Workspace = 'jobs' | 'accounts' | 'moderation' | 'feedback' | 'audit' | 'insights' | 'learning' | 'settings';
+type Workspace = 'jobs' | 'accounts' | 'moderation' | 'feedback' | 'audit' | 'features' | 'insights' | 'learning' | 'settings';
 const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
   { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
   { id: 'accounts', label: 'Accounts', icon: Users },
   { id: 'moderation', label: 'Reports', icon: ShieldAlert },
   { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart },
   { id: 'audit', label: 'Audit', icon: ScrollText },
+  { id: 'features', label: 'Features', icon: ToggleRight },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
   { id: 'learning', label: 'Learning', icon: BookOpenCheck },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -38,7 +40,7 @@ function readToken(): string {
 
 const workspaceFromHash = (): Workspace => {
   const hash = window.location.hash.slice(1);
-  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' || hash === 'audit' ? hash : 'jobs';
+  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' || hash === 'audit' || hash === 'features' ? hash : 'jobs';
 };
 
 /**
@@ -204,7 +206,11 @@ export function AdminView() {
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
         {singleStep && (
           <p className="shrink-0 px-4 py-2 text-xs bg-amber-400/15 text-amber-200 border-b border-amber-400/30">
-            Two-step sign-in is off. Turn it on: run <code>node scripts/admin-2fa-secret.mjs</code>, add the secret to your authenticator app, then <code>npx wrangler secret put ADMIN_TOTP_SECRET</code>.
+            Two-step sign-in is off.{' '}
+            <button onClick={() => setWorkspace('features')} className="underline font-semibold">
+              Turn it on in Features
+            </button>{' '}
+            (one scan with your phone).
           </p>
         )}
         <div className="flex-1 min-h-0">
@@ -221,6 +227,23 @@ export function AdminView() {
         ) : workspace === 'feedback' ? (
           <div className="h-full overflow-y-auto">
             <FeedbackPanel password={token} />
+          </div>
+        ) : workspace === 'features' ? (
+          <div className="h-full overflow-y-auto">
+            <FeaturesPanel
+              password={token}
+              onToken={(t, twoStep) => {
+                // Turning two-step sign-in on or off ends the old sign-in: keep the new one.
+                setToken(t);
+                setSingleStep(!twoStep);
+                try {
+                  sessionStorage.setItem(TOKEN_KEY, t);
+                  sessionStorage.setItem(TOKEN_KEY + ':1step', twoStep ? '0' : '1');
+                } catch {
+                  /* only for this tab */
+                }
+              }}
+            />
           </div>
         ) : workspace === 'audit' ? (
           <div className="h-full overflow-y-auto">

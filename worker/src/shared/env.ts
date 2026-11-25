@@ -43,6 +43,8 @@ export interface Env {
   MEDIA?: R2Bucket;
   /** The website's files (web/dist), for every page the Worker does not answer itself. */
   ASSETS?: Fetcher;
+  /** The server's own settings, before the admin page's values were filled in (features brick). */
+  SERVER_ENV?: Env;
 }
 
 export const now = () => Math.floor(Date.now() / 1000);

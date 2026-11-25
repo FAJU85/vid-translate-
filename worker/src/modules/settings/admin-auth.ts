@@ -47,7 +47,8 @@ const passwordOk = (env: Env, given: string) => {
  */
 const tokenKey = (env: Env) => `admin|${env.ADMIN_PASSWORD ?? ''}|${env.SHARED_SECRET ?? ''}|${env.ADMIN_TOTP_SECRET ?? ''}`;
 
-async function makeToken(env: Env): Promise<{ token: string; expires_at: number }> {
+/** A fresh admin sign-in token (for example after two-step sign-in was turned on, which ends the old ones). */
+export async function makeToken(env: Env): Promise<{ token: string; expires_at: number }> {
   const exp = now() + TOKEN_TTL;
   return { token: `adm.${exp}.${await hmacHex(tokenKey(env), `admin:${exp}`)}`, expires_at: exp };
 }

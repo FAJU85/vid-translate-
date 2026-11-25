@@ -32,6 +32,7 @@ import { LEGAL_VERSION, handleAdminLogin, handleAdminSettings, isAdmin, publicOr
 import { handleFeedback, handleFeedbackAdmin } from '../feedback';
 import { handlePrivacy } from '../privacy';
 import { audit, handleAuditAdmin } from '../audit';
+import { handleFeatures } from '../features';
 import { handleAnalytics, handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
@@ -291,6 +292,12 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const moderation = await handleModeration(request, env, path, api.origin);
     if (moderation) return moderation;
+  }
+  // Features switched on from the admin page (credits, sign-in methods, payments, two-step sign-in).
+  if (path === '/api/admin/features') {
+    if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    const features = await handleFeatures(request, env, path, api.origin);
+    if (features) return features;
   }
   // The audit log (admin).
   if (path === '/api/admin/audit') {

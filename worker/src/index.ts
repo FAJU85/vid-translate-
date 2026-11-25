@@ -34,6 +34,7 @@ import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCre
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
 import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
 import { AUDIT_SCHEMA, sweepAudit } from './modules/audit';
+import { FEATURES_SCHEMA, withFeatures } from './modules/features';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
 
@@ -55,7 +56,7 @@ registerMemoryProvider(memoryFor);
 registerDownloadPlanner(downloadPlanFor);
 registerJobListener(sitesJobListener);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -132,15 +133,17 @@ export default {
     }
     try {
       await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
-      return secured(await route(request, env, ctx));
+      // The admin page's feature switches and keys, filled into the settings this request runs with.
+      return secured(await route(request, await withFeatures(env), ctx));
     } catch (err) {
       console.error('request failed', (err as Error).stack ?? err);
       return secured(apiError(500, 'E_INTERNAL', 'Internal error.'));
     }
   },
 
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    await ensureSchema(env, SCHEMA, ADDED_COLUMNS);
+  async scheduled(_event: ScheduledController, serverEnv: Env, ctx: ExecutionContext): Promise<void> {
+    await ensureSchema(serverEnv, SCHEMA, ADDED_COLUMNS);
+    const env = await withFeatures(serverEnv);
     ctx.waitUntil(sweep(env));
     ctx.waitUntil(ensureWebhookUpdates(env));
     ctx.waitUntil(sweepShares(env));

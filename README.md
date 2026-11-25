@@ -510,17 +510,37 @@ People can tell you what to improve, and you read it all in one place.
 - The contact address shown in both documents is the takedown email set on `/admin`.
 - These documents are a careful starting point, not legal advice: have them reviewed.
 
+## Features, switched on from the admin page
+
+`/admin` → **Features** has every optional feature ready, so nothing needs the command line:
+
+| Feature | What it needs | Same as the Worker setting |
+|---|---|---|
+| Two-step sign-in for `/admin` | Scan a QR code, type the code | `ADMIN_TOTP_SECRET` |
+| Credits | One click (off: translating is free) | `CREDITS_ENABLED` |
+| Limits | Videos per hour, largest upload | `MAX_JOBS_PER_HOUR`, `MAX_UPLOAD_MB` |
+| Sign in with email | A Resend API key and sender | `RESEND_API_KEY`, `EMAIL_FROM` |
+| Sign in with Google | An OAuth client ID and secret (the page shows the redirect address) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| Card payments | Stripe secret key and webhook secret (the page shows the webhook address) | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| Telegram bot | "Refresh the bot" (webhook and command menu) | `POST /admin/setup` |
+
+Keys pasted there are stored encrypted (AES-GCM, with a key derived from `SHARED_SECRET`) and only
+their last 4 characters are shown. A value set on the server (`wrangler.toml` or a secret)
+always wins over the page. Every change is in the audit log. Changing `SHARED_SECRET` makes the
+saved keys unreadable: paste them again after.
+
 ## Security
 
 See [SECURITY.md](SECURITY.md) for what is in place, and
 [docs/INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md) for what to do after a data breach
 (SDAIA within 72 hours).
 
-- **Two-step sign-in for /admin** (strongly recommended): run `node scripts/admin-2fa-secret.mjs`,
-  add the secret it prints to an authenticator app, then `npx wrangler secret put ADMIN_TOTP_SECRET`.
-  From then on `/admin` asks for the password and the app's 6-digit code. The page keeps a
-  12-hour sign-in token, never the password, and blocks a connection after 8 failures in 15
-  minutes. Until the secret is set, `/admin` shows a reminder.
+- **Two-step sign-in for /admin** (strongly recommended): `/admin` → **Features** → Two-step
+  sign-in → Set up: scan the QR code with an authenticator app and type the code it shows. From
+  then on `/admin` asks for the password and the app's 6-digit code. The page keeps a 12-hour
+  sign-in token, never the password, and blocks a connection after 8 tries in 15 minutes. Until
+  it is on, `/admin` shows a reminder. (Or set it on the server: `node scripts/admin-2fa-secret.mjs`,
+  then `npx wrangler secret put ADMIN_TOTP_SECRET`.)
 - **Audit log** (`/admin` → Audit): admin sign-ins (failed ones too), every admin change, an
   admin opening an account, and people downloading or deleting their data or videos. Kept a year.
 - **Custom domain:** turn on Cloudflare's **Always Use HTTPS** (SSL/TLS → Edge Certificates) for
