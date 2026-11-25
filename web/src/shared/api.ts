@@ -393,6 +393,16 @@ export const feedbackApi = {
     call<{ ok: true }>('/api/feedback', { method: 'POST', body: JSON.stringify({ text, page, lang }) }),
 };
 
+export interface AuditItem {
+  id: number;
+  at: number;
+  actor: string;
+  action: string;
+  target: string | null;
+  detail: string | null;
+  conn: string | null;
+}
+
 export interface FeedbackItem {
   id: number;
   source: 'web' | 'telegram';
@@ -576,7 +586,10 @@ export interface AdminActionResult {
 const auth = (password: string) => ({ Authorization: `Bearer ${password}` });
 
 export const adminApi = {
-  login: (password: string) => call<{ ok: true }>('/api/admin/login', { method: 'POST', headers: auth(password) }),
+  login: (password: string, code = '') =>
+    call<{ ok: true; token: string; expires_at: number; two_factor: boolean }>('/api/admin/login', { method: 'POST', headers: auth(password), body: JSON.stringify({ code }) }),
+  audit: (password: string, action = '', before: number | null = null) =>
+    call<{ items: AuditItem[]; next: number | null }>(`/api/admin/audit?action=${encodeURIComponent(action)}${before ? `&before=${before}` : ''}`, { headers: auth(password) }),
   load: (password: string) => call<AdminSettings>('/api/admin/settings', { headers: auth(password) }),
   save: (password: string, settings: Partial<AdminSettings>) =>
     call<{ ok: true }>('/api/admin/settings', { method: 'POST', headers: auth(password), body: JSON.stringify(settings) }),

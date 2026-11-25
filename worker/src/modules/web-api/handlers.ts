@@ -31,6 +31,7 @@ import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '..
 import { LEGAL_VERSION, handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
 import { handleFeedback, handleFeedbackAdmin } from '../feedback';
 import { handlePrivacy } from '../privacy';
+import { audit, handleAuditAdmin } from '../audit';
 import { handleAnalytics, handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
@@ -208,7 +209,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     origin: api.origin,
     botUsername: api.botUsername,
     brand: async () => (await publicSettings(env)).name || 'Kavox',
-    isAdmin: path.startsWith('/api/admin/') && isAdmin(request, env),
+    isAdmin: path.startsWith('/api/admin/') && (await isAdmin(request, env)),
   });
   if (accounts) return accounts;
 
@@ -287,9 +288,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   }
   // Reports, hidden comments, removed videos and blocked accounts (admin).
   if (path === '/api/admin/moderation') {
-    if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const moderation = await handleModeration(request, env, path, api.origin);
     if (moderation) return moderation;
+  }
+  // The audit log (admin).
+  if (path === '/api/admin/audit') {
+    if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    const log = await handleAuditAdmin(request, env, path);
+    if (log) return log;
   }
   // PDPL rights: download my data, delete my account, correct my name.
   if (path === '/api/me/export' || path === '/api/me/delete' || path === '/api/me/name') {
@@ -302,7 +309,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (sent) return sent;
   }
   if (path === '/api/admin/feedback') {
-    if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const feedback = await handleFeedbackAdmin(request, env, path);
     if (feedback) return feedback;
   }
@@ -348,7 +355,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   }
   // What KAVOX learned (translation memory from corrections, download methods per site), to review.
   if (path === '/api/admin/memory' || path.startsWith('/api/admin/memory/') || path === '/api/admin/sites' || path === '/api/admin/ratings') {
-    if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const memory = await handleMemoryAdmin(request, env, path);
     if (memory) return memory;
   }
@@ -534,7 +541,35 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
 export async function handleApi(request: Request, env: Env, ctx: ExecutionContext, api: ApiContext): Promise<Response> {
   const cors = corsHeaders(env, request);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-  const res = await route(request, env, ctx, new URL(request.url), api);
+  const url = new URL(request.url);
+  // Audit log: every admin change, an admin opening an account, and a person deleting a video.
+  const path = url.pathname;
+  const adminChange = path.startsWith('/api/admin/') && request.method !== 'GET' && path !== '/api/admin/login';
+  const adminViewsAccount = request.method === 'GET' && /^\/api\/admin\/accounts\/[^/]+$/.test(path);
+  const videoDeleted = request.method === 'DELETE' && path.startsWith('/api/shares/');
+  const summary = adminChange ? auditSummary(await request.clone().json().catch(() => null)) : null;
+  const res = await route(request, env, ctx, url, api);
+  if (res.ok && (adminChange || adminViewsAccount || videoDeleted)) {
+    const conn = await connectionKey(env.SHARED_SECRET, request);
+    const entry = adminChange
+      ? { actor: 'admin', action: `admin.${request.method.toLowerCase()}`, target: path, detail: summary, conn }
+      : adminViewsAccount
+        ? { actor: 'admin', action: 'admin.view_account', target: path.split('/').pop()!, conn }
+        : { actor: 'user', action: 'video.delete', target: path.split('/')[3] ?? null, conn };
+    ctx.waitUntil(audit(env, entry));
+  }
   for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
   return res;
+}
+
+/** What an admin change was about, for the audit log: ids and actions, never logos or long texts. */
+function auditSummary(body: unknown): Record<string, unknown> | null {
+  if (!body || typeof body !== 'object') return null;
+  const keep = ['action', 'id', 'ids', 'kind', 'target', 'account_id', 'bucket', 'seconds', 'days', 'status', 'reason'];
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+    if (keep.includes(k)) out[k] = Array.isArray(v) ? v.slice(0, 50) : typeof v === 'string' ? v.slice(0, 200) : v;
+    else out[k] = '(changed)';
+  }
+  return out;
 }

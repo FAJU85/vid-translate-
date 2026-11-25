@@ -510,6 +510,23 @@ People can tell you what to improve, and you read it all in one place.
 - The contact address shown in both documents is the takedown email set on `/admin`.
 - These documents are a careful starting point, not legal advice: have them reviewed.
 
+## Security
+
+See [SECURITY.md](SECURITY.md) for what is in place, and
+[docs/INCIDENT-RESPONSE.md](docs/INCIDENT-RESPONSE.md) for what to do after a data breach
+(SDAIA within 72 hours).
+
+- **Two-step sign-in for /admin** (strongly recommended): run `node scripts/admin-2fa-secret.mjs`,
+  add the secret it prints to an authenticator app, then `npx wrangler secret put ADMIN_TOTP_SECRET`.
+  From then on `/admin` asks for the password and the app's 6-digit code. The page keeps a
+  12-hour sign-in token, never the password, and blocks a connection after 8 failures in 15
+  minutes. Until the secret is set, `/admin` shows a reminder.
+- **Audit log** (`/admin` → Audit): admin sign-ins (failed ones too), every admin change, an
+  admin opening an account, and people downloading or deleting their data or videos. Kept a year.
+- **Headers:** HTTPS only (HTTP is redirected; HSTS), no framing, no MIME sniffing, a strict
+  referrer, and no camera, microphone or location, on the Worker's answers and on the website's
+  files (`web/public/_headers`).
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

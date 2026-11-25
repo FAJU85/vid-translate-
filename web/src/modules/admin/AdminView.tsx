@@ -1,31 +1,36 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, Settings, ShieldAlert, Users } from 'lucide-react';
+import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, ScrollText, Settings, ShieldAlert, Users } from 'lucide-react';
 import { ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
 import { AccountsPanel } from './AccountsPanel';
 import { FeedbackPanel } from './FeedbackPanel';
+import { AuditPanel } from './AuditPanel';
 import { InsightsPanel } from './InsightsPanel';
 import { LearningPanel } from './LearningPanel';
 import { ModerationPanel } from './ModerationPanel';
 import { SettingsPanel } from './SettingsPanel';
 
-const PASSWORD_KEY = 'tarjim_admin_password';
+const TOKEN_KEY = 'kavox_admin_token';
 
-type Workspace = 'jobs' | 'accounts' | 'moderation' | 'feedback' | 'insights' | 'learning' | 'settings';
+type Workspace = 'jobs' | 'accounts' | 'moderation' | 'feedback' | 'audit' | 'insights' | 'learning' | 'settings';
 const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
   { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
   { id: 'accounts', label: 'Accounts', icon: Users },
   { id: 'moderation', label: 'Reports', icon: ShieldAlert },
   { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart },
+  { id: 'audit', label: 'Audit', icon: ScrollText },
   { id: 'insights', label: 'Insights', icon: BarChart3 },
   { id: 'learning', label: 'Learning', icon: BookOpenCheck },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-function readPassword(): string {
+/** The sign-in token from /api/admin/login (12 hours), kept for this browser tab only. */
+function readToken(): string {
   try {
-    return sessionStorage.getItem(PASSWORD_KEY) ?? '';
+    const raw = sessionStorage.getItem(TOKEN_KEY) ?? '';
+    const exp = Number(raw.split('.')[1] ?? 0);
+    return exp * 1000 > Date.now() ? raw : '';
   } catch {
     return '';
   }
@@ -33,12 +38,27 @@ function readPassword(): string {
 
 const workspaceFromHash = (): Workspace => {
   const hash = window.location.hash.slice(1);
-  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' ? hash : 'jobs';
+  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' || hash === 'audit' ? hash : 'jobs';
 };
 
-/** The /admin dashboard: sign in with ADMIN_PASSWORD, then the jobs board and the settings. */
+/**
+ * The /admin dashboard: sign in with ADMIN_PASSWORD (and, when two-step sign-in is on, the
+ * authenticator app's code), then the workspaces. The password is never kept: only a sign-in
+ * token that ends after 12 hours.
+ */
 export function AdminView() {
-  const [password, setPassword] = useState(readPassword);
+  const [token, setToken] = useState(readToken);
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [needsCode, setNeedsCode] = useState(false);
+  // Two-step sign-in is off (no ADMIN_TOTP_SECRET): say so until it is set.
+  const [singleStep, setSingleStep] = useState(() => {
+    try {
+      return sessionStorage.getItem(TOKEN_KEY + ':1step') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [unlocked, setUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,34 +74,41 @@ export function AdminView() {
     setBusy(true);
     setError(null);
     try {
-      await adminApi.login(password);
+      const r = await adminApi.login(password, code);
+      setToken(r.token);
+      setSingleStep(!r.two_factor);
+      setPassword('');
+      setCode('');
       setUnlocked(true);
       try {
-        sessionStorage.setItem(PASSWORD_KEY, password); // only for this browser tab
+        sessionStorage.setItem(TOKEN_KEY, r.token); // only for this browser tab
+        sessionStorage.setItem(TOKEN_KEY + ':1step', r.two_factor ? '0' : '1');
+        sessionStorage.removeItem('tarjim_admin_password'); // kept by older versions
       } catch {
         /* private mode: just ask again next time */
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not sign in.');
+      if (err instanceof ApiError && (err.code === 'E_2FA_REQUIRED' || err.code === 'E_2FA_WRONG')) setNeedsCode(true);
+      setError(err instanceof ApiError && err.code !== 'E_2FA_REQUIRED' ? err.message : err instanceof ApiError ? null : 'Could not sign in.');
     } finally {
       setBusy(false);
     }
   }
 
-  // Signed in earlier in this tab: go straight in.
+  // Signed in earlier in this tab (and the sign-in has not ended): go straight in.
   useEffect(() => {
     api.config().then((c) => applySiteSettings(c.site), () => {});
-    if (password) signIn();
+    if (token) adminApi.stats(token).then(() => setUnlocked(true), () => signOut());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function signOut() {
     try {
-      sessionStorage.removeItem(PASSWORD_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
     } catch {
       /* nothing stored */
     }
-    setPassword('');
+    setToken('');
     setUnlocked(false);
   }
 
@@ -102,8 +129,23 @@ export function AdminView() {
               className="w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
           </label>
+          {needsCode && (
+            <label className="block">
+              <span className="block text-sm font-medium text-slate-200 mb-1.5">Code from your authenticator app</span>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9 ]{6,7}"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoFocus
+                placeholder="123 456"
+                className="w-full px-3 py-2.5 text-lg tracking-widest bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </label>
+          )}
           {error && <p className="p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">{error}</p>}
-          <button disabled={busy || !password} className="w-full py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-bold">
+          <button disabled={busy || !password || (needsCode && code.replace(/\s/g, '').length !== 6)} className="w-full py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-bold">
             {busy ? <Loader2 className="inline w-4 h-4 animate-spin" /> : 'Sign in'}
           </button>
         </form>
@@ -148,34 +190,45 @@ export function AdminView() {
         </button>
       </nav>
 
-      <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
+      <main className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col">
+        {singleStep && (
+          <p className="shrink-0 px-4 py-2 text-xs bg-amber-400/15 text-amber-200 border-b border-amber-400/30">
+            Two-step sign-in is off. Turn it on: run <code>node scripts/admin-2fa-secret.mjs</code>, add the secret to your authenticator app, then <code>npx wrangler secret put ADMIN_TOTP_SECRET</code>.
+          </p>
+        )}
+        <div className="flex-1 min-h-0">
         {workspace === 'jobs' ? (
-          <JobsWorkspace password={password} onSettings={() => setWorkspace('settings')} />
+          <JobsWorkspace password={token} onSettings={() => setWorkspace('settings')} />
         ) : workspace === 'accounts' ? (
           <div className="h-full overflow-y-auto">
-            <AccountsPanel password={password} />
+            <AccountsPanel password={token} />
           </div>
         ) : workspace === 'moderation' ? (
           <div className="h-full overflow-y-auto">
-            <ModerationPanel password={password} />
+            <ModerationPanel password={token} />
           </div>
         ) : workspace === 'feedback' ? (
           <div className="h-full overflow-y-auto">
-            <FeedbackPanel password={password} />
+            <FeedbackPanel password={token} />
+          </div>
+        ) : workspace === 'audit' ? (
+          <div className="h-full overflow-y-auto">
+            <AuditPanel password={token} />
           </div>
         ) : workspace === 'learning' ? (
           <div className="h-full overflow-y-auto">
-            <LearningPanel password={password} />
+            <LearningPanel password={token} />
           </div>
         ) : workspace === 'insights' ? (
           <div className="h-full overflow-y-auto">
-            <InsightsPanel password={password} />
+            <InsightsPanel password={token} />
           </div>
         ) : (
           <div className="h-full overflow-y-auto">
-            <SettingsPanel password={password} />
+            <SettingsPanel password={token} />
           </div>
         )}
+        </div>
       </main>
     </div>
   );

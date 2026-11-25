@@ -11,6 +11,12 @@ export interface Env {
   TELEGRAM_API_BASE?: string;
   /** Password for the website's /admin page (at least 8 characters). Unset: the page stays locked. */
   ADMIN_PASSWORD?: string;
+  /**
+   * Two-step sign-in for /admin: a base32 secret shared with an authenticator app (Google
+   * Authenticator, 1Password, Authy…). Set: signing in needs the password and the app's 6-digit
+   * code. Make one with `node scripts/admin-2fa-secret.mjs`.
+   */
+  ADMIN_TOTP_SECRET?: string;
   /** Public origin of this Worker, if it differs from the request origin. */
   PUBLIC_URL?: string;
   /** Comma-separated origins allowed to call /api (the Pages site). Default: any. */

@@ -1,6 +1,7 @@
-import { hmacHex, safeEqual } from '../../shared/crypto';
+import { hmacHex } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
+import { isAdmin } from './admin-auth';
 import { LOGO_SIZE, TEXT_FIELDS, readSettings, writeSettings, type Settings } from './store';
 
 const MAX_LOGO_BYTES = 256 * 1024;
@@ -38,13 +39,6 @@ export async function publicOrigin(env: Env, fallback: string): Promise<string> 
   return settings.public_domain ? `https://${settings.public_domain}` : fallback.replace(/\/$/, '');
 }
 
-/** True when the request carries the admin password (Authorization: Bearer <ADMIN_PASSWORD>). */
-export function isAdmin(request: Request, env: Env): boolean {
-  const password = env.ADMIN_PASSWORD ?? '';
-  if (password.length < 8) return false; // unset or too short: the admin page stays locked
-  return safeEqual(request.headers.get('Authorization') ?? '', `Bearer ${password}`);
-}
-
 /** What the website needs: the saved values, with the logo as a URL instead of its bytes. */
 export async function publicSettings(env: Env): Promise<Omit<Settings, 'logo' | 'welcome_en' | 'welcome_ar'> & { logo_url: string }> {
   const { settings, updatedAt } = await readSettings(env);
@@ -58,15 +52,9 @@ export async function welcomeOverride(env: Env, ui: 'en' | 'ar'): Promise<string
   return ui === 'ar' ? settings.welcome_ar : settings.welcome_en;
 }
 
-/** POST /api/admin/login: lets the admin page check the password before showing the form. */
-export function handleAdminLogin(request: Request, env: Env): Response {
-  if (!env.ADMIN_PASSWORD) return apiError(503, 'E_ADMIN_DISABLED', 'Set the ADMIN_PASSWORD secret to enable this page.');
-  return isAdmin(request, env) ? json({ ok: true }) : apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
-}
-
 /** GET returns every saved value (welcome messages included); POST saves the fields sent. */
 export async function handleAdminSettings(request: Request, env: Env): Promise<Response> {
-  if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
+  if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
   if (request.method === 'GET') {
     const { settings } = await readSettings(env);
     const { logo, ...rest } = settings;
