@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Loader2, Send, Trash2, X } from 'lucide-react';
 import { ApiError, REPORT_REASONS, socialApi, type Comment, type ReportKind, type ReportReason } from '../../shared/api';
 import { formatDate, t } from '../../shared/i18n';
@@ -198,15 +198,22 @@ export function ReportSheet({ kind, target, onClose }: { kind: ReportKind; targe
 
 /** Share a video: WhatsApp, X, Telegram, copy the link, or the phone's share sheet. */
 export function ShareSheet({ url, text, onClose }: { url: string; text: string; onClose: () => void }) {
+  // Focus moves into the sheet when it opens and back to what opened it when it closes.
+  const close = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    close.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
   return (
     <div className={panel} role="dialog" aria-label={t("Share")} onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
         <span className="font-semibold text-sm">{t("Share")}</span>
-        <button onClick={onClose} aria-label={t("Close")} className="p-1 text-slate-400 hover:text-white">
+        <button ref={close} onClick={onClose} aria-label={t("Close")} className="p-1 text-slate-400 hover:text-white">
           <X className="w-5 h-5" />
         </button>
       </div>
-      <div className="p-4 pb-6">
+      <div className="p-4 pb-6 min-h-0 overflow-y-auto">
         <ShareButtons url={url} text={text} />
       </div>
     </div>

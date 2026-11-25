@@ -7,9 +7,9 @@ export function shareTargets(url: string, text: string) {
   const u = encodeURIComponent(url);
   const both = encodeURIComponent(`${text} ${url}`);
   return [
-    { id: 'whatsapp', name: 'WhatsApp', href: `https://wa.me/?text=${both}`, tone: 'bg-[#25D366] text-white' },
+    { id: 'whatsapp', name: 'WhatsApp', href: `https://wa.me/?text=${both}`, tone: 'bg-[#25D366] text-[#06210F]' },
     { id: 'x', name: 'X', href: `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${u}`, tone: 'bg-black text-white ring-1 ring-slate-600' },
-    { id: 'telegram', name: 'Telegram', href: `https://t.me/share/url?url=${u}&text=${encodeURIComponent(text)}`, tone: 'bg-[#229ED9] text-white' },
+    { id: 'telegram', name: 'Telegram', href: `https://t.me/share/url?url=${u}&text=${encodeURIComponent(text)}`, tone: 'bg-[#229ED9] text-[#04192A]' },
   ] as const;
 }
 

@@ -113,4 +113,4 @@ export const shareCss = `
   .kx-share { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .kx-share a { padding: 7px 12px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; color: #fff; }
   .kx-share a:hover { filter: brightness(1.1); }
-  .kx-share-wa { background: #25D366; } .kx-share-x { background: #000; box-shadow: inset 0 0 0 1px #2E3D63; } .kx-share-tg { background: #229ED9; }`;
+  .kx-share-wa { background: #25D366; color: #06210F; } .kx-share-x { background: #000; box-shadow: inset 0 0 0 1px #2E3D63; } .kx-share-tg { background: #229ED9; color: #04192A; }`;
