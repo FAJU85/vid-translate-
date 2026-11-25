@@ -277,7 +277,7 @@ export function FeedView({ config, signedIn, onSignIn }: { config: AppConfig | n
         </button>
       </div>
       {discover && <Discover tag={tag} onTag={openTag} />}
-      <div className={`${discover ? 'hidden' : ''} mx-auto w-full sm:max-w-md h-[calc(100dvh-8.5rem)] overflow-y-auto snap-y snap-mandatory [overflow-anchor:none] sm:rounded-2xl bg-black`}>
+      <div className={`${discover ? 'hidden' : ''} mx-auto w-full sm:max-w-md h-[calc(100dvh-11rem-env(safe-area-inset-bottom))] sm:h-[calc(100dvh-8.5rem)] overflow-y-auto snap-y snap-mandatory [overflow-anchor:none] sm:rounded-2xl bg-black`}>
         {items.map((item) => (
           <FeedCard
             key={item.id}

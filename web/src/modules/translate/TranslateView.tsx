@@ -50,6 +50,8 @@ interface Props {
   config: AppConfig | null;
   /** Opens the feed (from the "watch translated videos" link). */
   onFeed?: () => void;
+  /** A video link shared to the installed app: filled in, ready to translate. */
+  initialLink?: string | null;
   jobId: string | null;
   onJob: (id: string | null) => void;
   /** A job was submitted (credits may have been set aside): refresh the balance shown. */
@@ -65,10 +67,10 @@ interface Props {
 // Refusals the website answers with an offer: more credits, or signing in for free ones.
 const CREDIT_ERRORS = new Set(['E_NO_CREDITS', 'E_FREE_LIMIT', 'E_DUB_PAID']);
 
-export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, onFeed, resume = 0 }: Props) {
+export function TranslateView({ config, jobId, onJob, onCreditsChanged, me, onPricing, onSignIn, onFeed, initialLink, resume = 0 }: Props) {
   const [dragging, setDragging] = useState(false);
   const [source, setSource] = useState<'url' | 'upload'>('url');
-  const [videoUrl, setVideoUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState(initialLink ?? '');
   // A site whose downloads have been failing lately (learned from every download): said before starting.
   const [troubleHost, setTroubleHost] = useState<string | null>(null);
   useEffect(() => {
