@@ -6,6 +6,7 @@ import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
 import { AccountButton, AccountDialog } from '../modules/account';
 import { NotificationBell } from '../modules/notifications';
+import { InstallButton } from './InstallButton';
 import { accountApi, api, type AppConfig, type Me } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
@@ -42,7 +43,12 @@ function Site() {
   // ?tab=pricing opens the prices (links from the bot).
   const [tab, setTab] = useState<NavTab>(() => {
     const asked = new URLSearchParams(window.location.search).get('tab');
-    return asked === 'pricing' || asked === 'dashboard' || asked === 'feed' ? asked : 'translate';
+    return asked === 'pricing' || asked === 'dashboard' || asked === 'feed' || asked === 'telegram' ? asked : 'translate';
+  });
+  // Shared to the installed app from another app (Android share sheet): the video link it carries.
+  const [sharedLink] = useState<string | null>(() => {
+    const q = new URLSearchParams(window.location.search);
+    return [q.get('link'), q.get('text'), q.get('title')].map((v) => v?.match(/https?:\/\/\S+/)?.[0]).find(Boolean) ?? null;
   });
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -65,8 +71,9 @@ function Site() {
   useEffect(() => {
     refreshMe();
     const url = new URL(window.location.href);
-    if (url.searchParams.has('signin') || url.searchParams.has('paid') || url.searchParams.has('tab')) {
-      ['signin', 'paid', 'tab'].forEach((k) => url.searchParams.delete(k));
+    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source'];
+    if (once.some((k) => url.searchParams.has(k))) {
+      once.forEach((k) => url.searchParams.delete(k));
       window.history.replaceState(null, '', url);
     }
   }, []);
@@ -117,6 +124,7 @@ function Site() {
     <div className="min-h-screen flex flex-col selection:bg-amber-400 selection:text-slate-950">
       <Header tab={tab} onTab={setTab} showPricing={Boolean(me?.credits_enabled)} account={
           <>
+          <InstallButton />
           {me?.account && <NotificationBell key={me.account.id} />}
           <AccountButton
             me={me}
@@ -138,7 +146,7 @@ function Site() {
           }}
         />
       )}
-      <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-8">
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-8 pb-24 sm:pb-8">
         {paidTab && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">
             Payment received, thank you! Your credits are added in a few seconds. If you started a translation in another
@@ -172,6 +180,7 @@ function Site() {
             onPricing={() => setTab('pricing')}
             onSignIn={() => setAccountOpen(true)}
             onFeed={() => setTab('feed')}
+            initialLink={sharedLink}
             resume={resume}
           />
         </div>
@@ -194,7 +203,7 @@ function Site() {
           <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} onPaymentStarted={() => setAwaitingSince(Date.now())} />
         )}
       </main>
-      <footer className={`${tab === 'feed' ? 'hidden sm:block ' : ''}border-t border-slate-900 py-5 px-4 text-center text-xs text-slate-500`}>
+      <footer className={`${tab === 'feed' ? 'hidden sm:block ' : ''}border-t border-slate-900 pt-5 pb-24 sm:pb-5 px-4 text-center text-xs text-slate-500`}>
         {SITE.brand.footer} ·{' '}
         <a href="/terms" className="hover:text-slate-300 underline-offset-2 hover:underline">
           Terms

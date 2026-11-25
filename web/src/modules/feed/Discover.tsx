@@ -137,7 +137,7 @@ export function Discover({ tag, onTag }: { tag: string | null; onTag: (tag: stri
 
   const searching = Boolean(wanted) && !tag;
   return (
-    <div className="mx-auto w-full sm:max-w-md px-3 py-3 space-y-5 min-h-[calc(100dvh-8.5rem)]">
+    <div className="mx-auto w-full sm:max-w-md px-3 py-3 space-y-5 min-h-[calc(100dvh-11rem)] sm:min-h-[calc(100dvh-8.5rem)]">
       <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 focus-within:border-amber-400/60">
         <Search className="w-4 h-4 text-slate-400 shrink-0" />
         <input

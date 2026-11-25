@@ -431,6 +431,26 @@ languages, videos per day for two weeks, by kind), the video ending setting, and
 its thumbnail, share link (copy, open, delete) and, for a day, its files and subtitle editor. It
 replaces the old "My translations" list. API: `GET /api/dashboard?client_id=…`.
 
+## App (PWA) and screen sizes
+
+KAVOX can be installed as an app, from the same website, at no cost and with no app store:
+
+- **Android, Chrome, Edge:** the **Install app** button in the header (or the browser's menu).
+- **iPhone and iPad (Safari):** the same button shows the two steps: Share → Add to Home Screen.
+
+Installed, it opens full screen with the KAVOX icon, has shortcuts (Translate, Feed, My videos) on
+a long press of the icon, and on Android appears in the **share sheet**: sharing a video link from
+TikTok, Facebook or Instagram to KAVOX opens it with the link filled in, ready to translate.
+
+How: `web/public/manifest.webmanifest` (name, colours, icons in `web/public/assets/icons/`, made
+from the logo), and `web/public/sw.js`, a small service worker that keeps the app's own files
+(named after their content, so never stale), always fetches pages fresh, and shows the last home
+page or an offline page without a connection. The API, videos and files are never cached.
+
+Every page fits from a 320 px phone to a wide desktop. On phones the main tabs are a bar at the
+bottom (Translate, Feed, Mine, Bot), in reach of the thumb; the admin's workspace strip scrolls
+sideways on phones.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

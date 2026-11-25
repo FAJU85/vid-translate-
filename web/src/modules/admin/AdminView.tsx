@@ -114,7 +114,7 @@ export function AdminView() {
       {/* Slim persistent sidebar (a top strip on phones). */}
       <nav
         aria-label="Workspaces"
-        className="shrink-0 flex md:flex-col items-center gap-1 px-2 py-2 md:py-3 md:w-16 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950"
+        className="shrink-0 flex md:flex-col items-center gap-1 px-2 py-2 md:py-3 md:w-16 overflow-x-auto md:overflow-visible [scrollbar-width:none] border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950"
       >
         <a href="/" title={`${SITE.brand.name}: open the website`} className="w-9 h-9 md:mb-3 rounded-xl flex items-center justify-center overflow-hidden">
           {SITE.brand.logo ? (
@@ -129,7 +129,7 @@ export function AdminView() {
             onClick={() => setWorkspace(w.id)}
             aria-current={workspace === w.id ? 'page' : undefined}
             title={w.label}
-            className={`flex md:flex-col items-center gap-1.5 md:gap-0.5 px-3 md:px-0 md:w-12 h-9 md:h-12 justify-center rounded-xl text-xs ${
+            className={`shrink-0 flex md:flex-col items-center gap-1.5 md:gap-0.5 px-3 md:px-0 md:w-12 h-9 md:h-12 justify-center rounded-xl text-xs ${
               workspace === w.id ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >

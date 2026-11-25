@@ -22,6 +22,9 @@ export const DEFAULT_LOGO = '/assets/kavox-logo.svg';
 
 /** Fonts and tab icon, for the <head>. */
 export const headLinks = (logo = DEFAULT_LOGO) => `<link rel="icon" href="${logo}">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="theme-color" content="${PALETTE.navy}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">`;
