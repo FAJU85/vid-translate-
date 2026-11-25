@@ -27,6 +27,8 @@ export const FIELDS = {
   GOOGLE_CLIENT_SECRET: { secret: true },
   STRIPE_SECRET_KEY: { secret: true },
   STRIPE_WEBHOOK_SECRET: { secret: true },
+  /** Google Search Console's verification file name (google….html), served at /<name>.html. */
+  GOOGLE_SITE_VERIFICATION: { secret: false },
   ADMIN_TOTP_SECRET: { secret: true },
   /** A two-step secret being set up: it becomes ADMIN_TOTP_SECRET once a code from it is confirmed. */
   ADMIN_TOTP_PENDING: { secret: true },

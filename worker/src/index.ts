@@ -92,7 +92,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   // The privacy policy (/privacy).
   if (path === '/privacy') return (await handlePrivacyPage(request, env, path)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // For search engines: what may be crawled, and every posted video and profile.
-  if (path === '/robots.txt' || path === '/sitemap.xml') return (await handleSeo(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
+  if (path === '/robots.txt' || path === '/sitemap.xml' || /^\/google[0-9a-z]+\.html$/.test(path)) return (await handleSeo(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // A creator's profile (/@handle).
   if (PROFILE_PATH.test(path)) return (await handleProfilePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
 

@@ -33,6 +33,8 @@ export interface Env {
   EMAIL_FROM?: string;
   /** Google sign-in: an OAuth client (Google Cloud console → APIs & Services → Credentials). */
   GOOGLE_CLIENT_ID?: string;
+  /** Google Search Console's verification file name (google….html, without .html). */
+  GOOGLE_SITE_VERIFICATION?: string;
   GOOGLE_CLIENT_SECRET?: string;
   /** Card payments on the website (Stripe): the secret key and the webhook's signing secret. */
   STRIPE_SECRET_KEY?: string;

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import qrcode from 'qrcode-generator';
-import { Bot, Check, Coins, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Activity, Bot, Check, Coins, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { ApiError, adminApi, type AdminFeatures } from '../../shared/api';
 
 const input = 'w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400';
@@ -68,6 +68,100 @@ function Copyable({ value }: { value: string }) {
   );
 }
 
+/** This project's GitHub repository (public): its security settings and Actions secrets live there. */
+const REPO = 'FAJU85/vid-translate-';
+
+/** Is GitHub's private vulnerability reporting on? Read from GitHub's public API (no key needed). */
+function SecurityReportsCard() {
+  const [on, setOn] = useState<boolean | null | 'error'>(null);
+  const check = () => {
+    setOn(null);
+    fetch(`https://api.github.com/repos/${REPO}/private-vulnerability-reporting`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((r: { enabled?: boolean }) => setOn(Boolean(r.enabled)))
+      .catch(() => setOn('error'));
+  };
+  useEffect(check, []);
+  return (
+    <Card
+      icon={ShieldAlert}
+      title="Private security reports (GitHub)"
+      status={on === null ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : <Chip on={on === true} label={on === 'error' ? 'Could not check' : on ? 'On' : 'Off'} />}
+    >
+      <p className="text-sm text-slate-400">
+        Gives people a private way to tell you about a security problem (SECURITY.md points to it). On GitHub, open the repository's Settings → Code
+        security → <b>Private vulnerability reporting</b> → Enable. Then check again here.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <a href={`https://github.com/${REPO}/settings/security_analysis`} target="_blank" rel="noreferrer" className={primary}>
+          Open GitHub settings
+        </a>
+        <button className={quiet} onClick={check}>
+          <RefreshCw className="w-4 h-4" /> Check again
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+/** The live system right now, and how to fix the automatic log collection (a GitHub workflow). */
+function LogsCard() {
+  const [health, setHealth] = useState<{ worker: boolean; backend: boolean } | null>(null);
+  const check = () => {
+    setHealth(null);
+    fetch('/api/health')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((r: { backend?: unknown }) => setHealth({ worker: true, backend: Boolean(r.backend) }))
+      .catch(() => setHealth({ worker: false, backend: false }));
+  };
+  useEffect(check, []);
+  return (
+    <Card
+      icon={Activity}
+      title="System health and logs"
+      status={health === null ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : <Chip on={health.worker && health.backend} label={health.worker && health.backend ? 'All running' : 'Needs a look'} />}
+    >
+      {health && (
+        <ul className="text-sm text-slate-300 space-y-1">
+          <li>Website and API (Cloudflare Worker): {health.worker ? 'running' : 'not answering'}</li>
+          <li>Video engine (Hugging Face Space): {health.backend ? 'running' : 'not answering (it may be waking up: check again in a minute)'}</li>
+        </ul>
+      )}
+      <button className={quiet} onClick={check}>
+        <RefreshCw className="w-4 h-4" /> Check again
+      </button>
+      <div className="text-sm text-slate-400 space-y-1 pt-2 border-t border-slate-800">
+        <p>
+          The <b>Logs</b> workflow on GitHub collects the full logs after each deploy. It needs a working Cloudflare token (GitHub keeps it, so it is
+          replaced there, never here):
+        </p>
+        <ol className="list-decimal ps-5 space-y-1">
+          <li>
+            In Cloudflare, open My Profile → API Tokens → <b>Create Token</b> → Custom token, with these Account permissions, all <b>Read</b>: Workers
+            Scripts, Workers Tail, D1, Workers Builds Configuration.
+          </li>
+          <li>
+            On GitHub, open the repository's Actions secrets, edit <b>CLOUDFLARE_API_TOKEN</b> and paste the new token (check that CLOUDFLARE_ACCOUNT_ID is
+            there too).
+          </li>
+          <li>Run the Logs workflow once to see it work.</li>
+        </ol>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noreferrer" className={quiet}>
+          1. Cloudflare tokens
+        </a>
+        <a href={`https://github.com/${REPO}/settings/secrets/actions`} target="_blank" rel="noreferrer" className={quiet}>
+          2. GitHub secrets
+        </a>
+        <a href={`https://github.com/${REPO}/actions/workflows/logs.yml`} target="_blank" rel="noreferrer" className={quiet}>
+          3. Run the Logs workflow
+        </a>
+      </div>
+    </Card>
+  );
+}
+
 /**
  * Features workspace: every feature that used to need the command line, ready to switch on with a
  * click (and the keys it needs pasted here, kept encrypted). Values set on the server win.
@@ -82,6 +176,7 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
   const [limits, setLimits] = useState({ jobs: '', mb: '' });
   const [emailFrom, setEmailFrom] = useState('');
   const [clientId, setClientId] = useState('');
+  const [verification, setVerification] = useState('');
 
   const load = () =>
     adminApi
@@ -91,6 +186,7 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
         setLimits({ jobs: String(r.limits.max_jobs_per_hour), mb: String(r.limits.max_upload_mb) });
         setEmailFrom(r.email.from);
         setClientId(r.google.client_id);
+        setVerification(r.search.verification);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the features.'));
   useEffect(() => {
@@ -138,13 +234,63 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
         <h1 className="text-lg font-bold text-white">Features</h1>
         <p className="text-sm text-slate-400">Everything is ready: switch a feature on when you want it. Keys pasted here are stored encrypted and never shown again.</p>
       </div>
+      {error && <p className="p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">{error}</p>}
+      {note && <p className="p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">{note}</p>}
+      <h2 className="pt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Launch</h2>
+      <Card icon={Search} title="Google Search Console" status={<Chip on={Boolean(f.search.verification)} label={f.search.verification ? 'Check file ready' : 'Not set'} />}>
+        {!f.domain.public_domain && (
+          <p className="p-2 text-xs rounded-lg border border-amber-700 bg-amber-950/50 text-amber-100">
+            Set your own domain in Settings first: Google ties the site to its address, so add it once that address is final.
+          </p>
+        )}
+        <ol className="list-decimal ps-5 text-sm text-slate-400 space-y-1">
+          <li>
+            In{' '}
+            <a href="https://search.google.com/search-console/welcome" target="_blank" rel="noreferrer" className="text-amber-300 underline">
+              Search Console
+            </a>
+            , add a property → <b>URL prefix</b> → this address:
+          </li>
+        </ol>
+        <Copyable value={f.search.site} />
+        <ol start={2} className="list-decimal ps-5 text-sm text-slate-400 space-y-1">
+          <li>
+            Choose the <b>HTML file</b> check, copy the file's name (like google1a2b3c4d5e6f7a8b.html), paste it here and save. There's no need to upload anything: this
+            site serves the file itself.
+          </li>
+        </ol>
+        {locked('GOOGLE_SITE_VERIFICATION') ? (
+          <ServerNote />
+        ) : (
+          <div className="flex gap-2">
+            <input value={verification} onChange={(e) => setVerification(e.target.value)} placeholder="google1a2b3c4d5e6f7a8b.html" className={input} dir="ltr" />
+            <button className={quiet} disabled={busy !== null || verification === f.search.verification} onClick={() => set('GOOGLE_SITE_VERIFICATION', verification)}>
+              Save
+            </button>
+          </div>
+        )}
+        {f.search.file_url && (
+          <a href={f.search.file_url} target="_blank" rel="noreferrer" className="text-xs text-amber-300 underline">
+            Open the check file
+          </a>
+        )}
+        <ol start={3} className="list-decimal ps-5 text-sm text-slate-400 space-y-1">
+          <li>Press <b>Verify</b> in Google.</li>
+          <li>
+            Open <b>Sitemaps</b>, paste this address and press Submit. Google then reads it again by itself as new videos and profiles are posted:
+          </li>
+        </ol>
+        <Copyable value={f.search.sitemap} />
+      </Card>
+      <SecurityReportsCard />
+      <LogsCard />
+
+      <h2 className="pt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Features</h2>
       {f.unreadable.length > 0 && (
         <p className="p-3 text-sm rounded-xl border border-amber-700 bg-amber-950/50 text-amber-100">
           These saved keys cannot be read any more (the server's SHARED_SECRET changed): {f.unreadable.join(', ')}. Paste them again below.
         </p>
       )}
-      {error && <p className="p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">{error}</p>}
-      {note && <p className="p-3 text-sm rounded-xl border border-emerald-800 bg-emerald-950/60 text-emerald-200">{note}</p>}
 
       <Card icon={ShieldCheck} title="Two-step sign-in for this page" status={<Chip on={f.two_step.on} label={f.two_step.on ? 'On' : 'Off'} />}>
         <p className="text-sm text-slate-400">Signing in here also needs a 6-digit code from an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password…).</p>
