@@ -43,7 +43,7 @@ def test_wrap_two_lines():
 
 # --- text cleaning and burned-in (ASS) subtitles -------------------------------------------
 
-from app.modules.subtitles import Cue, SubtitleStyle, clean_text, to_ass
+from app.modules.subtitles import Cue, SubtitleStyle, clean_text, to_ass, to_lyrics_ass
 
 
 def test_clean_text_removes_characters_that_render_as_squares():
@@ -62,7 +62,7 @@ def test_style_from_dict_keeps_defaults_for_bad_input():
     assert style.to_dict() == {
         "size": "large", "position": "top", "color": "#FFCC00", "background": "box", "font": "bold", "bilingual": False, "voice": "female", "animation": "none",
         "lines": "translation", "look": "wave", "backdrop": "kavox", "frame": "vertical",
-        "title_card": True, "title": "", "artist": "", "bar": True,
+        "title_card": True, "title": "", "artist": "", "bar": True, "karaoke": True, "translation_at": "top",
     }
     assert SubtitleStyle.from_dict({"bilingual": "yes"}).bilingual is False  # only a real true turns it on
     sound = SubtitleStyle.from_dict({"look": "neon", "backdrop": "cover", "frame": "wide", "lines": "original"})
@@ -76,16 +76,83 @@ def test_title_card_text_is_one_short_line():
     assert style.artist == "" and style.title_card is False and style.bar is False
 
 
-def test_to_ass_title_card_at_the_top_in_each_script():
+def test_lyrics_title_card_at_the_top_in_each_script():
     cues = [Cue(1, 0, 2, "Hello", "مرحبا")]
-    out = to_ass(cues, "ar", SubtitleStyle(), "en", heading=("ليلة {سعيدة}", "The Band"))
+    out = to_lyrics_ass(cues, "en", "ar", SubtitleStyle(), heading=("ليلة {سعيدة}", "The Band"))
     title, artist = [line for line in out.splitlines() if line.startswith(("Style: Title", "Style: Artist"))]
     assert "Noto Sans Arabic" in title and ",8,16,16,14," in title  # top centre, Arabic font for an Arabic title
     assert "Noto Sans," in artist
     events = [line for line in out.splitlines() if line.startswith("Dialogue:")]
     assert events[0].endswith(",Title,,0,0,0,,ليلة (سعيدة)")  # no override blocks from typed text
     assert events[1].endswith(",Artist,,0,0,0,,The Band")
-    assert "Style: Title" not in to_ass(cues, "ar", SubtitleStyle(), "en", heading=("", ""))
+    assert "Style: Title" not in to_lyrics_ass(cues, "en", "ar", SubtitleStyle(), heading=("", ""))
+
+
+def test_lyrics_and_translation_are_independent_captions():
+    """The sung words and the translation are two captions, each in its own place and style:
+    the lyrics lit word by word at the moments they are sung, the translation steady."""
+    sung = [(10.0, 10.4, " Oh"), (10.4, 11.9, " Shenandoah")]  # the second word is held long
+    cues = [Cue(1, 10.0, 12.0, "Oh Shenandoah", "يا شيناندوا", sung)]
+    style = SubtitleStyle(animation="highlight", position="bottom", translation_at="top", color="#FFD400", size="large")
+    out = to_lyrics_ass(cues, "en", "ar", style)
+    default = next(line for line in out.splitlines() if line.startswith("Style: Default"))
+    translation = next(line for line in out.splitlines() if line.startswith("Style: Translation"))
+    assert "Noto Sans," in default and ",2,16,16,22," in default  # the lyrics: their language, at the bottom
+    assert "Noto Sans Arabic" in translation and ",8,16,16,22," in translation  # the translation: its own, at the top
+    events = [line for line in out.splitlines() if line.startswith("Dialogue:")]
+    lyrics = [e for e in events if ",Default," in e]
+    assert [e.split(",")[1:3] for e in lyrics] == [["0:00:10.00", "0:00:10.40"], ["0:00:10.40", "0:00:12.00"]]  # real times
+    assert "\\1c" in lyrics[0] and "يا شيناندوا" not in "".join(lyrics)  # lit, and never mixed with the translation
+    (translated,) = [e for e in events if ",Translation," in e]
+    assert translated.endswith(",Translation,,0,0,0,,يا شيناندوا") and "\\1c" not in translated  # steady
+    # Either one alone.
+    assert ",Translation," not in to_lyrics_ass(cues, "en", "ar", SubtitleStyle(translation_at="off"))
+    only = to_lyrics_ass(cues, "en", "ar", SubtitleStyle(karaoke=False))
+    assert ",Default," not in only and ",Translation," in only
+    # A song already in the chosen language has nothing to translate: one caption.
+    same = to_lyrics_ass([Cue(1, 0, 2, "Oh Shenandoah", "Oh Shenandoah")], "en", "en", SubtitleStyle())
+    assert ",Translation," not in same
+
+
+def _lyric_starts(out: str) -> list[str]:
+    return [e.split(",")[1] for e in out.splitlines() if ",Default," in e]
+
+
+def test_lyrics_timing_follows_characters_in_chinese_and_japanese():
+    """Recognition times each character there; a shown word takes the time of its first one."""
+    spoken = [(0.0, 0.2, "你"), (0.2, 0.4, "好"), (1.5, 1.7, "世"), (1.7, 2.0, "界")]
+    out = to_lyrics_ass([Cue(1, 0.0, 2.0, "你好 世界", "", spoken)], "zh", "en", SubtitleStyle(animation="highlight"))
+    assert _lyric_starts(out) == ["0:00:00.00", "0:00:01.50"]  # not the 1.0 s a share by length gives
+
+
+def test_lyrics_word_times_stay_inside_their_line():
+    """The line's end can be pulled in before its last word starts (the next line starts right
+    away): the last word is then lit at the end instead of after the line is gone."""
+    spoken = [(0.0, 0.3, " Oh"), (0.6, 0.7, " river")]
+    out = to_lyrics_ass([Cue(1, 0.0, 0.57, "Oh river", "x", spoken)], "en", "ar", SubtitleStyle(animation="highlight"))
+    lines = [e for e in out.splitlines() if ",Default," in e]
+    assert all(e.split(",")[2] <= "0:00:00.57" and e.split(",")[1] <= e.split(",")[2] for e in lines)
+
+
+def test_lyrics_and_translation_both_in_the_middle_do_not_overlap():
+    style = SubtitleStyle(position="middle", translation_at="middle")
+    out = to_lyrics_ass([Cue(1, 0, 2, "Oh", "يا")], "en", "ar", style)
+    default = next(line for line in out.splitlines() if line.startswith("Style: Default"))
+    translation = next(line for line in out.splitlines() if line.startswith("Style: Translation"))
+    assert ",8,16,16,148," in default and ",2,16,16,148," in translation  # below and above the centre
+    alone = to_lyrics_ass([Cue(1, 0, 2, "Oh", "يا")], "en", "ar", SubtitleStyle(position="middle", translation_at="middle", karaoke=False))
+    assert ",5,16,16,0," in next(line for line in alone.splitlines() if line.startswith("Style: Translation"))
+
+
+def test_a_line_with_no_original_words_is_shown_once():
+    out = to_lyrics_ass([Cue(1, 0, 2, "", "مرحبا")], "en", "ar", SubtitleStyle())
+    assert sum("مرحبا" in e for e in out.splitlines() if e.startswith("Dialogue:")) == 1
+
+
+def test_edited_lyrics_without_word_times_are_timed_by_length():
+    cues = [Cue(1, 0, 2, "Oh Shenandoah", "x")]  # an edit: no word times kept
+    lyrics = [e for e in to_lyrics_ass(cues, "en", "ar", SubtitleStyle(animation="highlight")).splitlines() if ",Default," in e]
+    assert len(lyrics) == 2 and lyrics[1].split(",")[1] != "0:00:00.40"
 
 
 def test_to_ass_original_lines_put_the_original_first():

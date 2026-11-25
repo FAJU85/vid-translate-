@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass, field
 
 from . import sentences
 
@@ -18,9 +18,13 @@ class Cue:
     end: float
     text: str
     translation: str = ""
+    # When each word of `text` was said or sung: [(start, end, word)], from the recognition (none
+    # after an edit). Lyrics videos light the words at these times. Not saved with the subtitles.
+    words: list | None = field(default=None, compare=False)
 
     def to_json(self) -> dict:
         d = asdict(self)
+        d.pop("words", None)
         d["start"] = round(self.start, 3)
         d["end"] = round(self.end, 3)
         return d
@@ -97,7 +101,7 @@ def sentence_segments(segments: list[tuple]) -> list[tuple]:
     ]
 
 
-def _word_cues(words: list, translated: str, depth: int = 0) -> list[tuple[float, float, str, str]]:
+def _word_cues(words: list, translated: str, depth: int = 0) -> list[tuple[float, float, str, str, list]]:
     """Subtitles for one sentence, timed from its words.
 
     A part that is still longer than two lines after the split (a natural cut at a comma can
@@ -107,13 +111,13 @@ def _word_cues(words: list, translated: str, depth: int = 0) -> list[tuple[float
     pieces = sentences.split_text_like(translated, groups)
     if len(pieces) != len(groups):  # the translation cannot be cut that many times
         groups, pieces = [words], [translated]
-    out: list[tuple[float, float, str, str]] = []
+    out: list[tuple[float, float, str, str, list]] = []
     for group, piece in zip(groups, pieces):
         too_long = len(piece) > MAX_CUE_CHARS or group[-1][1] - group[0][0] > sentences.MAX_CUE_SECONDS
         if too_long and len(group) > 1 and len(sentences.text_tokens(piece)) > 1 and depth < 4:
             out.extend(_word_cues(group, piece, depth + 1))
         else:
-            out.append((group[0][0], group[-1][1], sentences._join(group), piece))
+            out.append((group[0][0], group[-1][1], sentences._join(group), piece, list(group)))
     return out
 
 
@@ -130,9 +134,9 @@ def build_cues(segments: list[tuple], translations: list[str]) -> list[Cue]:
         start, end, text = seg[:3]
         translated = clean_text(translated) or text
         if len(seg) > 3 and seg[3]:
-            for s, e, src, tgt in _word_cues(seg[3], translated):
+            for s, e, src, tgt, group in _word_cues(seg[3], translated):
                 timed.append(len(cues))
-                cues.append(Cue(len(cues) + 1, s, e, src, tgt))
+                cues.append(Cue(len(cues) + 1, s, e, src, tgt, group))
             continue
         duration = end - start
         parts = max(

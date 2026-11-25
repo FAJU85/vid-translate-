@@ -47,6 +47,8 @@ BACKDROPS = ("kavox", "night", "sunset", "forest", "cover")
 FRAMES = ("vertical", "square", "wide")
 # Which text is the main line: the translation, or the original words (a song's own lyrics).
 LINES = ("translation", "original")
+# Lyrics videos: where the translation goes, apart from the sung words (or off).
+TRANSLATION_PLACES = ("top", "middle", "bottom", "off")
 
 _HEX = re.compile(r"^#?([0-9a-fA-F]{6})$")
 # Emoji and pictographs: no font the renderer can use draws them, so they would become squares.
@@ -71,6 +73,8 @@ class SubtitleStyle:
     title: str = ""  # ...written by the person; empty: from the song's own tags
     artist: str = ""
     bar: bool = True  # sound alone: a bar along the bottom fills as it plays
+    karaoke: bool = True  # sound alone: the sung words, lit as they are sung (the lyrics caption)
+    translation_at: str = "top"  # sound alone: the translation's own place (TRANSLATION_PLACES)
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "SubtitleStyle":
@@ -101,6 +105,8 @@ class SubtitleStyle:
             title=_short_text(data.get("title")),
             artist=_short_text(data.get("artist")),
             bar=data.get("bar") is not False,
+            karaoke=data.get("karaoke") is not False,
+            translation_at=pick("translation_at", TRANSLATION_PLACES),
         )
 
     def to_dict(self) -> dict:
@@ -121,6 +127,8 @@ class SubtitleStyle:
             "title": self.title,
             "artist": self.artist,
             "bar": self.bar,
+            "karaoke": self.karaoke,
+            "translation_at": self.translation_at,
         }
 
 
@@ -218,6 +226,27 @@ def _lit_lines(lines: list[list[Token]], lit: int, colour: str) -> str:
     return "\\N".join(out)
 
 
+def _spoken_times(words: list[str], spoken: list, start: float, end: float) -> list[tuple[float, float]] | None:
+    """When each shown word was really said, from the recognition's own units, matched by their
+    letters: a unit can be a whole word or one character (Chinese, Japanese), and a shown word
+    takes the time of the unit its first letter is in. Every time is kept inside the line's
+    [start, end] (its end can be pulled in when the next line starts right away) and in order.
+    None when the letters do not match (an edited line): the time is then shared out by length."""
+    letters = lambda text: "".join(str(text).split())  # noqa: E731
+    if letters("".join(str(w) for _a, _b, w in spoken)) != letters("".join(words)):
+        return None
+    owner: list[int] = []  # for each letter: the unit it belongs to
+    for k, (_a, _b, w) in enumerate(spoken):
+        owner.extend([k] * len(letters(w)))
+    times, pos, last = [], 0, start
+    for word in words:
+        unit = spoken[owner[pos]]
+        t = min(max(float(unit[0]), last, start), end)
+        times.append((t, end))
+        last, pos = t, pos + len(letters(word))
+    return times
+
+
 def _pop_chunks(words: list[Token]) -> list[list[Token]]:
     """A cue's words in groups of at most POP_WORDS words and about POP_CHARS characters."""
     chunks: list[list[str]] = [[]]
@@ -233,12 +262,10 @@ ORIGINAL_SCALE = 0.72  # the original text, in two-language subtitles, is this m
 ORIGINAL_COLOUR = "#E2E8F0"
 
 
-def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_lang: str | None = None,
-           heading: tuple[str, str] | None = None) -> str:
+def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_lang: str | None = None) -> str:
     """Styled subtitles in `lang`; with style.bilingual, the original (in `src_lang`) above them.
     With style.lines "original", the other way round: the original words, the translation beside.
-    `heading`: (title, artist) shown at the top for the whole video (a lyrics video's title card)."""
-    title, artist = (_short_text(heading[0]), _short_text(heading[1])) if heading else ("", "")
+    (A lyrics video, sound alone, uses to_lyrics_ass instead.)"""
     style = style or SubtitleStyle()
     if style.lines == "original":
         # The original words are the main line (and lit word by word); the translation goes beside them.
@@ -272,7 +299,6 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_l
         f"Style: Default,{font},{font_size:g},{primary},{primary},{outline_colour},{back_colour},"
         f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin_v},{encoding}",
         *([_original_style(style, src_lang, border_style, outline, outline_colour, back_colour, margin_v)] if style.bilingual else []),
-        *(_heading_styles(style, title, artist) if title or artist else []),
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -287,12 +313,6 @@ def to_ass(cues: list[Cue], lang: str, style: SubtitleStyle | None = None, src_l
         if original and original != text:
             # Written after the translation: libass stacks a later bottom subtitle above an earlier one.
             events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Original,,0,0,0,,{original}")
-    if title or artist:
-        # Written first: lines at the top are stacked downwards in order (title, artist, then any
-        # lyrics placed at the top too, which move below the card instead of covering it).
-        end = _ass_time(max([c.end for c in cues] + [0]) + 36_000)  # past any video's end
-        events[:0] = [f"Dialogue: 0,0:00:00.00,{end},{name},,0,0,0,,{_ass_text(text)}"
-                      for name, text in (("Title", title), ("Artist", artist)) if text]
     return header + "\n" + "\n".join(events) + "\n"
 
 
@@ -306,10 +326,14 @@ def _original_style(style: SubtitleStyle, src_lang: str | None, border_style, ou
     )
 
 
-def _animated_events(cue: Cue, style: SubtitleStyle) -> list[str]:
+def _animated_events(cue: Cue, style: SubtitleStyle, text: str | None = None, spoken: list | None = None,
+                     name: str = "Default") -> list[str]:
     """Dialogue lines for a cue with dynamic captions: one per spoken word, that word lit in the
-    chosen colour (yellow when the colour is white) and the others white."""
-    clean = _EMOJI.sub("", cue.translation or cue.text)
+    chosen colour (yellow when the colour is white) and the others white.
+
+    `text`: the words shown (the translation by default). `spoken`: when each was really said,
+    [(start, end, word)], used when it matches the words shown; otherwise the time is shared out."""
+    clean = _EMOJI.sub("", text if text is not None else (cue.translation or cue.text))
     lit = _ass_colour(style.color if style.color.upper() != "#FFFFFF" else HIGHLIGHT_FALLBACK)
     if style.animation == "highlight":
         groups = [[line for line in (_tokens(row) for row in _wrap(clean).split("\n")) if line]]
@@ -319,6 +343,8 @@ def _animated_events(cue: Cue, style: SubtitleStyle) -> list[str]:
     if not words:
         return []
     times = word_times(words, cue.start, cue.end)
+    if spoken:
+        times = _spoken_times(words, spoken, cue.start, cue.end) or times
     events, i = [], 0
     for g, lines in enumerate(groups):
         count = sum(len(line) for line in lines)
@@ -329,6 +355,76 @@ def _animated_events(cue: Cue, style: SubtitleStyle) -> list[str]:
             # instead: libass places a line by its first size, so a growing one would overlap it.
             pop = "" if style.animation != "pop" or k else (
                 "{\\fad(120,0)}" if style.bilingual else "{\\fscx85\\fscy85\\t(0,120,\\fscx100\\fscy100)}")
-            events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Default,,0,0,0,,{pop}{_lit_lines(lines, k, lit)}")
+            events.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},{name},,0,0,0,,{pop}{_lit_lines(lines, k, lit)}")
             i += 1
     return events
+
+
+def to_lyrics_ass(cues: list[Cue], src_lang: str | None, tgt_lang: str, style: SubtitleStyle | None = None,
+                  heading: tuple[str, str] | None = None) -> str:
+    """Captions for a lyrics video (sound alone made into a video): two independent captions.
+
+    - Lyrics: the original words in the chosen font, size, colour and place; with word highlight,
+      each word lights up when it is really sung (the recognition's own word times).
+    - Translation: in its own place (style.translation_at), plain and steady, never lit.
+
+    Either can be switched off (style.karaoke, translation_at "off"). `heading`: the title card.
+    """
+    style = style or SubtitleStyle()
+    src = src_lang or tgt_lang
+    title, artist = (_short_text(heading[0]), _short_text(heading[1])) if heading else ("", "")
+    font, bold, scale = FONTS[style.font]["arabic" if src in RTL_LANGS else "latin"]
+    primary = _ass_colour(style.color if style.animation == "none" else "#FFFFFF")
+    if style.background == "box":
+        border_style, outline, back_colour = 4, 0.6, _ass_colour("#000000", 0x60)
+    else:
+        border_style, outline, back_colour = 1, 1.2, "&H80000000"
+    black = _ass_colour("#000000")
+    margin = lambda place: 0 if place == "middle" else 22  # noqa: E731
+    # Both in the middle: the translation just above the centre, the lyrics just below, never on
+    # top of each other (bottom- and top-anchored, 4 script pixels from the centre line).
+    split = style.karaoke and style.position == "middle" and style.translation_at == "middle"
+    lyrics_align, lyrics_margin = (8, 148) if split else (POSITIONS[style.position], margin(style.position))
+    encoding = -1 if style.animation != "none" else 1
+    t_font, _t_bold, t_scale = FONTS[style.font]["arabic" if tgt_lang in RTL_LANGS else "latin"]
+    t_colour = _ass_colour(ORIGINAL_COLOUR)
+    styles = [
+        f"Style: Default,{font},{round(SIZES[style.size] * scale, 1):g},{primary},{primary},{black},{back_colour},"
+        f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{lyrics_align},16,16,{lyrics_margin},{encoding}",
+    ]
+    show_translation = style.translation_at != "off"
+    if show_translation:
+        place = 2 if split else POSITIONS.get(style.translation_at, 8)
+        styles.append(
+            f"Style: Translation,{t_font},{round(SIZES[style.size] * t_scale * 0.8, 1):g},{t_colour},{t_colour},{black},{back_colour},"
+            # Encoding -1: the line's direction comes from its text, so brackets and commas in a
+            # right-to-left translation stay where they belong.
+            f"0,0,0,0,100,100,0,0,{border_style},{outline},0,{place},16,16,{148 if split else margin(style.translation_at)},-1"
+        )
+    if title or artist:
+        styles.extend(_heading_styles(style, title, artist))
+    header = "\n".join([
+        "[Script Info]", "ScriptType: v4.00+", "PlayResX: 384", "PlayResY: 288", "WrapStyle: 0", "ScaledBorderAndShadow: yes", "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, "
+        "Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+        "Alignment, MarginL, MarginR, MarginV, Encoding",
+        *styles, "", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ])
+    events: list[str] = []
+    if title or artist:  # first: lines at the top stack downwards in order (title, artist, translation)
+        end = _ass_time(max([c.end for c in cues] + [0]) + 36_000)
+        events += [f"Dialogue: 0,0:00:00.00,{end},{name},,0,0,0,,{_ass_text(text)}"
+                   for name, text in (("Title", title), ("Artist", artist)) if text]
+    for cue in cues:
+        sung = cue.text or cue.translation
+        if style.karaoke and _ass_text(sung):
+            if style.animation == "none":
+                events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Default,,0,0,0,,{_ass_text(sung)}")
+            else:
+                events.extend(_animated_events(cue, style, sung, cue.words if sung == cue.text else None))
+        translated = _ass_text(cue.translation)
+        # Nothing to translate (the song is already in that language): no second caption.
+        if show_translation and translated and cue.translation.strip() != sung.strip():
+            events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Translation,,0,0,0,,{translated}")
+    return header + "\n" + "\n".join(events) + "\n"

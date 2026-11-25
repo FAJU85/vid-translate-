@@ -29,6 +29,9 @@ export interface SubtitleStyle {
   title?: string;
   artist?: string;
   bar?: boolean;
+  /** Sound alone: the lyrics caption (sung words, lit as sung) and the translation's own place, or off. */
+  karaoke?: boolean;
+  translation_at?: 'top' | 'middle' | 'bottom' | 'off';
 }
 
 export interface Job {
