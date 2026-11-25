@@ -38,6 +38,16 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+# What Whisper writes over music with no words in it (instrumental parts of a song), with full
+# confidence: dropped as whole lines in music only, where nobody sings just "thank you".
+_MUSIC_FILLERS = {"thank you", "thanks", "thank you very much", "thank you so much", "you", "bye", "bye bye", "music", "applause"}
+
+# Music: the speech detector (Silero VAD) hears less than this share of a recording as speech.
+# It is made for talking and throws singing away (a song came back as one word), so in music the
+# whole recording goes to Whisper instead. Talking, even with music under it, is well above this.
+MUSIC_SPEECH_SHARE = 0.25
+MUSIC_MIN_SECONDS = 20  # shorter clips keep the detector: too short to tell
+
 _ALWAYS = [_norm(p) for p in _ALWAYS_INVENTED]
 _OFTEN = [_norm(p) for p in _OFTEN_INVENTED]
 
@@ -60,6 +70,16 @@ def is_invented(text: str, no_speech_prob: float, avg_logprob: float, compressio
         return True
     unsure = no_speech_prob > 0.3 or avg_logprob < -0.7
     return unsure and any(p and (norm == p or (p in norm and len(norm) <= len(p) + 12)) for p in _OFTEN)
+
+
+def speech_share(samples) -> float:
+    """The share of a 16 kHz recording the speech detector hears as speech (0 to 1)."""
+    from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+    if not len(samples):
+        return 0.0
+    spans = get_speech_timestamps(samples, VadOptions())
+    return sum(s["end"] - s["start"] for s in spans) / len(samples)
 
 
 def _device() -> tuple[str, str]:
@@ -109,11 +129,13 @@ def transcribe(
     # PyAV, whose API has broken it across releases.
     with wave.open(str(audio), "rb") as wav:
         samples = np.frombuffer(wav.readframes(wav.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+    # A song: sung words are not "speech" to the detector, so it would leave almost nothing to hear.
+    music = len(samples) >= MUSIC_MIN_SECONDS * 16000 and speech_share(samples) < MUSIC_SPEECH_SHARE
     segments, info = model.transcribe(
         samples,
         language=language or None,
         beam_size=config.WHISPER_BEAM_SIZE,
-        vad_filter=True,
+        vad_filter=not music,
         condition_on_previous_text=False,
         word_timestamps=config.WORD_TIMESTAMPS,
         # The language is decided from several 30-second windows, not only the first one (an
@@ -132,6 +154,8 @@ def transcribe(
         if total:
             progress(min(1.0, seg.end / total))
         if is_invented(seg.text, seg.no_speech_prob, seg.avg_logprob, seg.compression_ratio):
+            continue
+        if music and _norm(seg.text) in _MUSIC_FILLERS:
             continue
         words = [(w.start, w.end, w.word) for w in (seg.words or [])]
         out.append((seg.start, seg.end, seg.text, words))
