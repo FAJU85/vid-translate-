@@ -1,7 +1,7 @@
 import { hmacHex, safeEqual } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
-import { TEXT_FIELDS, readSettings, writeSettings, type Settings } from './store';
+import { LOGO_SIZE, TEXT_FIELDS, readSettings, writeSettings, type Settings } from './store';
 
 const MAX_LOGO_BYTES = 256 * 1024;
 const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
@@ -84,6 +84,15 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
   }
   if (patch.accent && !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(patch.accent)) {
     return apiError(400, 'E_BAD_REQUEST', 'The colour must look like #fbbf24.');
+  }
+  if ('logo_size' in body) {
+    // A height in pixels; empty (or the default) goes back to the default size.
+    const raw = String(body.logo_size ?? '').trim();
+    const size = Number(raw);
+    if (raw && (!Number.isInteger(size) || size < LOGO_SIZE.min || size > LOGO_SIZE.max)) {
+      return apiError(400, 'E_BAD_REQUEST', `The logo size must be ${LOGO_SIZE.min} to ${LOGO_SIZE.max} pixels.`);
+    }
+    patch.logo_size = raw && size !== LOGO_SIZE.default ? String(size) : '';
   }
   if ('takedown_email' in body) {
     const email = String(body.takedown_email ?? '').trim();

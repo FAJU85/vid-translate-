@@ -1,5 +1,6 @@
 import type { Env } from '../../shared/env';
-import { readSettings } from './store';
+import { logoSize, readSettings } from './store';
+import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -11,7 +12,8 @@ export async function handleTermsPage(request: Request, env: Env, path: string):
   if (path !== '/terms' || (request.method !== 'GET' && request.method !== 'HEAD')) return null;
   const settings = (await readSettings(env).catch(() => null))?.settings;
   const brand = esc(settings?.name || 'KAVOX');
-  const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent ?? '') ? settings!.accent : '#fbbf24';
+  const accent = /^#[0-9a-f]{6}$/i.test(settings?.accent ?? '') ? settings!.accent : '#2AB8A1';
+  const logo = settings?.logo ? '/api/logo' : undefined;
   const email = settings?.takedown_email || '';
   const contact = email
     ? `<a href="mailto:${esc(email)}">${esc(email)}</a>`
@@ -22,17 +24,19 @@ export async function handleTermsPage(request: Request, env: Env, path: string):
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terms of use · ${brand}</title>
+${headLinks(logo)}
 <style>
   :root { color-scheme: dark; --accent: ${accent}; }
-  body { margin: 0; background: #020617; color: #cbd5e1; font: 15px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
+  body { margin: 0; background: #131C31; color: #CBC2B5; font: 15px/1.65 ${FONT}; }
   main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { color: #fff; font-size: 26px; } h2 { color: #fff; font-size: 18px; margin-top: 28px; }
-  a { color: var(--accent); } header a { color: #fff; font-weight: 800; letter-spacing: .04em; text-decoration: none; font-size: 18px; }
+  h1 { color: #F9EBD6; font-size: 26px; } h2 { color: #F9EBD6; font-size: 18px; margin-top: 28px; }
+  a { color: var(--accent); }
+${chromeCss}
 </style>
 </head>
 <body>
 <main>
-<header><a href="/">${brand}</a></header>
+${brandHeader(brand, logo, logoSize(settings))}
 <h1>Terms of use</h1>
 <p>${brand} translates, subtitles and dubs videos, and lets people post the results on their profile. By using it, and above all by posting a video or a comment, you agree to these terms.</p>
 

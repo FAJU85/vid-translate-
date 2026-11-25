@@ -1,8 +1,9 @@
 import { LANGUAGES } from '../../shared/languages';
 import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
+import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
-import { publicOrigin, publicSettings } from '../settings';
+import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
 import { countView, getShare, viewerLang, type ShareRow } from './store';
 
@@ -18,7 +19,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 async function page(env: Env, share: ShareRow, origin: string): Promise<Response> {
   const site = await publicSettings(env).catch(() => null);
   const brand = site?.name || 'KAVOX';
-  const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#fbbf24';
+  const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#2AB8A1';
+  const logo = site?.logo_url || undefined;
   const url = `${origin}/${share.id}`;
   const files = `${origin}/v/${share.id}`;
   const creator = await creatorOf(env, share);
@@ -34,6 +36,7 @@ async function page(env: Env, share: ShareRow, origin: string): Promise<Response
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · ${esc(brand)}</title>
+${headLinks(logo)}
 <meta name="description" content="${esc(description)}">
 <meta property="og:type" content="video.other">
 <meta property="og:site_name" content="${esc(brand)}">
@@ -49,40 +52,40 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
   :root { color-scheme: dark; --accent: ${accent}; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: #020617; color: #e2e8f0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
+  body { margin: 0; background: #131C31; color: #E2D6C6; font: 15px/1.55 ${FONT}; }
   header, main, footer { max-width: 960px; margin: 0 auto; padding: 16px; }
-  header a { color: #fff; font-weight: 800; letter-spacing: .04em; text-decoration: none; font-size: 18px; }
+${chromeCss}
   .player { background: #000; border-radius: 14px; overflow: hidden; display: flex; justify-content: center; }
   video { width: 100%; max-height: 75vh; display: block; background: #000; }
-  h1 { font-size: 20px; margin: 16px 0 4px; color: #fff; overflow-wrap: anywhere; }
-  .creator { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: #f1f5f9; text-decoration: none; font-weight: 600; }
-  .creator .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #0f172a; display: grid; place-items: center; font-weight: 800; }
+  h1 { font-size: 20px; margin: 16px 0 4px; color: #F9EBD6; overflow-wrap: anywhere; }
+  .creator { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: #F9EBD6; text-decoration: none; font-weight: 600; }
+  .creator .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-weight: 800; }
   .creator:hover span:last-child { text-decoration: underline; }
-  .meta { color: #94a3b8; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .meta { color: #ABA59E; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px; border: 1px solid #334155; color: #f1f5f9; background: transparent; text-decoration: none; font: inherit; cursor: pointer; }
-  .btn:hover { background: #1e293b; }
-  .primary { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: 700; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px; border: 1px solid #2E3D63; color: #F9EBD6; background: transparent; text-decoration: none; font: inherit; cursor: pointer; }
+  .btn:hover { background: #223052; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #131C31; font-weight: 700; }
   .primary:hover { filter: brightness(1.1); background: var(--accent); }
-  #like[aria-pressed="true"] { border-color: #f43f5e; color: #fda4af; }
+  #like[aria-pressed="true"] { border-color: #E87C6A; color: #EE9D8C; }
   #comments { margin-top: 24px; }
-  #comments h2 { font-size: 17px; color: #fff; margin: 0 0 10px; }
+  #comments h2 { font-size: 17px; color: #F9EBD6; margin: 0 0 10px; }
   #comment-form { display: flex; gap: 8px; align-items: flex-start; }
-  #comment-form textarea { flex: 1; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 10px; padding: 8px; font: inherit; resize: vertical; }
+  #comment-form textarea { flex: 1; background: #19243E; color: #F9EBD6; border: 1px solid #2E3D63; border-radius: 10px; padding: 8px; font: inherit; resize: vertical; }
   #comment-list { list-style: none; padding: 0; margin: 12px 0 0; }
-  #comment-list li { padding: 10px 0; border-top: 1px solid #1e293b; }
-  #comment-list .who { font-size: 13px; color: #94a3b8; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  #comment-list .who a { color: #e2e8f0; font-weight: 600; text-decoration: none; }
-  #comment-list .who button { background: none; border: 0; color: #64748b; font: inherit; cursor: pointer; padding: 0; }
+  #comment-list li { padding: 10px 0; border-top: 1px solid #223052; }
+  #comment-list .who { font-size: 13px; color: #ABA59E; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #comment-list .who a { color: #E2D6C6; font-weight: 600; text-decoration: none; }
+  #comment-list .who button { background: none; border: 0; color: #8F8B88; font: inherit; cursor: pointer; padding: 0; }
   #comment-list p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .note { font-size: 13px; color: #94a3b8; }
+  .note { font-size: 13px; color: #ABA59E; }
   h1 .tag { color: var(--accent); text-decoration: none; }
-  footer { color: #64748b; font-size: 13px; }
+  footer { color: #8F8B88; font-size: 13px; }
   footer a { color: var(--accent); }
 </style>
 </head>
 <body>
-<header><a href="/">${esc(brand)}</a></header>
+${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
   ${creator ? `<a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span>@${esc(creator.handle)}</span></a>` : ''}

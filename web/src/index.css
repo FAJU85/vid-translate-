@@ -6,16 +6,78 @@
  * around them stays neutral (slate) so the statuses carry the signal.
  */
 @theme {
-  --color-status-queued: #94a3b8;    /* neutral: waiting its turn */
-  --color-status-running: #fbbf24;   /* amber: in progress */
-  --color-status-done: #34d399;      /* green: finished */
-  --color-status-failed: #fb7185;    /* rose: needs attention */
-  --color-status-cancelled: #71717a; /* muted: stopped on purpose */
+  --color-status-queued: #aba59e;    /* muted cream: waiting its turn */
+  --color-status-running: #e87c6a;   /* Coral Salmon: live, in progress */
+  --color-status-done: #2ab8a1;      /* Mint Teal: finished */
+  --color-status-failed: #ff8f7d;    /* bright coral: needs attention (always with its label) */
+  --color-status-cancelled: #8f8b88; /* faint: stopped on purpose */
+
+  /*
+   * The KAVOX palette (approved): Deep Navy #131C31, Warm Cream #F9EBD6, Mint Teal #2AB8A1,
+   * Coral Salmon #E87C6A. The whole interface is written with Tailwind's slate / amber / rose
+   * names; they are redefined here so every page takes the palette at once:
+   *   slate  = surfaces and text, from Deep Navy (950) to Warm Cream (100), the shades in between
+   *            mixed from the two (text shades checked: 400 is 6.9:1 and 500 is 4.6:1 on navy);
+   *   amber  = the action colour, Mint Teal (the admin's accent setting replaces 300/400/500/950);
+   *   rose   = warnings and errors, Coral Salmon;
+   *   emerald, sky = success and info, from Mint Teal.
+   */
+  --font-sans: 'Plus Jakarta Sans', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
+  --color-slate-50: #fdf7ee;
+  --color-slate-100: #f9ebd6;
+  --color-slate-200: #e2d6c6;
+  --color-slate-300: #cbc2b5;
+  --color-slate-400: #aba59e;
+  --color-slate-500: #8f8b88;
+  --color-slate-600: #5e6478;
+  --color-slate-700: #2e3d63;
+  --color-slate-800: #223052;
+  --color-slate-900: #19243e;
+  --color-slate-950: #131c31;
+  --color-zinc-400: #aba59e;
+
+  --color-amber-50: #eafaf6;
+  --color-amber-100: #d4f3ec;
+  --color-amber-200: #a9e7db;
+  --color-amber-300: #5ec5ae;
+  --color-amber-400: #2ab8a1;
+  --color-amber-500: #1f9e8a;
+  --color-amber-950: #0f2f30;
+
+  --color-rose-100: #fbe3de;
+  --color-rose-200: #f6c4ba;
+  --color-rose-300: #ee9d8c;
+  --color-rose-400: #e87c6a;
+  --color-rose-500: #d9604c;
+  --color-rose-700: #9c3f31;
+  --color-rose-800: #6e2d27;
+  --color-rose-900: #4a2128;
+  --color-rose-950: #2a1a24;
+  --color-red-400: #e87c6a;
+
+  --color-emerald-200: #a9e7db;
+  --color-emerald-300: #5ec5ae;
+  --color-emerald-400: #2ab8a1;
+  --color-emerald-500: #1f9e8a;
+  --color-emerald-800: #155e57;
+  --color-emerald-950: #0f2b2e;
+
+  --color-sky-300: #8fdccc;
+  --color-sky-400: #5ec5ae;
+  --color-sky-500: #2ab8a1;
+
+  /* The deepest shade (fields, timeline beds), below Deep Navy. */
+  --color-navy-deep: #0e1525;
 }
 
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
+    /* A soft teal and coral glow at the top, as in the brand artwork. */
+    background-image:
+      radial-gradient(circle at 12% 0%, rgb(42 184 161 / 0.09), transparent 38%),
+      radial-gradient(circle at 90% 6%, rgb(232 124 106 / 0.07), transparent 40%);
+    background-attachment: fixed;
   }
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;

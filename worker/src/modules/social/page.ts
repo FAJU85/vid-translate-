@@ -1,7 +1,8 @@
 import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
 import { reportDialog } from '../../shared/report-dialog';
-import { publicOrigin, publicSettings } from '../settings';
+import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
+import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
 import { followCounts, isBlocked, profileByHandle } from './store';
 
@@ -22,11 +23,12 @@ export async function handleProfilePage(request: Request, env: Env, path: string
 
   const site = await publicSettings(env).catch(() => null);
   const brand = site?.name || 'KAVOX';
-  const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#fbbf24';
+  const accent = /^#[0-9a-f]{6}$/i.test(site?.accent ?? '') ? site!.accent : '#2AB8A1';
+  const logo = site?.logo_url || undefined;
   const found = await profileByHandle(env, handle);
   const profile = found && !(await isBlocked(env, found.account_id)) ? found : null;
   if (!profile) {
-    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not found · ${esc(brand)}</title><body style="background:#020617;color:#e2e8f0;font:16px system-ui;padding:40px;text-align:center"><p>No one is called @${esc(handle)} on ${esc(brand)}.</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
+    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not found · ${esc(brand)}</title><style>body{background:#131C31;color:#E2D6C6;font:16px ${FONT};padding:40px;text-align:center}</style><body><p>No one is called @${esc(handle)} on ${esc(brand)}.</p><p><a style="color:${accent}" href="/">${esc(brand)}</a></p>`, {
       status: 404,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
@@ -50,6 +52,7 @@ export async function handleProfilePage(request: Request, env: Env, path: string
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(name)} (@${esc(profile.handle)}) · ${esc(brand)}</title>
+${headLinks(logo)}
 <meta name="description" content="${esc(profile.bio || `Translated and dubbed videos by @${profile.handle} on ${brand}.`)}">
 <meta property="og:type" content="profile">
 <meta property="og:site_name" content="${esc(brand)}">
@@ -61,34 +64,34 @@ ${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${
   :root { color-scheme: dark; --accent: ${accent}; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: #020617; color: #e2e8f0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
+  body { margin: 0; background: #131C31; color: #E2D6C6; font: 15px/1.55 ${FONT}; }
   header, main { max-width: 960px; margin: 0 auto; padding: 16px; }
-  header a { color: #fff; font-weight: 800; letter-spacing: .04em; text-decoration: none; font-size: 18px; }
+${chromeCss}
   .head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-  .avatar { width: 84px; height: 84px; border-radius: 50%; background: var(--accent); color: #0f172a; display: grid; place-items: center; font-size: 36px; font-weight: 800; flex: none; }
-  h1 { margin: 0; font-size: 22px; color: #fff; overflow-wrap: anywhere; }
-  .handle { color: #94a3b8; }
+  .avatar { width: 84px; height: 84px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-size: 36px; font-weight: 800; flex: none; }
+  h1 { margin: 0; font-size: 22px; color: #F9EBD6; overflow-wrap: anywhere; }
+  .handle { color: #ABA59E; }
   .bio { margin: 12px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .stats { display: flex; gap: 18px; margin-top: 10px; color: #cbd5e1; font-size: 14px; }
-  .stats b { color: #fff; }
+  .stats { display: flex; gap: 18px; margin-top: 10px; color: #CBC2B5; font-size: 14px; }
+  .stats b { color: #F9EBD6; }
   .actions { margin-top: 14px; }
-  .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid #334155; color: #f1f5f9; background: transparent; font: inherit; cursor: pointer; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0f172a; font-weight: 700; }
-  .btn.primary.on { background: transparent; color: #f1f5f9; border-color: #334155; }
+  .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid #2E3D63; color: #F9EBD6; background: transparent; font: inherit; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #131C31; font-weight: 700; }
+  .btn.primary.on { background: transparent; color: #F9EBD6; border-color: #2E3D63; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 20px; }
   @media (min-width: 720px) { .grid { grid-template-columns: repeat(4, 1fr); } }
-  .tile { position: relative; aspect-ratio: 9 / 16; background: #0f172a; border-radius: 6px; overflow: hidden; display: block; }
+  .tile { position: relative; aspect-ratio: 9 / 16; background: #19243E; border-radius: 6px; overflow: hidden; display: block; }
   .tile img, .tile .blank { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .badge, .views { position: absolute; left: 6px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .badge, .views { position: absolute; left: 6px; font-size: 11px; color: #F9EBD6; text-shadow: 0 1px 2px #000; }
   .badge { top: 6px; background: rgba(2, 6, 23, .6); padding: 1px 6px; border-radius: 6px; }
   .views { bottom: 6px; font-weight: 700; }
-  footer { max-width: 960px; margin: 0 auto; padding: 16px; color: #64748b; font-size: 13px; }
+  footer { max-width: 960px; margin: 0 auto; padding: 16px; color: #8F8B88; font-size: 13px; }
   footer a { color: var(--accent); }
-  .empty { color: #94a3b8; text-align: center; padding: 48px 0; }
+  .empty { color: #ABA59E; text-align: center; padding: 48px 0; }
 </style>
 </head>
 <body>
-<header><a href="/">${esc(brand)}</a></header>
+${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="head">
     <div class="avatar">${esc(profile.handle[0].toUpperCase())}</div>

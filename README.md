@@ -448,7 +448,7 @@ sign in with the `ADMIN_PASSWORD` secret. Its workspaces are in the left sidebar
   remove credits (and see their history).
 - **Insights**: video links by site over the last 7 days (worked, failed, success rate, last
   error), so a site that changes something and breaks shows at once.
-- **Settings**: the platform name, logo, accent colour, the home page heading and introduction,
+- **Settings**: the platform name, logo (upload, remove, and its size in the headers: 24–72 px, default 36), accent colour, the home page heading and introduction,
   and the bot's welcome message (English and Arabic). Saving is live at once; a field left empty
   uses its default.
 
