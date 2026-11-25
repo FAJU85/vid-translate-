@@ -226,6 +226,27 @@ def _lit_lines(lines: list[list[Token]], lit: int, colour: str) -> str:
     return "\\N".join(out)
 
 
+def _spoken_times(words: list[str], spoken: list, start: float, end: float) -> list[tuple[float, float]] | None:
+    """When each shown word was really said, from the recognition's own units, matched by their
+    letters: a unit can be a whole word or one character (Chinese, Japanese), and a shown word
+    takes the time of the unit its first letter is in. Every time is kept inside the line's
+    [start, end] (its end can be pulled in when the next line starts right away) and in order.
+    None when the letters do not match (an edited line): the time is then shared out by length."""
+    letters = lambda text: "".join(str(text).split())  # noqa: E731
+    if letters("".join(str(w) for _a, _b, w in spoken)) != letters("".join(words)):
+        return None
+    owner: list[int] = []  # for each letter: the unit it belongs to
+    for k, (_a, _b, w) in enumerate(spoken):
+        owner.extend([k] * len(letters(w)))
+    times, pos, last = [], 0, start
+    for word in words:
+        unit = spoken[owner[pos]]
+        t = min(max(float(unit[0]), last, start), end)
+        times.append((t, end))
+        last, pos = t, pos + len(letters(word))
+    return times
+
+
 def _pop_chunks(words: list[Token]) -> list[list[Token]]:
     """A cue's words in groups of at most POP_WORDS words and about POP_CHARS characters."""
     chunks: list[list[str]] = [[]]
@@ -322,8 +343,8 @@ def _animated_events(cue: Cue, style: SubtitleStyle, text: str | None = None, sp
     if not words:
         return []
     times = word_times(words, cue.start, cue.end)
-    if spoken and len(spoken) == len(words):
-        times = [(float(a), float(b)) for a, b, _w in spoken]
+    if spoken:
+        times = _spoken_times(words, spoken, cue.start, cue.end) or times
     events, i = [], 0
     for g, lines in enumerate(groups):
         count = sum(len(line) for line in lines)
@@ -360,21 +381,25 @@ def to_lyrics_ass(cues: list[Cue], src_lang: str | None, tgt_lang: str, style: S
         border_style, outline, back_colour = 1, 1.2, "&H80000000"
     black = _ass_colour("#000000")
     margin = lambda place: 0 if place == "middle" else 22  # noqa: E731
+    # Both in the middle: the translation just above the centre, the lyrics just below, never on
+    # top of each other (bottom- and top-anchored, 4 script pixels from the centre line).
+    split = style.karaoke and style.position == "middle" and style.translation_at == "middle"
+    lyrics_align, lyrics_margin = (8, 148) if split else (POSITIONS[style.position], margin(style.position))
     encoding = -1 if style.animation != "none" else 1
     t_font, _t_bold, t_scale = FONTS[style.font]["arabic" if tgt_lang in RTL_LANGS else "latin"]
     t_colour = _ass_colour(ORIGINAL_COLOUR)
     styles = [
         f"Style: Default,{font},{round(SIZES[style.size] * scale, 1):g},{primary},{primary},{black},{back_colour},"
-        f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{POSITIONS[style.position]},16,16,{margin(style.position)},{encoding}",
+        f"{-1 if bold else 0},0,0,0,100,100,0,0,{border_style},{outline},0,{lyrics_align},16,16,{lyrics_margin},{encoding}",
     ]
     show_translation = style.translation_at != "off"
     if show_translation:
-        place = POSITIONS.get(style.translation_at, 8)
+        place = 2 if split else POSITIONS.get(style.translation_at, 8)
         styles.append(
             f"Style: Translation,{t_font},{round(SIZES[style.size] * t_scale * 0.8, 1):g},{t_colour},{t_colour},{black},{back_colour},"
             # Encoding -1: the line's direction comes from its text, so brackets and commas in a
             # right-to-left translation stay where they belong.
-            f"0,0,0,0,100,100,0,0,{border_style},{outline},0,{place},16,16,{margin(style.translation_at)},-1"
+            f"0,0,0,0,100,100,0,0,{border_style},{outline},0,{place},16,16,{148 if split else margin(style.translation_at)},-1"
         )
     if title or artist:
         styles.extend(_heading_styles(style, title, artist))
@@ -400,6 +425,6 @@ def to_lyrics_ass(cues: list[Cue], src_lang: str | None, tgt_lang: str, style: S
                 events.extend(_animated_events(cue, style, sung, cue.words if sung == cue.text else None))
         translated = _ass_text(cue.translation)
         # Nothing to translate (the song is already in that language): no second caption.
-        if show_translation and translated and cue.translation.strip() != cue.text.strip():
+        if show_translation and translated and cue.translation.strip() != sung.strip():
             events.append(f"Dialogue: 0,{_ass_time(cue.start)},{_ass_time(cue.end)},Translation,,0,0,0,,{translated}")
     return header + "\n" + "\n".join(events) + "\n"

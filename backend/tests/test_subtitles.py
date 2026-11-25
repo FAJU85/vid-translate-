@@ -114,6 +114,41 @@ def test_lyrics_and_translation_are_independent_captions():
     assert ",Translation," not in same
 
 
+def _lyric_starts(out: str) -> list[str]:
+    return [e.split(",")[1] for e in out.splitlines() if ",Default," in e]
+
+
+def test_lyrics_timing_follows_characters_in_chinese_and_japanese():
+    """Recognition times each character there; a shown word takes the time of its first one."""
+    spoken = [(0.0, 0.2, "你"), (0.2, 0.4, "好"), (1.5, 1.7, "世"), (1.7, 2.0, "界")]
+    out = to_lyrics_ass([Cue(1, 0.0, 2.0, "你好 世界", "", spoken)], "zh", "en", SubtitleStyle(animation="highlight"))
+    assert _lyric_starts(out) == ["0:00:00.00", "0:00:01.50"]  # not the 1.0 s a share by length gives
+
+
+def test_lyrics_word_times_stay_inside_their_line():
+    """The line's end can be pulled in before its last word starts (the next line starts right
+    away): the last word is then lit at the end instead of after the line is gone."""
+    spoken = [(0.0, 0.3, " Oh"), (0.6, 0.7, " river")]
+    out = to_lyrics_ass([Cue(1, 0.0, 0.57, "Oh river", "x", spoken)], "en", "ar", SubtitleStyle(animation="highlight"))
+    lines = [e for e in out.splitlines() if ",Default," in e]
+    assert all(e.split(",")[2] <= "0:00:00.57" and e.split(",")[1] <= e.split(",")[2] for e in lines)
+
+
+def test_lyrics_and_translation_both_in_the_middle_do_not_overlap():
+    style = SubtitleStyle(position="middle", translation_at="middle")
+    out = to_lyrics_ass([Cue(1, 0, 2, "Oh", "يا")], "en", "ar", style)
+    default = next(line for line in out.splitlines() if line.startswith("Style: Default"))
+    translation = next(line for line in out.splitlines() if line.startswith("Style: Translation"))
+    assert ",8,16,16,148," in default and ",2,16,16,148," in translation  # below and above the centre
+    alone = to_lyrics_ass([Cue(1, 0, 2, "Oh", "يا")], "en", "ar", SubtitleStyle(position="middle", translation_at="middle", karaoke=False))
+    assert ",5,16,16,0," in next(line for line in alone.splitlines() if line.startswith("Style: Translation"))
+
+
+def test_a_line_with_no_original_words_is_shown_once():
+    out = to_lyrics_ass([Cue(1, 0, 2, "", "مرحبا")], "en", "ar", SubtitleStyle())
+    assert sum("مرحبا" in e for e in out.splitlines() if e.startswith("Dialogue:")) == 1
+
+
 def test_edited_lyrics_without_word_times_are_timed_by_length():
     cues = [Cue(1, 0, 2, "Oh Shenandoah", "x")]  # an edit: no word times kept
     lyrics = [e for e in to_lyrics_ass(cues, "en", "ar", SubtitleStyle(animation="highlight")).splitlines() if ",Default," in e]

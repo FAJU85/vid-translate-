@@ -223,7 +223,9 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
   const originalSample = lines === 'original' ? (RTL.has(lang) ? 'هذه هي الترجمة' : 'This is the translation') : lang === 'en' ? 'هذا هو النص الأصلي' : 'This is the original text';
   const originalRtl = lines === 'original' ? RTL.has(lang) : lang === 'en';
   const box = style.background === 'box';
-  const placement =
+  // Lyrics and translation both in the middle: split around the centre (backend to_lyrics_ass).
+  const splitMiddle = sound && karaoke && style.position === 'middle' && translationAt === 'middle';
+  const placement = splitMiddle ? { top: '51.5%' } :
     style.position === 'top' ? { top: '7.6%' } : style.position === 'middle' ? { top: '50%', transform: 'translateY(-50%)' } : { bottom: '7.6%' };
 
   const soundChoices = (
@@ -318,7 +320,9 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
               ...(translationAt === 'top'
                 ? { top: style.title_card !== false ? '13%' : '5%' }
                 : translationAt === 'middle'
-                  ? { top: '50%', transform: 'translateY(-50%)' }
+                  ? splitMiddle
+                    ? { bottom: '51.5%' } // just above the centre; the lyrics just below (as on the video)
+                    : { top: '50%', transform: 'translateY(-50%)' }
                   : { bottom: '7.6%' }),
               ...(translationAt === style.position && karaoke && translationAt === 'bottom' ? { bottom: '16%' } : {}),
             }}
