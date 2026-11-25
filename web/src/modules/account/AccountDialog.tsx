@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { ConsentCheck, useConsent } from '../../shared/consent';
 import { Bot, CheckCircle2, Loader2, LogOut, Mail, X } from 'lucide-react';
 import { ApiError, accountApi, type LedgerEntry, type Me } from '../../shared/api';
 import { BUCKET_LABEL, creditsText, timeText } from './format';
@@ -29,6 +30,8 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
 }) {
   const [waitingTelegram, setWaitingTelegram] = useState(false);
   const [email, setEmail] = useState('');
+  // PDPL: signing in creates an account, so the person agrees to the Terms and Privacy Policy first.
+  const [agreed, setAgreed] = useConsent(me.legal_version);
   const [emailSent, setEmailSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,7 +201,16 @@ export function AccountDialog({ me, onChange, onClose, notice }: {
           </>
         ) : (
           <section className="space-y-3">
-            {me.sign_in.telegram || me.sign_in.google || me.sign_in.email ? methods : <p className="text-sm text-slate-400">{t("Signing in is not available yet.")}</p>}
+            {me.sign_in.telegram || me.sign_in.google || me.sign_in.email ? (
+              <>
+                {me.legal_version && <ConsentCheck checked={agreed} onChange={setAgreed} />}
+                <div inert={Boolean(me.legal_version) && !agreed} className={me.legal_version && !agreed ? 'opacity-40' : ''}>
+                  {methods}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-400">{t("Signing in is not available yet.")}</p>
+            )}
             <p className="text-xs text-slate-500">
               {t("Without an account, your translations and credits stay in this browser only.")}
             </p>

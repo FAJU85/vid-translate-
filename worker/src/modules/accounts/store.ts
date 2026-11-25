@@ -82,6 +82,9 @@ export const ACCOUNTS_COLUMNS: AddedColumn[] = [
   // The ending added to rendered videos (kavox, custom or none) and the size of an uploaded one.
   { table: 'accounts', column: 'outro', definition: "TEXT NOT NULL DEFAULT 'kavox'" },
   { table: 'accounts', column: 'outro_size', definition: 'INTEGER' },
+  // Which version of the Terms and Privacy Policy the account agreed to, and when (PDPL consent).
+  { table: 'accounts', column: 'consent_version', definition: 'TEXT' },
+  { table: 'accounts', column: 'consent_at', definition: 'INTEGER' },
 ];
 
 export interface Account {
@@ -102,6 +105,9 @@ export interface Account {
   outro?: 'kavox' | 'custom' | 'none';
   /** Size in bytes of the account's own ending, when one is uploaded. */
   outro_size?: number | null;
+  /** The Terms and Privacy Policy version agreed to, and when. */
+  consent_version?: string | null;
+  consent_at?: number | null;
   created_at: number;
   last_seen: number;
 }
@@ -111,6 +117,12 @@ export type Identity =
   | { kind: 'email'; email: string; name?: string | null }
   | { kind: 'google'; google_sub: string; email?: string | null; email_verified?: boolean; name?: string | null }
   | { kind: 'guest'; client: string };
+
+/** Keep that an account agreed to the Terms and Privacy Policy of this version (and when). */
+export const recordConsent = (env: Env, accountId: string, version: string) =>
+  env.DB.prepare('UPDATE accounts SET consent_version = ?, consent_at = ? WHERE id = ? AND (consent_version IS NULL OR consent_version != ?)')
+    .bind(version, now(), accountId, version)
+    .run();
 
 export const getAccount = (env: Env, id: string) =>
   env.DB.prepare('SELECT * FROM accounts WHERE id = ?').bind(id).first<Account>();

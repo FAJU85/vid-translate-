@@ -7,3 +7,4 @@ export { SHARES_COLUMNS, SHARES_SCHEMA, countView, getPostedVideo, getShare, lik
 export { FREE_SHARE_SECONDS, creatorOf, deleteShare, registerCreatorLookup, registerPostListener, shareUrl, sharesJobListener, sweepShares, type CreatorLookup, type PostListener } from './service';
 export { SHORT_PATH, handleSharePage } from './page';
 export { handleShares, publicShare, type ShareViewer } from './handlers';
+export { eraseShares, exportShares } from './personal';

@@ -491,6 +491,25 @@ People can tell you what to improve, and you read it all in one place.
 - Admin: the **Feedback** workspace on `/admin` lists it newest first, with where it came from
   (website or Telegram), the page and language. Mark each one **Done** or delete it.
 
+## Personal data (Saudi PDPL)
+
+- **Privacy Policy** at `/privacy` and **Terms of Use** at `/terms`, in Arabic and English: what is
+  collected and why, how long it is kept, which services receive it and where (outside Saudi
+  Arabia), your rights, and the limitation of liability for what users upload.
+- **Consent:** before the first video and before signing in, an unticked box: "I agree to the
+  Terms of Use and the Privacy Policy". The server refuses a video without it, and keeps the
+  agreed version and time with the account. The bot asks the same before the first video.
+  Change `LEGAL_VERSION` (worker `modules/settings/privacy.ts`) when either document changes:
+  everyone is asked again.
+- **Your data** (Dashboard → Profile, or the Dashboard when signed out): correct your name,
+  **Download my data** (a JSON file with everything linked to you), and **Delete my account**:
+  account, profile, videos and their stored files, jobs, comments, likes, follows, credits,
+  feedback and bot settings, permanently. Payment records are kept for accounting.
+- **Data minimisation:** no ID number, birth date or location is asked. Connections are kept as a
+  keyed fingerprint, never the IP address.
+- The contact address shown in both documents is the takedown email set on `/admin`.
+- These documents are a careful starting point, not legal advice: have them reviewed.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

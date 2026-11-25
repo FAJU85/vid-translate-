@@ -103,7 +103,7 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
   ${videos.length ? `<div class="grid">${tiles}</div>` : `<p class="empty">${tr('No videos posted yet.')}</p>`}
   ${makeYourOwn(esc(brand), tr)}
 </main>
-<footer>${tr('Made with {brand}', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a></footer>
+<footer>${tr('Made with {brand}', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a> · <a href="/privacy">${tr('Privacy')}</a></footer>
 ${reportDialog('profile', profile.handle, tr)}
 <script>
   // Follow: shown once we know who is looking (not on your own profile); signing in happens on the site.

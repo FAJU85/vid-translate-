@@ -69,3 +69,4 @@ import { updateJob } from './store';
 /** Remember which chat message shows this job's progress (used by the Telegram brick). */
 export const setStatusMessage = (env: Env, jobId: string, messageId: number) =>
   updateJob(env, jobId, { status_message_id: messageId });
+export { eraseJobs, exportJobs } from './personal';

@@ -1,3 +1,4 @@
+import { connectionKey } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { UUID, apiError, json } from '../../shared/http';
 import { LANGUAGES, isTargetLang } from '../../shared/languages';
@@ -27,8 +28,9 @@ import {
 import { handleAdminJobs } from './admin';
 import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus, type Aspect } from '../learning';
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
-import { handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
+import { LEGAL_VERSION, handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
 import { handleFeedback, handleFeedbackAdmin } from '../feedback';
+import { handlePrivacy } from '../privacy';
 import { handleAnalytics, handleComments, handleDiscover, handleFeed, handleModeration, handleNotifications, handleSocial } from '../social';
 import {
   FREE_MAX_VIDEO_SECONDS,
@@ -40,6 +42,7 @@ import {
   creditsEnabled,
   handleAccounts,
   releaseJob,
+  recordConsent,
   type Refusal,
 } from '../accounts';
 
@@ -288,6 +291,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const moderation = await handleModeration(request, env, path, api.origin);
     if (moderation) return moderation;
   }
+  // PDPL rights: download my data, delete my account, correct my name.
+  if (path === '/api/me/export' || path === '/api/me/delete' || path === '/api/me/name') {
+    const rights = await handlePrivacy(request, env, path);
+    if (rights) return rights;
+  }
   // "Send feedback" (anyone), and reading it on the /admin page.
   if (path === '/api/feedback') {
     const sent = await handleFeedback(request, env, path);
@@ -297,6 +305,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (!isAdmin(request, env)) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
     const feedback = await handleFeedbackAdmin(request, env, path);
     if (feedback) return feedback;
+  }
+  // "I agree to the Terms and Privacy Policy" (ticked before signing in), kept on the account.
+  if (path === '/api/consent' && method === 'POST') {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (body?.version !== LEGAL_VERSION) return apiError(400, 'E_CONSENT', 'Please agree to the Terms of Use and Privacy Policy first.');
+    const client = String(body?.client_id ?? '');
+    const account = UUID.test(client) ? await accountForWeb(env, request, client) : await signedInAccount(env, request);
+    if (account) await recordConsent(env, account.id, LEGAL_VERSION);
+    return json({ ok: true, version: LEGAL_VERSION });
   }
   // Which KAVOX an address reaches (the admin's public-domain check).
   if (path === '/api/instance' && method === 'GET') return serveInstance(env);
@@ -317,6 +334,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       languages: LANGUAGES.map(({ code, flag, en, ar }) => ({ code, flag, en, ar })),
       max_upload_mb: maxUploadMb(env),
       max_jobs_per_hour: maxPerHour(env),
+      legal_version: LEGAL_VERSION,
       site: await publicSettings(env),
     });
   }
@@ -345,6 +363,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/jobs' && method === 'POST') {
     const body = (await request.json().catch(() => null)) as Record<string, any> | null;
     if (!body || !UUID.test(body.client_id ?? '')) return apiError(400, 'E_BAD_REQUEST', 'client_id is required.');
+    // PDPL: no video is processed before the person agreed to the current Terms and Privacy Policy.
+    if (body.consent !== LEGAL_VERSION) {
+      return apiError(400, 'E_CONSENT', 'Please agree to the Terms of Use and Privacy Policy first.');
+    }
+    await recordConsent(env, (await accountForWeb(env, request, body.client_id)).id, LEGAL_VERSION);
     const tgtLang = String(body.tgt_lang ?? 'ar');
     if (!isTargetLang(tgtLang)) return apiError(400, 'E_BAD_REQUEST', 'Unsupported target language.');
     const srcLang = /^[a-z]{2,3}$/.test(body.src_lang ?? '') ? body.src_lang : 'auto';
@@ -383,7 +406,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const { job, error } = await createJob(env, {
       channel: 'web',
       owner: `web:${body.client_id}`,
-      ip: request.headers.get('CF-Connecting-IP'),
+      ip: await connectionKey(env.SHARED_SECRET, request),
       sourceKind,
       source,
       title,
@@ -455,7 +478,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
         const { job: next, error } = await createJob(env, {
           channel: 'web',
           owner: job.owner,
-          ip: request.headers.get('CF-Connecting-IP'),
+          ip: await connectionKey(env.SHARED_SECRET, request),
           sourceKind: 'rerender',
           source: job.id,
           title: job.title,
@@ -474,7 +497,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
       }
       if (match[2] === '/retry') {
         if (!canRetry(job)) return apiError(400, 'E_BAD_REQUEST', 'This translation cannot be retried. Start a new one.');
-        const limited = await checkLimits(env, { owner: job.owner, ip: request.headers.get('CF-Connecting-IP'), channel: 'web' });
+        const limited = await checkLimits(env, { owner: job.owner, ip: await connectionKey(env.SHARED_SECRET, request), channel: 'web' });
         if (limited) return apiError(429, 'E_RATE_LIMITED', 'You reached the limit for now. Try again later.');
         const refused = await creditCheck(env, request, body!.client_id, job.mode, job.duration);
         if (refused) return refused;

@@ -28,11 +28,11 @@ import {
   setupBot,
   telegramJobListener,
 } from './modules/telegram';
-import { SETTINGS_SCHEMA, handleTermsPage } from './modules/settings';
+import { SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
-import { FEEDBACK_SCHEMA } from './modules/feedback';
+import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
 
@@ -87,6 +87,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   // The terms of use, with the takedown address (/terms).
   if (path === '/terms') return (await handleTermsPage(request, env, path)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
+  // The privacy policy (/privacy).
+  if (path === '/privacy') return (await handlePrivacyPage(request, env, path)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // For search engines: what may be crawled, and every posted video and profile.
   if (path === '/robots.txt' || path === '/sitemap.xml') return (await handleSeo(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // A creator's profile (/@handle).
@@ -116,5 +118,6 @@ export default {
     ctx.waitUntil(ensureWebhookUpdates(env));
     ctx.waitUntil(sweepShares(env));
     ctx.waitUntil(sweepNotifications(env));
+    ctx.waitUntil(sweepFeedback(env));
   },
 } satisfies ExportedHandler<Env>;

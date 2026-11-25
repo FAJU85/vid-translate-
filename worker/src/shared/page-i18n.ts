@@ -88,6 +88,7 @@ const AR: Record<string, string> = {
   'More from {handle}': 'المزيد من {handle}',
   'Translated with {brand}: subtitles and dubbing for any video, in minutes.': 'مترجم بواسطة {brand}: ترجمة نصية ودبلجة لأي فيديو في دقائق.',
   Terms: 'الشروط',
+  Privacy: 'الخصوصية',
   'Sign in': 'سجّل الدخول',
   'to comment.': 'للتعليق.',
   'No comments yet.': 'لا تعليقات بعد.',

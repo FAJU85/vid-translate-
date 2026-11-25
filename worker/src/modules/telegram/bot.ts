@@ -28,7 +28,7 @@ import {
   type SubtitleStyle,
 } from '../jobs';
 import { telegramFeedback } from '../feedback';
-import { welcomeOverride } from '../settings';
+import { LEGAL_VERSION, publicOrigin, welcomeOverride } from '../settings';
 import { siteStatus } from '../learning';
 import {
   DAILY_SECONDS,
@@ -44,6 +44,7 @@ import {
   existingTelegramAccount,
   freshBalance,
   isProduct,
+  recordConsent,
   type Account,
   type ProductId,
   type Refusal,
@@ -141,7 +142,7 @@ function extractMedia(msg: any): Pending | 'too_big' | null {
   };
 }
 
-async function handleMessage(env: Env, msg: any): Promise<void> {
+async function handleMessage(env: Env, msg: any, origin: string): Promise<void> {
   const chatId: number = msg.chat.id;
   const ui = uiLang(msg.from?.language_code);
   if (msg.chat.type !== 'private') return;
@@ -296,6 +297,21 @@ async function handleMessage(env: Env, msg: any): Promise<void> {
     return;
   }
 
+  // Before the first video: agree to the Terms and Privacy Policy (the video waits, then goes on).
+  if (chat.consent !== LEGAL_VERSION) {
+    await updateChat(env, chat.chat_id, chat.tgt_lang, { pending: JSON.stringify(pending) });
+    const base = await publicOrigin(env, origin);
+    await sendMessage(env, chatId, t(ui, 'consent_ask', { terms: `${base}/terms`, privacy: `${base}/privacy` }), [
+      [{ text: t(ui, 'btn_agree'), callback_data: 'consent' }],
+    ]);
+    return;
+  }
+  await askMode(env, chat, ui, pending);
+}
+
+/** "Subtitles, video or dubbed?" for the video or link the chat sent (kept as its pending item). */
+async function askMode(env: Env, chat: ChatRow, ui: UiLang, pending: Pending): Promise<void> {
+  const chatId = chat.chat_id;
   let prompt = t(ui, 'choose', { lang: langName(chat.tgt_lang, ui) });
   // A site whose downloads have been failing lately (learned from every download) is said first.
   if (pending.kind === 'url') {
@@ -381,6 +397,7 @@ async function startJob(
   }
   const finalMode: SubtitleMode = pending.video && (mode !== 'dub' || canDub(chat.tgt_lang)) ? mode : 'soft';
   const account = creditsEnabled(env) ? await accountForTelegram(env, chat.chat_id) : null;
+  if (account && chat.consent) await recordConsent(env, account.id, chat.consent);
   if (account) {
     const refusal = await refusalText(env, ui, account, finalMode, pending.duration);
     if (refusal) return refusal;
@@ -421,7 +438,14 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
     const chat = await getChat(env, chatId, defaultLang(env));
     const pending = chat.pending ? (JSON.parse(chat.pending) as Pending) : null;
 
-    if (data === 'go:soft' || data === 'go:hard' || data === 'go:dub') {
+    if (data === 'consent') {
+      // Agreed to the Terms and Privacy Policy: kept for the chat (and its account), then the video goes on.
+      await updateChat(env, chatId, chat.tgt_lang, { consent: LEGAL_VERSION });
+      const account = await existingTelegramAccount(env, query.from?.id ?? chatId).catch(() => null);
+      if (account) await recordConsent(env, account.id, LEGAL_VERSION);
+      await editMessage(env, chatId, messageId, t(ui, 'consent_thanks'));
+      if (pending) await askMode(env, { ...chat, consent: LEGAL_VERSION }, ui, pending);
+    } else if (data === 'go:soft' || data === 'go:hard' || data === 'go:dub') {
       alert = await startJob(env, ctx, origin, chat, ui, messageId, data.slice(3) as SubtitleMode);
     } else if (data === 'style') {
       // From the "video with subtitles" choice: open the style menu below, keeping that message.
@@ -497,7 +521,7 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
 
 async function handleUpdate(env: Env, ctx: ExecutionContext, origin: string, update: any): Promise<void> {
   if (update.pre_checkout_query) await answerPreCheckout(env, update.pre_checkout_query);
-  else if (update.message) await handleMessage(env, update.message);
+  else if (update.message) await handleMessage(env, update.message, origin);
   else if (update.callback_query) await handleCallbackQuery(env, ctx, origin, update.callback_query);
 }
 

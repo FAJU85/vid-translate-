@@ -12,3 +12,4 @@ export { learnFromEdit, memoryFor, speechFix } from './service';
 export { handleMemoryAdmin } from './handlers';
 export { SITES_SCHEMA, downloadPlanFor, siteStatus, sitesJobListener, type SiteStatus } from './sites';
 export { ASPECTS, RATINGS_SCHEMA, rate, ratingsOf, type Aspect } from './ratings';
+export { eraseLearning, exportLearning } from './personal';

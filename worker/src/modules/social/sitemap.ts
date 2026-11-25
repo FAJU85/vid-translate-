@@ -29,7 +29,7 @@ export async function handleSeo(request: Request, env: Env, path: string, origin
     const blocked = await blockedAmong(env, owners);
     const profiles = await profilesByAccounts(env, owners.filter((id) => !blocked.has(id)));
     const latest = new Map<string, number>(); // a profile changes when its creator posts
-    const urls: string[] = [`<url><loc>${xml(`${base}/`)}</loc></url>`, `<url><loc>${xml(`${base}/terms`)}</loc></url>`];
+    const urls: string[] = [`<url><loc>${xml(`${base}/`)}</loc></url>`, `<url><loc>${xml(`${base}/terms`)}</loc></url>`, `<url><loc>${xml(`${base}/privacy`)}</loc></url>`];
     for (const v of videos) {
       if (!v.account_id || !profiles.has(v.account_id)) continue;
       latest.set(v.account_id, Math.max(latest.get(v.account_id) ?? 0, v.created_at));
