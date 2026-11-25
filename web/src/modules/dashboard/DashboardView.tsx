@@ -202,14 +202,25 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
 }
 
 /** Your account at a glance: balance, numbers, the ending of your videos, and every video you translated. */
-export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing }: {
+type Section = 'videos' | 'analytics' | 'profile';
+const SECTIONS: readonly [Section, string][] = [
+  ['videos', 'Videos'],
+  ['analytics', 'Analytics'],
+  ['profile', 'Profile'],
+];
+
+export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing, onTranslate }: {
   me: Me | null;
   config: AppConfig | null;
   onMe: (me: Me) => void;
   onOpenJob: (jobId: string) => void;
   onSignIn: () => void;
   onPricing: () => void;
+  /** Opens the Translate page (from the empty list). */
+  onTranslate?: () => void;
 }) {
+  // One part at a time, the videos first (what creators come back for most).
+  const [section, setSection] = useState<Section>('videos');
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -270,8 +281,6 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
 
       {error && <p className="p-3 rounded-lg border border-rose-800 bg-rose-950/60 text-sm text-rose-200">{error}</p>}
 
-      {me?.account && <ProfileCard key={me.account.id} />}
-      {me?.account && <AnalyticsCard key={`a-${me.account.id}`} />}
 
       {balance && (
         <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900 flex flex-wrap items-center justify-between gap-4">
@@ -297,7 +306,52 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         </section>
       )}
 
-      {s && (
+      {/* The three parts of the dashboard, one at a time. */}
+      {me?.account && (
+        <div role="tablist" aria-label="Dashboard" className="sticky top-[61px] z-30 -mx-4 px-4 py-2 bg-slate-950/90 backdrop-blur-xl flex gap-1 text-sm">
+          {SECTIONS.map(([id, label], i) => (
+            <button
+              key={id}
+              id={`dash-tab-${id}`}
+              role="tab"
+              aria-selected={section === id}
+              aria-controls={`dash-panel-${id}`}
+              // One Tab stop for the row; the arrow keys move between tabs (and wrap around).
+              tabIndex={section === id ? 0 : -1}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+                e.preventDefault();
+                const n = SECTIONS.length;
+                const to = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + n) % n;
+                setSection(SECTIONS[to][0]);
+                document.getElementById(`dash-tab-${SECTIONS[to][0]}`)?.focus();
+              }}
+              onClick={() => setSection(id)}
+              className={`px-4 py-1.5 rounded-full ${section === id ? 'bg-slate-100 text-slate-950 font-semibold' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Every panel stays on the page and the inactive ones are hidden, so nothing is lost on a switch. */}
+      <div
+        className="space-y-6"
+        {...(me?.account ? { role: 'tabpanel', id: 'dash-panel-videos', 'aria-labelledby': 'dash-tab-videos', hidden: section !== 'videos' } : {})}
+      >
+      {/* Signed in: the numbers are in Analytics; here, one line. */}
+      {s && me?.account && (
+        <p className="text-sm text-slate-400">
+          <b className="text-slate-100">{s.videos}</b> video{s.videos === 1 ? '' : 's'} translated · <b className="text-slate-100">{s.share_views}</b> view
+          {s.share_views === 1 ? '' : 's'} of your links ·{' '}
+          <button onClick={() => setSection('analytics')} className="text-amber-300 hover:underline">
+            See analytics
+          </button>
+        </p>
+      )}
+      {!me?.account &&
+        s && (
         <section className="space-y-3">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat icon={Video} label="Videos translated" value={String(s.videos)} note={`${s.last_30_days.videos} in the last 30 days`} />
@@ -310,6 +364,55 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
               note={s.languages.length > 1 ? s.languages.slice(1, 4).map((l) => lang(l.lang)).join(', ') : undefined}
             />
           </div>
+        </section>
+      )}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-white">Your videos</h2>
+        {!data && !error && <Loader2 className="w-5 h-5 animate-spin text-slate-500" />}
+        {data && data.videos.length === 0 && (
+          <div className="p-8 rounded-2xl border border-dashed border-slate-700 text-center space-y-3">
+            <p className="text-sm text-slate-300">Nothing yet. Translate a video and it shows up here, with its link.</p>
+            {onTranslate && (
+              <button onClick={onTranslate} className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-sm font-semibold text-slate-950">
+                Translate your first video
+              </button>
+            )}
+          </div>
+        )}
+        <ul className="space-y-2">
+          {data?.videos.map((v) => (
+            <VideoCard key={v.job_id} v={v} lang={lang} onOpen={onOpenJob} onDeleted={load} signedIn={Boolean(me?.account)} />
+          ))}
+        </ul>
+        {data && data.videos.length > 0 && (
+          <p className="text-xs text-slate-500">
+            Files and the subtitle editor stay available for 24 hours; video pages last 30 days on the free plan, and as long as you
+            keep them with a monthly plan.
+          </p>
+        )}
+      </section>
+      </div>
+
+      {me?.account && (
+        <div role="tabpanel" id="dash-panel-analytics" aria-labelledby="dash-tab-analytics" hidden={section !== 'analytics'} className="space-y-6">
+          <AnalyticsCard key={`a-${me.account.id}`} />
+          {s && (
+        <section className="space-y-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat icon={Video} label="Videos translated" value={String(s.videos)} note={`${s.last_30_days.videos} in the last 30 days`} />
+            <Stat icon={Film} label="Minutes translated" value={minutes(s.seconds)} note={`${minutes(s.last_30_days.seconds)} in the last 30 days`} />
+            <Stat icon={Eye} label="Views of your links" value={String(s.share_views)} note={`${s.shared_videos} shared video${s.shared_videos === 1 ? '' : 's'}`} />
+            <Stat
+              icon={Globe2}
+              label="Top language"
+              value={s.languages[0] ? lang(s.languages[0].lang) : '—'}
+              note={s.languages.length > 1 ? s.languages.slice(1, 4).map((l) => lang(l.lang)).join(', ') : undefined}
+            />
+          </div>
+        </section>
+      )}
+      {s && (
+        <section className="space-y-3">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="md:col-span-2 p-4 rounded-xl border border-slate-800 bg-slate-900">
               <DayBars days={s.per_day} />
@@ -327,28 +430,20 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         </section>
       )}
 
+        </div>
+      )}
+
+      {me?.account && (
+        <div role="tabpanel" id="dash-panel-profile" aria-labelledby="dash-tab-profile" hidden={section !== 'profile'} className="space-y-6">
+          <ProfileCard key={me.account.id} />
       {me?.outro && (
         <section className="p-5 rounded-2xl border border-slate-800 bg-slate-900">
           <OutroSettings outro={me.outro} onChange={() => accountApi.me().then(onMe, () => {})} />
         </section>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-white">Your videos</h2>
-        {!data && !error && <Loader2 className="w-5 h-5 animate-spin text-slate-500" />}
-        {data && data.videos.length === 0 && <p className="text-sm text-slate-400">Nothing yet. Translate a video and it shows up here, with its link.</p>}
-        <ul className="space-y-2">
-          {data?.videos.map((v) => (
-            <VideoCard key={v.job_id} v={v} lang={lang} onOpen={onOpenJob} onDeleted={load} signedIn={Boolean(me?.account)} />
-          ))}
-        </ul>
-        {data && data.videos.length > 0 && (
-          <p className="text-xs text-slate-500">
-            Files and the subtitle editor stay available for 24 hours; video pages last 30 days on the free plan, and as long as you
-            keep them with a monthly plan.
-          </p>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   );
 }
