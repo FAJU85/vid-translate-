@@ -2,7 +2,7 @@ import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
 import { reportDialog } from '../../shared/report-dialog';
 import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
-import { publicOrigin, publicSettings } from '../settings';
+import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
 import { followCounts, isBlocked, profileByHandle } from './store';
 
@@ -91,7 +91,7 @@ ${chromeCss}
 </style>
 </head>
 <body>
-${brandHeader(esc(brand), logo)}
+${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="head">
     <div class="avatar">${esc(profile.handle[0].toUpperCase())}</div>

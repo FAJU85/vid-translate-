@@ -6,7 +6,7 @@ import site from '../../../content/site.json';
 import type { SiteSettings } from './api';
 
 export interface SiteContent {
-  brand: { name: string; mark: string; logo: string; accent: string; footer: string };
+  brand: { name: string; mark: string; logo: string; accent: string; footer: string; logoSize?: number };
   seo: { title: string; description: string };
   translate: { title: string; intro: string; link_hint: string };
   history: { title: string };
@@ -18,6 +18,13 @@ const DEFAULTS: SiteContent = site;
 export const SITE: SiteContent = structuredClone(site);
 /** The built-in logo (content/site.json), shown when no logo is uploaded on the /admin page. */
 export const DEFAULT_LOGO = DEFAULTS.brand.logo;
+/** The logo's height in the headers, in pixels: the admin chooses it within these bounds. */
+export const LOGO_SIZE = { min: 24, max: 72, default: 36 } as const;
+/** A saved size, or the default. */
+export function logoSize(saved?: string | number): number {
+  const n = Number(saved);
+  return Number.isInteger(n) && n >= LOGO_SIZE.min && n <= LOGO_SIZE.max ? n : LOGO_SIZE.default;
+}
 
 /**
  * Apply the accent colour. The interface uses Tailwind's amber shades, which are CSS variables
@@ -49,6 +56,7 @@ export function applySiteSettings(saved?: SiteSettings): void {
   if (!saved) return;
   SITE.brand.name = saved.name || DEFAULTS.brand.name;
   SITE.brand.logo = saved.logo_url || DEFAULTS.brand.logo;
+  SITE.brand.logoSize = logoSize(saved.logo_size);
   SITE.brand.accent = saved.accent || DEFAULTS.brand.accent;
   SITE.translate.title = saved.translate_title || DEFAULTS.translate.title;
   SITE.translate.intro = saved.translate_intro || DEFAULTS.translate.intro;

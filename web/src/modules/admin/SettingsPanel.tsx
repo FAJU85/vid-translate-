@@ -1,14 +1,14 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { CheckCircle2, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { ApiError, adminApi, type AdminSettings } from '../../shared/api';
-import { DEFAULT_LOGO, SITE } from '../../shared/content';
+import { DEFAULT_LOGO, LOGO_SIZE, SITE, logoSize } from '../../shared/content';
 
 const MAX_LOGO_KB = 256;
 
 const inputClass =
   'w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400';
 
-const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', public_domain: '', takedown_email: '' };
+const EMPTY: AdminSettings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', public_domain: '', takedown_email: '', logo_size: '' };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -129,6 +129,48 @@ export function SettingsPanel({ password }: { password: string }) {
           </div>
           <span className="block mt-1.5 text-xs text-slate-500">
             PNG, JPEG, WebP or SVG, up to {MAX_LOGO_KB} KB. A square image works best. Also used as the browser-tab icon.
+          </span>
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between mb-1.5">
+            <label htmlFor="logo-size" className="text-sm font-medium text-slate-200">
+              Logo size
+            </label>
+            <span className="text-xs tabular-nums text-slate-400">
+              {logoSize(values.logo_size)} px{!values.logo_size && ' (default)'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              id="logo-size"
+              type="range"
+              min={LOGO_SIZE.min}
+              max={LOGO_SIZE.max}
+              step={2}
+              value={logoSize(values.logo_size)}
+              onChange={(e) => setValues((v) => ({ ...v, logo_size: Number(e.target.value) === LOGO_SIZE.default ? '' : e.target.value }))}
+              className="flex-1 accent-amber-400"
+            />
+            {values.logo_size && (
+              <button type="button" onClick={() => setValues((v) => ({ ...v, logo_size: '' }))} className="text-xs text-slate-400 hover:text-white">
+                Reset
+              </button>
+            )}
+          </div>
+          {/* How the header will look: the logo at this size next to the name. */}
+          <div className="mt-3 flex items-center gap-2.5 px-4 py-3 rounded-xl border border-slate-800 bg-slate-950">
+            <img
+              src={logoPreview || DEFAULT_LOGO}
+              alt=""
+              className="w-auto object-contain"
+              style={{ height: logoSize(values.logo_size), maxWidth: logoSize(values.logo_size) * 4 }}
+            />
+            <span className="text-lg font-extrabold tracking-[0.14em] text-slate-100">{values.name || SITE.brand.name}</span>
+            <span className="ml-auto text-[11px] text-slate-500">Header preview</span>
+          </div>
+          <span className="block mt-1.5 text-xs text-slate-500">
+            The logo's height in the header of the website and of video, profile and Terms pages ({LOGO_SIZE.min}–{LOGO_SIZE.max} px).
           </span>
         </div>
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Bot, Clapperboard, Languages, LayoutDashboard, Tag } from 'lucide-react';
-import { SITE } from '../shared/content';
+import { SITE, logoSize } from '../shared/content';
 
 export type NavTab = 'translate' | 'feed' | 'dashboard' | 'telegram' | 'pricing';
 
@@ -24,7 +24,13 @@ export function Header({ tab, onTab, account, showPricing = false }: {
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
         <button onClick={() => onTab('translate')} aria-label={`${SITE.brand.name}: home`} className="flex items-center gap-2.5 shrink-0">
           {SITE.brand.logo ? (
-            <img src={SITE.brand.logo} alt="" className="h-9 w-9 object-contain" />
+            // The admin chooses the height; a wide logo keeps its shape (up to four times as wide).
+            <img
+              src={SITE.brand.logo}
+              alt=""
+              className="w-auto object-contain"
+              style={{ height: logoSize(SITE.brand.logoSize), maxWidth: logoSize(SITE.brand.logoSize) * 4 }}
+            />
           ) : (
             <span className="h-9 w-9 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center">{(SITE.brand.mark || SITE.brand.name).slice(0, 1)}</span>
           )}

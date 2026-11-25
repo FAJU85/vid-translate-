@@ -3,6 +3,6 @@
  * bot welcome), stored in D1 and protected by the ADMIN_PASSWORD secret.
  * This file is the brick's only public interface.
  */
-export { SETTINGS_SCHEMA, type Settings } from './store';
+export { LOGO_SIZE, SETTINGS_SCHEMA, logoSize, type Settings } from './store';
 export { handleTermsPage } from './terms';
 export { handleAdminLogin, handleAdminSettings, instanceId, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo, welcomeOverride } from './handlers';

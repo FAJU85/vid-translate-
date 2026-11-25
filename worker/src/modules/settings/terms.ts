@@ -1,5 +1,5 @@
 import type { Env } from '../../shared/env';
-import { readSettings } from './store';
+import { logoSize, readSettings } from './store';
 import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -36,7 +36,7 @@ ${chromeCss}
 </head>
 <body>
 <main>
-${brandHeader(brand, logo)}
+${brandHeader(brand, logo, logoSize(settings))}
 <h1>Terms of use</h1>
 <p>${brand} translates, subtitles and dubs videos, and lets people post the results on their profile. By using it, and above all by posting a video or a comment, you agree to these terms.</p>
 

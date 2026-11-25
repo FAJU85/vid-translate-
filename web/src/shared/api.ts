@@ -85,6 +85,8 @@ export interface SiteSettings {
   translate_title: string;
   translate_intro: string;
   logo_url: string;
+  /** The logo's height in pixels; empty: the default. */
+  logo_size?: string;
 }
 
 /** Everything the /admin page edits. `logo` is a data: URL to upload, '' to remove, absent to keep. */
@@ -99,6 +101,8 @@ export interface AdminSettings {
   public_domain: string;
   /** Where copyright owners send takedown notices (shown on the Terms page); empty: not set. */
   takedown_email: string;
+  /** The logo's height in the headers, in pixels (LOGO_SIZE); empty: the default. */
+  logo_size: string;
   has_logo?: boolean;
   logo?: string;
 }

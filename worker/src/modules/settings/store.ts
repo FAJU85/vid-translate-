@@ -17,6 +17,17 @@ export interface Settings {
   public_domain: string;
   /** Where copyright owners and others send takedown requests (shown on the Terms page). */
   takedown_email: string;
+  /** The logo's height in the headers, in CSS pixels (LOGO_SIZE.min to .max), or empty for the default. */
+  logo_size: string;
+}
+
+/** The logo's height in the site and page headers: chosen on the /admin page within these bounds. */
+export const LOGO_SIZE = { min: 24, max: 72, default: 36 } as const;
+
+/** The saved logo height, or the default. */
+export function logoSize(settings: Pick<Settings, 'logo_size'> | null | undefined): number {
+  const n = Number(settings?.logo_size);
+  return Number.isInteger(n) && n >= LOGO_SIZE.min && n <= LOGO_SIZE.max ? n : LOGO_SIZE.default;
 }
 
 export const TEXT_FIELDS = ['name', 'accent', 'translate_title', 'translate_intro', 'welcome_en', 'welcome_ar'] as const;
@@ -29,7 +40,7 @@ export const SETTINGS_SCHEMA = [
    )`,
 ];
 
-const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '', takedown_email: '' };
+const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '', takedown_email: '', logo_size: '' };
 
 export async function readSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
   const res = await env.DB.prepare('SELECT key, value, updated_at FROM settings').all<{ key: string; value: string; updated_at: number }>();

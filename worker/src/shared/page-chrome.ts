@@ -34,9 +34,12 @@ export const chromeCss = `
   body { background-color: ${PALETTE.navy}; background-image: radial-gradient(circle at 12% 0%, rgba(42,184,161,.10), transparent 38%), radial-gradient(circle at 90% 6%, rgba(232,124,106,.08), transparent 40%); background-attachment: fixed; }
   .kx-head { display: flex; align-items: center; }
   .kx-brand { display: inline-flex; align-items: center; gap: 10px; color: ${PALETTE.cream}; font-weight: 800; letter-spacing: .14em; text-decoration: none; font-size: 18px; }
-  .kx-brand img { width: 34px; height: 34px; object-fit: contain; }
+  .kx-brand img { width: auto; object-fit: contain; }
   ::selection { background: ${PALETTE.teal}; color: ${PALETTE.navy}; }`;
 
-/** The header: logo and name, linking home. `brand` is already escaped. */
-export const brandHeader = (brand: string, logo = DEFAULT_LOGO) =>
-  `<header class="kx-head"><a class="kx-brand" href="/"><img src="${logo}" alt=""><span>${brand}</span></a></header>`;
+/**
+ * The header: logo and name, linking home. `brand` is already escaped; `size` is the logo's height
+ * in pixels (the admin's setting; a wide logo keeps its shape, up to four times as wide).
+ */
+export const brandHeader = (brand: string, logo = DEFAULT_LOGO, size = 36) =>
+  `<header class="kx-head"><a class="kx-brand" href="/"><img src="${logo}" alt="" style="height:${size}px;max-width:${size * 4}px"><span>${brand}</span></a></header>`;

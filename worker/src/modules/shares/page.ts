@@ -3,7 +3,7 @@ import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
 import { FONT, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
-import { publicOrigin, publicSettings } from '../settings';
+import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
 import { countView, getShare, viewerLang, type ShareRow } from './store';
 
@@ -85,7 +85,7 @@ ${chromeCss}
 </style>
 </head>
 <body>
-${brandHeader(esc(brand), logo)}
+${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
   ${creator ? `<a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span>@${esc(creator.handle)}</span></a>` : ''}
