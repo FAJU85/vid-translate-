@@ -464,6 +464,18 @@ follow it too. The admin dashboard stays in English.
 - The texts the admin edits (`content/site.json`) have an `"ar"` section with the Arabic.
 - Layouts use start/end (not left/right), so they mirror by themselves in Arabic.
 
+## Search engines (Google)
+
+Posted videos and creator profiles can be found on Google; link-only videos cannot.
+
+- `/sitemap.xml` lists the home page, the Terms, the newest 5,000 posted videos and their creators'
+  profiles (blocked accounts left out). `/robots.txt` points to it and keeps `/admin` and `/api/` out.
+- A posted video's page has a canonical address and a `VideoObject` description (title, picture,
+  length, views) that Google uses for video results. A link-only video's page says `noindex`.
+- To be found sooner: add your site in [Google Search Console](https://search.google.com/search-console)
+  and submit `https://<your address>/sitemap.xml` there (free). The addresses use the public
+  domain set in the admin panel, so set the domain first.
+
 ## Admin dashboard (jobs, name, logo, colour, texts)
 
 Open `/admin` on the website (e.g. `https://vid-translate.YOUR_SUBDOMAIN.workers.dev/admin`) and

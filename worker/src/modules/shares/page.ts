@@ -30,6 +30,20 @@ async function page(env: Env, share: ShareRow, origin: string, lang: PageLang): 
   const langs = `${from}${langName(share.tgt_lang)}`;
   const description = tr('{what} in {lang} with {brand}.', { what, lang: langName(share.tgt_lang), brand });
   const thumb = share.has_thumb ? `${files}/thumb.jpg` : '';
+  // Posted videos are for everyone, search engines included; link-only ones stay out of search.
+  const posted = share.visibility === 'public' && Boolean(share.account_id);
+  const ldJson = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    name: title,
+    description,
+    uploadDate: new Date(share.created_at * 1000).toISOString(),
+    ...(thumb ? { thumbnailUrl: thumb } : {}),
+    contentUrl: `${files}/video.mp4`,
+    ...(share.duration ? { duration: `PT${Math.round(share.duration)}S` } : {}),
+    inLanguage: share.tgt_lang,
+    interactionStatistic: { '@type': 'InteractionCounter', interactionType: { '@type': 'WatchAction' }, userInteractionCount: share.views },
+  }).replace(/</g, '\\u003c');
   // More from the same creator (a posted video only): up to six of their other posted videos.
   const more = creator && share.account_id ? (await listPublicShares(env, share.account_id, 7)).filter((v) => v.id !== share.id).slice(0, 6) : [];
   const html = `<!doctype html>
@@ -49,7 +63,8 @@ ${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
 <meta property="og:video" content="${esc(files)}/video.mp4">
 <meta property="og:video:type" content="video/mp4">
 <meta name="twitter:card" content="${thumb ? 'summary_large_image' : 'summary'}">
-<meta name="robots" content="noindex">
+${posted ? `<link rel="canonical" href="${esc(url)}">
+<script type="application/ld+json">${ldJson}</script>` : '<meta name="robots" content="noindex">'}
 <style>
   :root { color-scheme: dark; --accent: ${accent}; }
   * { box-sizing: border-box; }
