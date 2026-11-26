@@ -706,6 +706,8 @@ export interface AdminJob {
 /** Link downloads per site over the last `days` days (the /admin Insights page). */
 export interface SiteStats {
   days: number;
+  /** Kept videos and their total size in bytes (KAVOX never deletes them). */
+  storage?: { videos: number; bytes: number };
   sites: {
     site: string;
     done: number;

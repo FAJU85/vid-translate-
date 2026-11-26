@@ -158,6 +158,12 @@ export async function shareTotals(env: Env, who: { accountId?: string | null; ow
   return { shared: row?.shared ?? 0, views: row?.views ?? 0 };
 }
 
+/** What all kept videos take up in R2 (videos only; thumbnails and photos are small). */
+export async function storageTotals(env: Env): Promise<{ videos: number; bytes: number }> {
+  const row = await env.DB.prepare("SELECT COUNT(*) AS videos, COALESCE(SUM(size), 0) AS bytes FROM shares WHERE size > 0").first<{ videos: number; bytes: number }>();
+  return { videos: row?.videos ?? 0, bytes: row?.bytes ?? 0 };
+}
+
 /** An account's videos posted to its profile, newest first. */
 export async function listPublicShares(env: Env, accountId: string, limit = 60): Promise<ShareRow[]> {
   const { results } = await env.DB.prepare(
