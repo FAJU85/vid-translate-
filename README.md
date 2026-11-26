@@ -495,6 +495,15 @@ thumbnail and gallery in `docs/launch/`), and the day itself. Its three banners 
 **Admin → Banners**: the welcome for visitors from Product Hunt (`?ref=producthunt`, on), "live
 on Product Hunt today" for everyone (off until launch day), and a footer link for afterwards.
 
+## Pages for search (SEO)
+
+Four server-made pages bring people who search to the right journey: `/translate-video`,
+`/lyrics-video`, and the same in Arabic under `/ar/` (each says what the journey really does, how,
+and answers common questions, marked up for Google as an FAQ). Each language links to the other
+(hreflang), all four are in `/sitemap.xml`, and they say "free" only while credits are off. Their
+buttons open the app on that journey and in that language (`?lang=`); visits count on the Growth
+page as "Search page: …".
+
 ## Banners and footer links
 
 **Admin → Banners** holds every message at the top of the site (or of one page: Translate,
