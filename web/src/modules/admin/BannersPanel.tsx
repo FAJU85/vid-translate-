@@ -67,6 +67,8 @@ function problem(b: SiteBlock): string | null {
 
 function Editor({ b, set }: { b: SiteBlock; set: (patch: Partial<SiteBlock>) => void }) {
   const footer = b.place === 'footer';
+  // Typed as text (a comma may be followed by the next name), kept as a list.
+  const [sourcesText, setSourcesText] = useState(b.sources.join(', '));
   const setButton = (i: number, patch: Partial<SiteBlockButton>) => set({ buttons: b.buttons.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   return (
     <div className="space-y-4 pt-3 border-t border-slate-800">
@@ -87,8 +89,11 @@ function Editor({ b, set }: { b: SiteBlock; set: (patch: Partial<SiteBlock>) => 
           <input
             className={input}
             dir="ltr"
-            value={b.sources.join(', ')}
-            onChange={(e) => set({ sources: e.target.value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) })}
+            value={sourcesText}
+            onChange={(e) => {
+              setSourcesText(e.target.value);
+              set({ sources: e.target.value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) });
+            }}
             placeholder="everyone"
           />
         </Field>
@@ -280,10 +285,10 @@ export function BannersPanel({ password }: { password: string }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className={quiet} disabled={!list} onClick={() => add(false)}>
+          <button className={quiet} disabled={!list || busy} onClick={() => add(false)}>
             <Plus className="w-4 h-4" /> New banner
           </button>
-          <button className={quiet} disabled={!list} onClick={() => add(true)}>
+          <button className={quiet} disabled={!list || busy} onClick={() => add(true)}>
             <Plus className="w-4 h-4" /> New footer link
           </button>
           <button className={primary} disabled={!list || !dirty || busy} onClick={save}>
@@ -298,6 +303,8 @@ export function BannersPanel({ password }: { password: string }) {
       ) : list.length === 0 ? (
         <p className="text-sm text-slate-400">No banners or footer links. Add one above.</p>
       ) : (
+        // Nothing can be changed while saving, so the saved copy never replaces newer edits.
+        <fieldset disabled={busy} className="space-y-3">
         <ul className="space-y-3">
           {list.map((b, i) => {
             const issue = b.enabled ? problem(b) : null;
@@ -331,11 +338,12 @@ export function BannersPanel({ password }: { password: string }) {
                   </div>
                 </div>
                 {issue && <p className="text-xs text-amber-300">{issue}</p>}
-                {open === b.id && <Editor b={b} set={(patch) => update(b.id, patch)} />}
+                {open === b.id && <Editor key={b.id} b={b} set={(patch) => update(b.id, patch)} />}
               </li>
             );
           })}
         </ul>
+        </fieldset>
       )}
     </div>
   );

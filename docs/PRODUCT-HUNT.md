@@ -110,8 +110,9 @@ what makes it different, and one specific question. Like a person, not a press r
 
 ## 3. Launch day
 
-- Launches go live at **12:01 a.m. Pacific time** (11:01 a.m. in Saudi Arabia) and run until
-  midnight Pacific. There is no magic weekday: weekdays bring more visitors and more competition,
+- Launches go live at **12:01 a.m. Pacific time** and run until midnight Pacific. In Saudi Arabia
+  that is **11:01 a.m.** from early November to mid-March (Pacific standard time) and **10:01 a.m.**
+  the rest of the year (Pacific daylight time): check for your date. There is no magic weekday: weekdays bring more visitors and more competition,
   weekends are quieter. Pick a day you can be online for the first hours, with no holiday in your
   main market and nothing else big on your side.
 - **/admin → Banners → "Product Hunt: live today"**: paste the post address in its button, turn it

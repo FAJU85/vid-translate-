@@ -124,13 +124,30 @@ function Site() {
   }, [awaitingSince]);
 
   useEffect(() => {
-    api
-      .config()
-      .then((c) => {
-        applySiteSettings(c.site); // before setConfig, so the re-render shows the saved name, logo and texts
-        setConfig(c);
-      })
-      .catch(() => setConfigError(true));
+    // Banners are chosen for a day (UTC): fetched again when the day changes while the page stays
+    // open, or when it is opened again on a new day. No reload, so an upload carries on.
+    let day = '';
+    const load = () => {
+      day = new Date().toISOString().slice(0, 10);
+      api
+        .config()
+        .then((c) => {
+          applySiteSettings(c.site); // before setConfig, so the re-render shows the saved name, logo and texts
+          setConfig(c);
+          setConfigError(false);
+        })
+        .catch(() => setConfigError(true));
+    };
+    const ifNewDay = () => {
+      if (document.visibilityState === 'visible' && new Date().toISOString().slice(0, 10) !== day) load();
+    };
+    load();
+    const timer = setInterval(ifNewDay, 10 * 60 * 1000);
+    document.addEventListener('visibilitychange', ifNewDay);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', ifNewDay);
+    };
   }, []);
 
   // Keep the address bar shareable: ?job=<id> reopens the same result.

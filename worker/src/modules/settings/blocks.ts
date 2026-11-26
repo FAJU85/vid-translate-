@@ -132,6 +132,11 @@ export function visibleBlocks(blocks: Block[], today = new Date().toISOString().
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar day (2026-02-30 and 2026-13-01 are not). */
+const realDay = (d: string) => {
+  const t = DATE.test(d) ? Date.parse(`${d}T00:00:00Z`) : NaN;
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === d;
+};
 const URL_OK = (u: string) => u === '' || (u.length <= 500 && (/^https:\/\/[^\s<>"]+$/i.test(u) || /^\/(?!\/)[^\s<>"]*$/.test(u)));
 
 /** Check a list sent by the admin page: a clean copy, or what is wrong (in plain words). */
@@ -152,7 +157,7 @@ export function checkBlocks(input: unknown): { blocks: Block[] } | { error: stri
     const icon = ICONS.includes(b.icon as Block['icon']) ? (b.icon as Block['icon']) : 'none';
     const start = str('start', 10);
     const end = str('end', 10);
-    if ((start && !DATE.test(start)) || (end && !DATE.test(end))) return { error: `${which}: dates look like 2026-12-01.` };
+    if ((start && !realDay(start)) || (end && !realDay(end))) return { error: `${which}: dates must be real days, like 2026-12-01.` };
     if (start && end && end < start) return { error: `${which}: the last day is before the first.` };
     const sources = (Array.isArray(b.sources) ? b.sources : String(b.sources ?? '').split(','))
       .map((s) => String(s).trim().toLowerCase())
