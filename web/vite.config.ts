@@ -3,6 +3,26 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 import site from '../content/site.json';
 
+// Read from the build environment (Cloudflare Workers Builds sets the commit).
+declare const process: { env: Record<string, string | undefined> };
+
+/**
+ * This build's id: the commit Cloudflare builds (or the time). The app compares it with
+ * /version.json to know a newer KAVOX is out, and registers /sw.js?v=<id>, so each deploy installs
+ * a fresh service worker whose cache is named after it (no version to bump by hand).
+ */
+const BUILD_ID = (process.env.WORKERS_CI_COMMIT_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA || '').slice(0, 12) || Date.now().toString(36);
+
+function buildStamp(): Plugin {
+  return {
+    name: 'build-stamp',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: BUILD_ID }) + '\n' });
+    },
+  };
+}
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -40,7 +60,8 @@ function siteHead(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), siteHead()],
+  plugins: [react(), tailwindcss(), siteHead(), buildStamp()],
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   server: {
     // Without VITE_API_BASE the app calls /api on its own origin; in dev that is
     // forwarded to a local `wrangler dev` (see worker/).

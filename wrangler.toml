@@ -19,7 +19,7 @@ command = "npm ci --prefix web && npm run build --prefix web"
 directory = "web/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/*", "!/assets/*", "!/fonts/*", "!/sw.js", "!/manifest.webmanifest", "!/offline.html", "!/offline"]
+run_worker_first = ["/*", "!/assets/*", "!/fonts/*", "!/sw.js", "!/version.json", "!/manifest.webmanifest", "!/offline.html", "!/offline"]
 
 [vars]
 # URL of your Hugging Face Space: https://<user>-<space-name>.hf.space

@@ -12,6 +12,7 @@ import { LyricsView } from '../modules/lyrics';
 import { AccountButton, AccountDialog } from '../modules/account';
 import { NotificationBell } from '../modules/notifications';
 import { InstallButton } from './InstallButton';
+import { IconHint, UpdateNotice } from './UpdateNotice';
 import { accountApi, api, keepInvite, type AppConfig, type Me } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
@@ -205,6 +206,7 @@ function Site() {
             {t("Waiting for your payment… Finish it in the other tab or in Telegram; this page carries on by itself.")}
           </div>
         )}
+        <IconHint />
         <SiteBanners blocks={config?.site?.blocks} tab={tab} source={source} onTab={setTab} />
         {configError && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">
@@ -272,6 +274,7 @@ function Site() {
         ·{' '}
         <FeedbackButton className="hover:text-slate-300 underline-offset-2 hover:underline" />
       </footer>
+      <UpdateNotice />
     </div>
   );
 }

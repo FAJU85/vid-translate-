@@ -8,6 +8,7 @@ import { Progress } from './Progress';
 import { PostToProfile } from './PostToProfile';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
 import { languageName, plural, t } from '../../shared/i18n';
+import { holdUpdates } from '../../shared/updates';
 
 interface Props {
   jobId: string;
@@ -46,6 +47,9 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
   const [rendering, setRendering] = useState(false);
   // Corrections sent to the translation memory (once per version of the edits).
   const [taught, setTaught] = useState<{ learned: number; signed_in: boolean } | null>(null);
+  // A new version of the app waits while this video is being made or its edits are not saved.
+  const busy = Boolean(job && ACTIVE.has(job.status)) || edited;
+  useEffect(() => (busy ? holdUpdates() : undefined), [busy]);
   // Sent once per version of the edits: while sending, and after it counted. Not after a failure
   // or while signed out, so it is sent again later (after signing in, for example).
   const taughtFor = useRef<{ sending: string; done: string }>({ sending: '', done: '' });

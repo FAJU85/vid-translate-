@@ -5,7 +5,10 @@
  *   page) is shown instead.
  * - Nothing else is cached: the API, videos, files and the admin always go to the network.
  */
-const VERSION = 'kavox-v2';
+// Named after the build: the app registers /sw.js?v=<build> (web/src/main.tsx), so each deploy
+// installs a fresh worker with a fresh cache, and the old one is deleted. A file changed under the
+// same name never stays stale, and there is no version to bump by hand.
+const VERSION = `kavox-${new URL(self.location.href).searchParams.get('v') || 'v2'}`;
 // The offline page (offline.html, served at /offline: the site drops the .html).
 const OFFLINE = '/offline';
 
