@@ -3,7 +3,7 @@
  * credits (1 credit = 60 seconds of video). This file is the brick's only public interface.
  */
 export { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, getAccount, recordConsent, type Account } from './store';
-export { cancelTelegramLogin, confirmTelegramLogin, describeTelegramLogin } from './auth';
+export { cancelTelegramLogin, confirmTelegramLogin, describeTelegramLogin, sweepSignIns } from './auth';
 export { SECONDS_PER_CREDIT, balance, costSeconds, creditsEnabled, grant, grantStatements, guardChanged, type Balance } from './credits';
 export { billingListener, chargeJob, checkJob, estimateSeconds, releaseJob, type ChargeResult, type Refusal } from './billing';
 export { DAILY_SECONDS, FREE_MAX_VIDEO_SECONDS, freshBalance } from './allowances';

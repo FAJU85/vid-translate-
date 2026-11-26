@@ -1,11 +1,9 @@
 import { now, type Env } from '../../shared/env';
-import { hasPlan, jobAccount } from '../accounts';
+import { jobAccount } from '../accounts';
 import { fileLink, type JobListener, type JobRow } from '../jobs';
 import { publicOrigin } from '../settings';
 import { deleteShareRow, insertShare, shareForJob, updateShare, type ShareRow } from './store';
 
-/** Free accounts' links last this long; monthly plans keep theirs until they delete them. */
-export const FREE_SHARE_SECONDS = 30 * 86400;
 const MAX_COPY_ATTEMPTS = 6;
 const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
 
@@ -30,7 +28,6 @@ export function videoFile(job: Pick<JobRow, 'mode' | 'outputs'>): string | null 
 async function createShare(env: Env, job: JobRow): Promise<void> {
   if (!env.MEDIA || job.status !== 'done' || !videoFile(job)) return;
   const account = await jobAccount(env, job);
-  const keep = account && (await hasPlan(env, account.id));
   const ts = now();
   const outputs = JSON.parse(job.outputs || '{}') as Record<string, string>;
   // Two finished-notices for one job: the second insert is ignored (job_id is unique).
@@ -50,7 +47,7 @@ async function createShare(env: Env, job: JobRow): Promise<void> {
     copy_attempts: 0,
     views: 0,
     created_at: ts,
-    expires_at: keep ? null : ts + FREE_SHARE_SECONDS,
+    expires_at: null, // kept until its owner deletes it (or their account): KAVOX never deletes it
   });
 }
 
@@ -108,6 +105,11 @@ async function copyFile(env: Env, jobId: string, name: string, key: string, type
 
 /** Cron: copy waiting shares to R2 (a few per minute), and remove expired ones. */
 export async function sweepShares(env: Env): Promise<void> {
+  // Videos are kept until their owner deletes them: end dates set before this rule are dropped.
+  await env.DB.prepare('UPDATE shares SET expires_at = NULL WHERE expires_at IS NOT NULL').run();
+  // A page whose video could never be copied (gone from the Space first) has nothing to show.
+  const { results: failed } = await env.DB.prepare("SELECT id FROM shares WHERE status = 'failed' LIMIT 20").all<{ id: string }>();
+  for (const { id } of failed) await deleteShare(env, id);
   if (!env.MEDIA) return;
   const { results: pending } = await env.DB.prepare(
     "SELECT shares.*, jobs.outputs AS outputs FROM shares JOIN jobs ON jobs.id = shares.job_id WHERE shares.status = 'pending' ORDER BY shares.created_at LIMIT 3",
@@ -129,13 +131,6 @@ export async function sweepShares(env: Env): Promise<void> {
       await updateShare(env, share.id, attempts >= MAX_COPY_ATTEMPTS ? { status: 'failed', copy_attempts: attempts } : { copy_attempts: attempts });
     }
   }
-  // Expired links (and lost files): their files go, then their rows.
-  const { results: old } = await env.DB.prepare(
-    "SELECT id FROM shares WHERE (expires_at IS NOT NULL AND expires_at < ?) OR status = 'failed' LIMIT 20",
-  )
-    .bind(now())
-    .all<{ id: string }>();
-  for (const { id } of old) await deleteShare(env, id);
 }
 
 /** Remove a share and its files. */

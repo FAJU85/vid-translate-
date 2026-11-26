@@ -308,9 +308,11 @@ address, `https://<public address>/<id>` (old `/v/<id>` links redirect there): a
 with a preview picture for Telegram, WhatsApp and other apps. The website shows the link under the
 result and the bot sends it after the video. The Worker copies the video and a still from the
 Space to the R2 bucket `kavox-media` within a minute or two (the Space only keeps files a day);
-until then the page plays it from the Space. Links from free accounts last 30 days; monthly plans
-keep theirs until they delete them (`DELETE /api/shares/<id>`). Expired links are removed by the
-scheduled task.
+until then the page plays it from the Space. **KAVOX never deletes a video by itself**: every link
+stays until its owner deletes it (`DELETE /api/shares/<id>`) or their account. A video taken down
+by moderation after a report (`remove` on Admin → Reports) is hidden from everyone else, never
+deleted: its owner still sees it in their list, can delete it, and is told (inbox, and the bot
+for videos made in Telegram).
 
 ### Public address (your own domain)
 

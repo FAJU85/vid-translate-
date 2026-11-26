@@ -67,10 +67,10 @@ const english = (brand: string, contact: string) => `<h1>Terms of use</h1>
 <p>No content that sexualises minors; no sexual content without consent; no harassment, threats or hate against people for who they are; no incitement to violence; no spam, scams or impersonation (pretending to be a person, a brand or ${brand} staff); no content that offends public order or public morals under Saudi law; nothing illegal where you live or where ${brand} operates. Do not try to break, overload or get around the limits of the service.</p>
 
 <h2>4. Reporting and moderation</h2>
-<p>Every posted video, comment and profile has a <b>Report</b> button. ${brand} reviews reports and may hide or remove content and block accounts that break these terms, without notice. Removed videos are deleted.</p>
+<p>Every posted video, comment and profile has a <b>Report</b> button. ${brand} reviews reports and may take down content and block accounts that break these terms. When something of yours is taken down, you are told. ${brand} never deletes your videos: a video taken down is hidden from everyone else, and stays yours to see and delete.</p>
 
 <h2>5. Copyright and takedown requests</h2>
-<p>If a video or comment on ${brand} uses your work without permission, write to ${contact} with: the link to the content, the work you own, your contact details, and a statement that you believe in good faith that the use is not authorised and that your request is accurate. ${brand} removes the content once the request is confirmed, and blocks accounts that repeatedly post others' work.</p>
+<p>If a video or comment on ${brand} uses your work without permission, write to ${contact} with: the link to the content, the work you own, your contact details, and a statement that you believe in good faith that the use is not authorised and that your request is accurate. ${brand} takes the content down once the request is confirmed (its owner is told), and blocks accounts that repeatedly post others' work.</p>
 
 <h2>6. Credits and payments</h2>
 <p>Credits are used for the minutes of video you translate, as shown before each job. Credits for a job that fails or is cancelled are returned. Bought credits are not refundable once used.</p>
@@ -101,10 +101,10 @@ const arabic = (brand: string, contact: string) => `<h1>شروط الاستخد�
 <p>لا محتوى يستغل القاصرين جنسيًا؛ ولا محتوى جنسي دون موافقة؛ ولا تحرّش أو تهديد أو كراهية ضد أشخاص بسبب هويتهم؛ ولا تحريض على العنف؛ ولا إزعاج أو احتيال أو انتحال شخصية (التظاهر بأنك شخص أو علامة تجارية أو من فريق ${brand})؛ ولا محتوى يمس النظام العام أو الآداب العامة وفق أنظمة المملكة؛ ولا أي شيء مخالف للنظام حيث تعيش أو حيث يعمل ${brand}. ولا تحاول تعطيل الخدمة أو إثقالها أو التحايل على حدودها.</p>
 
 <h2>4. البلاغات والإشراف</h2>
-<p>لكل فيديو منشور وتعليق وملف شخصي زر <b>إبلاغ</b>. يراجع ${brand} البلاغات، وقد يخفي المحتوى أو يحذفه ويحظر الحسابات المخالفة لهذه الشروط دون إشعار. الفيديوهات المحذوفة تُمحى.</p>
+<p>لكل فيديو منشور وتعليق وملف شخصي زر <b>إبلاغ</b>. يراجع ${brand} البلاغات، وقد يُزيل المحتوى من العرض ويحظر الحسابات المخالفة لهذه الشروط. وحين يُزال شيء يخصك نُعلمك بذلك. لا يحذف ${brand} فيديوهاتك أبدًا: الفيديو المُزال يُخفى عن الجميع، ويبقى لك تراه وتحذفه.</p>
 
 <h2>5. حقوق النشر وطلبات الإزالة</h2>
-<p>إن كان فيديو أو تعليق على ${brand} يستخدم عملك دون إذن، فراسل ${contact} مع: رابط المحتوى، والعمل الذي تملكه، وبيانات التواصل معك، وإقرار بأنك تعتقد بحسن نية أن الاستخدام غير مصرّح به وأن طلبك دقيق. يزيل ${brand} المحتوى بعد تأكيد الطلب، ويحظر الحسابات التي تنشر أعمال الآخرين مرارًا.</p>
+<p>إن كان فيديو أو تعليق على ${brand} يستخدم عملك دون إذن، فراسل ${contact} مع: رابط المحتوى، والعمل الذي تملكه، وبيانات التواصل معك، وإقرار بأنك تعتقد بحسن نية أن الاستخدام غير مصرّح به وأن طلبك دقيق. يُزيل ${brand} المحتوى من العرض بعد تأكيد الطلب (ويُبلَّغ صاحبه)، ويحظر الحسابات التي تنشر أعمال الآخرين مرارًا.</p>
 
 <h2>6. الرصيد والمدفوعات</h2>
 <p>يُستخدم الرصيد لدقائق الفيديو التي تترجمها، كما يظهر قبل كل مهمة. يُعاد رصيد المهمة التي تفشل أو تُلغى. الرصيد المشترى غير قابل للاسترداد بعد استخدامه.</p>

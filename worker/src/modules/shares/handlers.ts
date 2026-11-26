@@ -3,7 +3,7 @@ import type { Env } from '../../shared/env';
 import { getAccount } from '../accounts';
 import { publicOrigin } from '../settings';
 import { announcePost, deleteShare } from './service';
-import { getShare, listShares, setTitle, setVisibility, updateShare, type ShareRow } from './store';
+import { getOwnShare, listShares, setTitle, setVisibility, updateShare, type ShareRow } from './store';
 
 /** A caption's longest length (titles from the source video are cut to it when edited). */
 const MAX_TITLE = 150;
@@ -20,6 +20,8 @@ export const publicShare = (s: ShareRow, origin: string) => ({
   duration: s.duration,
   views: s.views,
   ready: s.status === 'ready',
+  /** Taken down after a report: hidden from everyone else; still its owner's to delete. */
+  removed: s.status === 'removed',
   thumb_url: s.has_thumb ? `${origin}/v/${s.id}/thumb.jpg` : null,
   created_at: s.created_at,
   expires_at: s.expires_at,
@@ -43,7 +45,7 @@ export async function handleShares(request: Request, env: Env, path: string, ori
   }
   const m = path.match(/^\/api\/shares\/([A-Za-z0-9]{10})$/);
   if (!m || (request.method !== 'DELETE' && request.method !== 'POST')) return null;
-  const share = await getShare(env, m[1]);
+  const share = await getOwnShare(env, m[1]);
   if (!share) return apiError(404, 'E_NOT_FOUND', 'This link does not exist any more.');
   const mine = (viewer.accountId && share.account_id === viewer.accountId) || (viewer.owner && share.owner === viewer.owner);
   if (!mine) return apiError(403, 'E_FORBIDDEN', 'This link belongs to someone else.');
@@ -61,6 +63,7 @@ export async function handleShares(request: Request, env: Env, path: string, ori
     return json(publicShare({ ...share, title: title || null }, await publicOrigin(env, origin)));
   }
   if (body?.visibility !== 'link' && body?.visibility !== 'public') return apiError(400, 'E_BAD_REQUEST', 'visibility is link or public.');
+  if (share.status === 'removed' && body.visibility === 'public') return apiError(403, 'E_REMOVED', 'This video was taken down after a report and cannot be posted.');
   // A video this browser made before signing in (no account, or this browser's guest account)
   // becomes the signed-in account's when it posts it: the browser proves it made it, as for deleting.
   if (body.visibility === 'public' && viewer.signedIn && viewer.accountId && share.account_id !== viewer.accountId && viewer.owner && share.owner === viewer.owner) {

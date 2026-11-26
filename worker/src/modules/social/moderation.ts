@@ -3,8 +3,9 @@ import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
 import { publicOrigin } from '../settings';
-import { deleteShare, getPostedVideo, getShare } from '../shares';
-import { notify } from './notifications';
+import { getJob } from '../jobs';
+import { getPostedVideo, getShare, takeDownShare } from '../shares';
+import { notify, notifyOwner } from './notifications';
 import {
   REPORT_KINDS,
   REPORT_REASONS,
@@ -148,7 +149,8 @@ async function preview(env: Env, kind: ReportKind, target: string, base: string)
 /**
  * GET /api/admin/moderation (open reports, the most reported first, and blocked accounts) and
  * POST /api/admin/moderation {kind, target, action} with action dismiss | hide (a comment) |
- * remove (a video or a comment) | block (the account behind it), or {action: unblock, account_id}.
+ * remove (a video: taken down, never deleted; a comment) | block (the account behind it), or
+ * {action: unblock, account_id}. The owner is told whenever something of theirs is taken down.
  * The caller has already checked the admin password.
  */
 export async function handleModeration(request: Request, env: Env, path: string, origin: string): Promise<Response | null> {
@@ -174,13 +176,24 @@ export async function handleModeration(request: Request, env: Env, path: string,
   if (action === 'dismiss') {
     await closeReports(env, kind, target, 'dismissed');
   } else if (action === 'hide' && kind === 'comment') {
+    const c = await getComment(env, Number(target));
     await setCommentStatus(env, Number(target), 'hidden');
+    if (c) await notifyOwner(env, { account_id: c.account_id }, 'removed', { what: 'comment', text: c.text, hidden: true });
     await closeReports(env, kind, target, 'actioned');
   } else if (action === 'remove' && kind === 'video') {
-    if (!info.gone) await deleteShare(env, target); // the video, its picture and its page: for copyright takedowns
+    // Taken down (copyright, Terms): gone from its page, the profile and the feed, but never
+    // deleted: it stays in its owner's list, theirs to delete. They are told.
+    const video = await getShare(env, target);
+    if (video) {
+      await takeDownShare(env, video.id);
+      const job = await getJob(env, video.job_id).catch(() => null);
+      await notifyOwner(env, video, 'removed', { what: 'video', title: video.title }, { lang: job?.ui_lang });
+    }
     await closeReports(env, kind, target, 'actioned');
   } else if (action === 'remove' && kind === 'comment') {
+    const c = await getComment(env, Number(target));
     await deleteComment(env, Number(target));
+    if (c) await notifyOwner(env, { account_id: c.account_id }, 'removed', { what: 'comment', text: c.text });
     await closeReports(env, kind, target, 'actioned');
   } else if (action === 'block') {
     if (!info.account_id) return apiError(400, 'E_BAD_REQUEST', 'No account to block.');

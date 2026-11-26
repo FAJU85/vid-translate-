@@ -4,6 +4,14 @@ import { now, type Env } from '../../shared/env';
  * Social brick storage: each signed-in account's public profile, found by its unique @handle.
  * (Feed, likes, follows and comments come in their own tables.)
  */
+import type { AddedColumn } from '../../shared/db';
+
+/** Columns added after the tables first shipped. */
+export const SOCIAL_COLUMNS: AddedColumn[] = [
+  // A notice from KAVOX itself (kind expiring | removed): JSON {what, title, text, at, hidden}.
+  { table: 'notifications', column: 'detail', definition: 'TEXT' },
+];
+
 export const SOCIAL_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS profiles (
     account_id TEXT PRIMARY KEY,

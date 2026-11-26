@@ -7,7 +7,7 @@ import { logoSize, readSettings } from './store';
  * The version of the Terms and the Privacy Policy people agree to. Change it (to the date) when
  * either changes in substance: everyone is then asked to agree again before their next video.
  */
-export const LEGAL_VERSION = '2026-11-26';
+export const LEGAL_VERSION = '2026-11-26.2';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -66,12 +66,12 @@ ${table(
 ${table(
   [
     ['Files on the translation server', 'Up to 1 day'],
-    ['A translated video and its page (free account or no account)', '30 days, unless you delete it sooner'],
-    ['A translated video and its page (monthly plan)', 'Until you delete it, or your account'],
+    ['A translated video and its page', 'Until you delete it, or your account. ${brand} never deletes it by itself (a video taken down after a report is hidden, not deleted, and you are told).'],
     ['Job details (title, languages, status)', '30 days'],
     ['Sign-in codes and the sign-in country', '1 day'],
     ['Notifications', '90 days'],
     ['Feedback', 'Until it is handled, at most 1 year'],
+    ['Reports you send', 'At most 1 year'],
     ['Security log (admin actions, data downloads and deletions)', '1 year'],
     ['Daily visit counts (no personal data)', '400 days'],
     ['Account, profile, posts, comments, credits, invites', 'Until you delete your account'],
@@ -135,12 +135,12 @@ ${table(
 ${table(
   [
     ['الملفات على خادم الترجمة', 'حتى يوم واحد'],
-    ['الفيديو المترجم وصفحته (حساب مجاني أو دون حساب)', '30 يومًا ما لم تحذفه قبل ذلك'],
-    ['الفيديو المترجم وصفحته (خطة شهرية)', 'حتى تحذفه أو تحذف حسابك'],
+    ['الفيديو المترجم وصفحته', 'حتى تحذفه أو تحذف حسابك. لا يحذفه ${brand} من تلقاء نفسه (الفيديو المُزال بعد بلاغ يُخفى ولا يُحذف، ونُعلمك بذلك).'],
     ['تفاصيل المهام (العنوان واللغات والحالة)', '30 يومًا'],
     ['رموز تسجيل الدخول وبلد الطلب', 'يوم واحد'],
     ['الإشعارات', '90 يومًا'],
     ['الملاحظات', 'حتى تُعالج، وسنة واحدة كحد أقصى'],
+    ['البلاغات التي ترسلها', 'سنة واحدة كحد أقصى'],
     ['سجل الأمان (إجراءات المشرف وتنزيل البيانات وحذفها)', 'سنة واحدة'],
     ['عدد الزيارات اليومي (بلا بيانات شخصية)', '400 يوم'],
     ['الحساب والملف والمنشورات والتعليقات والرصيد والدعوات', 'حتى تحذف حسابك'],

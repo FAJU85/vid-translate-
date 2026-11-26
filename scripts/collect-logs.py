@@ -57,12 +57,27 @@ _PATTERNS = [
 ]
 
 
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_URL = re.compile(r"https?://([A-Za-z0-9.-]+)(:\d+)?([^\s\"'<>]*)")
+# Addresses whose path is ours (KAVOX's own pages and APIs) and may stay; any other link a visitor
+# sent (a video, a song) is personal data and keeps only its host. Query strings never stay.
+_OWN_HOSTS = {h for h in (re.sub(r"^https?://", "", WORKER_URL).split("/")[0], "api.cloudflare.com", "huggingface.co") if h}
+
+
+def _url(m: re.Match) -> str:
+    host, path = m.group(1).lower(), m.group(3).split("?")[0].split("#")[0]
+    own = host in _OWN_HOSTS or host.endswith(".hf.space") or host.endswith(".workers.dev")
+    return f"https://{host}{path if own else ('/[link]' if path not in ('', '/') else '')}"
+
+
 def redact(text: str) -> str:
     for value in _SECRETS:
         text = text.replace(value, "[secret]")
     for pattern, repl in _PATTERNS:
         text = pattern.sub(repl, text)
-    return text
+    # Personal data the public Actions log must never show: email addresses and the links people send.
+    text = _EMAIL.sub("[email]", text)
+    return _URL.sub(_url, text)
 
 
 def out(text: str = "") -> None:

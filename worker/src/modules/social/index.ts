@@ -5,14 +5,15 @@
  * and get notifications (on the site, and by the Telegram bot if they want).
  * This file is the brick's only public interface.
  */
-export { SOCIAL_SCHEMA } from './store';
+export { SOCIAL_COLUMNS, SOCIAL_SCHEMA } from './store';
 export { HANDLE, checkHandle } from './handles';
 export { creatorFor, handleSocial } from './handlers';
 export { handleFeed, rank } from './feed';
 export { handleDiscover, tagsOf } from './discover';
 export { handleAnalytics } from './analytics';
 export { handleComments, handleModeration } from './moderation';
-export { handleNotifications, notifyPost, sweepNotifications } from './notifications';
+export { handleNotifications, notifyOwner, notifyPost, sweepNotifications } from './notifications';
 export { PROFILE_PATH, handleProfilePage } from './page';
 export { handleSeo } from './sitemap';
 export { eraseSocial, exportSocial } from './personal';
+export { REPORT_DAYS, sweepSocial } from './retention';
