@@ -319,8 +319,10 @@ export interface Share {
   ready: boolean;
   thumb_url: string | null;
   created_at: number;
-  /** null: kept until deleted (monthly plans). */
+  /** Always null now: a video is kept until its owner deletes it. */
   expires_at: number | null;
+  /** Taken down after a report: hidden from everyone else, still yours to delete. */
+  removed?: boolean;
   /** link: only people with the link; public: also on your profile. */
   visibility: 'link' | 'public';
 }
@@ -544,15 +546,18 @@ export const discoverApi = {
   trending: () => call<{ videos: (FeedItem & { week_likes: number })[]; tags: { tag: string; videos: number }[] }>('/api/trending'),
 };
 
-export type NotificationKind = 'follow' | 'like' | 'comment' | 'post';
+export type NotificationKind = 'follow' | 'like' | 'comment' | 'post' | 'removed';
 export interface Notification {
   id: number;
   kind: NotificationKind;
   created_at: number;
-  actor: { handle: string; display_name: string | null };
+  /** Who did it; null for a notice from KAVOX itself (kind "removed"). */
+  actor: { handle: string; display_name: string | null } | null;
   video: { id: string; title: string | null; url: string; thumb: string | null } | null;
   /** The comment, for kind "comment". */
   text: string | null;
+  /** kind "removed": what of yours was taken down after a report. */
+  detail?: { what: 'video' | 'comment'; title?: string | null; text?: string | null; hidden?: boolean } | null;
 }
 export interface Inbox {
   items: Notification[];

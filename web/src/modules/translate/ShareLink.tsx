@@ -23,7 +23,7 @@ export function ShareLink({ url, title }: { url: string; title?: string | null }
         </a>
       </div>
       <ShareButtons url={url} text={title || t('Watch this video in your language')} />
-      <p className="text-xs text-slate-500">{t("Anyone with the link can watch it. Free accounts’ links last 30 days; monthly plans keep theirs.")}</p>
+      <p className="text-xs text-slate-500">{t("Anyone with the link can watch it. It stays until you delete it.")}</p>
     </div>
   );
 }

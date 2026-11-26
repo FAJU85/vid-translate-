@@ -6,7 +6,19 @@ import { getShare } from '../shares';
 import { sendTelegramMessage } from '../telegram';
 import { getComment, isBlocked, profilesByAccounts } from './store';
 
-export type NotificationKind = 'follow' | 'like' | 'comment' | 'post';
+export type NotificationKind = 'follow' | 'like' | 'comment' | 'post' | SystemKind;
+/** A notice from KAVOX itself: something of yours was taken down after a report. */
+export type SystemKind = 'removed';
+const SYSTEM: readonly string[] = ['removed'];
+
+/** What a notice from KAVOX is about: a video (its title) or a comment (its text). */
+export interface NoticeDetail {
+  what: 'video' | 'comment';
+  title?: string | null;
+  text?: string | null;
+  /** removed: only hidden (a comment), not deleted. */
+  hidden?: boolean;
+}
 
 interface NotificationRow {
   id: number;
@@ -17,6 +29,7 @@ interface NotificationRow {
   comment_id: number | null;
   created_at: number;
   tg_sent: number;
+  detail: string | null;
 }
 
 const PAGE = 30;
@@ -33,7 +46,7 @@ const TG_PER_RUN = 60;
  */
 export async function notify(
   env: Env,
-  n: { to: string | null | undefined; kind: Exclude<NotificationKind, 'post'>; actor: string; shareId?: string; commentId?: number },
+  n: { to: string | null | undefined; kind: 'follow' | 'like' | 'comment'; actor: string; shareId?: string; commentId?: number },
 ): Promise<void> {
   if (!n.to || n.to === n.actor) return;
   const once = n.kind !== 'comment';
@@ -60,13 +73,56 @@ export async function notifyPost(env: Env, share: { id: string; account_id: stri
     .run();
 }
 
+const quote = (s: string | null | undefined, max = 80) => {
+  const t = (s ?? '').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+};
+
+/** A notice from KAVOX as text (Telegram HTML when `html`), in English or Arabic. */
+export function noticeText(kind: SystemKind, d: NoticeDetail, lang: string, html = false): string {
+  const e = (s: string) => (html ? esc(s) : s);
+  const ar = lang === 'ar';
+  const name = e(quote(d.what === 'video' ? d.title : d.text)) || (ar ? (d.what === 'video' ? 'بلا عنوان' : '…') : d.what === 'video' ? 'untitled' : '…');
+  if (d.what === 'video') {
+    return ar
+      ? `أُزيل فيديو «${name}» بعد بلاغ، لأنه يخالف شروط الاستخدام. لا يراه الآن غيرك، ويمكنك حذفه من لوحتك. إن رأيت أن هذا خطأ فراسلنا.`
+      : `Your video “${name}” was taken down after a report, because it breaks the Terms of Use. Only you can see it now, and you can delete it from your Dashboard. If you think this is a mistake, write to us.`;
+  }
+  return ar
+    ? `${d.hidden ? 'أُخفي' : 'حُذف'} تعليقك «${name}» بعد بلاغ، لأنه يخالف شروط الاستخدام.`
+    : `Your comment “${name}” was ${d.hidden ? 'hidden' : 'removed'} after a report, because it breaks the Terms of Use.`;
+}
+
+/**
+ * Tell the owner when something of theirs is taken down after a report (a video or a comment): in
+ * their inbox when they have an account, and by the bot when the video was made in Telegram.
+ */
+export async function notifyOwner(
+  env: Env,
+  owner: { account_id: string | null; owner?: string | null },
+  kind: SystemKind,
+  detail: NoticeDetail,
+  opts: { shareId?: string | null; lang?: string | null } = {},
+): Promise<void> {
+  const chat = owner.owner?.startsWith('tg:') ? Number(owner.owner.slice(3)) || null : null;
+  const sentByBot = Boolean(chat && env.TELEGRAM_BOT_TOKEN);
+  if (owner.account_id) {
+    await env.DB.prepare(
+      'INSERT INTO notifications (account_id, kind, actor_id, share_id, created_at, tg_sent, detail) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    )
+      .bind(owner.account_id, kind, owner.account_id, opts.shareId ?? null, now(), sentByBot ? 1 : 0, JSON.stringify(detail))
+      .run();
+  }
+  if (sentByBot) await sendTelegramMessage(env, chat!, noticeText(kind, detail, opts.lang === 'ar' ? 'ar' : 'en', true)).catch(() => {});
+}
+
 const prefsOf = (env: Env, accountId: string) =>
   env.DB.prepare('SELECT seen_id, telegram FROM notify_prefs WHERE account_id = ?').bind(accountId).first<{ seen_id: number; telegram: number }>();
 
 async function unreadCount(env: Env, accountId: string, seenId: number): Promise<number> {
   const row = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM (SELECT 1 FROM notifications n WHERE n.account_id = ? AND n.id > ?
-       AND NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = n.actor_id) LIMIT 100)`,
+       AND (n.kind = 'removed' OR NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = n.actor_id)) LIMIT 100)`,
   )
     .bind(accountId, seenId)
     .first<{ n: number }>();
@@ -78,8 +134,30 @@ async function present(env: Env, rows: NotificationRow[], base: string) {
   const actors = await profilesByAccounts(env, [...new Set(rows.map((r) => r.actor_id))]);
   const shares = new Map<string, Awaited<ReturnType<typeof getShare>>>();
   for (const id of new Set(rows.map((r) => r.share_id).filter((x): x is string => Boolean(x)))) shares.set(id, await getShare(env, id));
-  const out = [];
+  const out: {
+    id: number;
+    kind: NotificationKind;
+    created_at: number;
+    actor: { handle: string; display_name: string | null } | null;
+    video: { id: string; title: string | null; url: string; thumb: string | null } | null;
+    text: string | null;
+    detail: NoticeDetail | null;
+  }[] = [];
   for (const r of rows) {
+    if (SYSTEM.includes(r.kind)) {
+      // From KAVOX: about something of yours (the video may already be gone after a removal).
+      const share = r.share_id ? shares.get(r.share_id) : null;
+      out.push({
+        id: r.id,
+        kind: r.kind,
+        created_at: r.created_at,
+        actor: null,
+        video: share ? { id: share.id, title: share.title, url: `${base}/${share.id}`, thumb: share.has_thumb ? `${base}/v/${share.id}/thumb.jpg` : null } : null,
+        text: null,
+        detail: JSON.parse(r.detail || '{}') as NoticeDetail,
+      });
+      continue;
+    }
     const actor = actors.get(r.actor_id);
     if (!actor) continue;
     const share = r.share_id ? shares.get(r.share_id) : null;
@@ -97,6 +175,7 @@ async function present(env: Env, rows: NotificationRow[], base: string) {
       actor: { handle: actor.handle, display_name: actor.display_name },
       video: share ? { id: share.id, title: share.title, url: `${base}/${share.id}`, thumb: share.has_thumb ? `${base}/v/${share.id}/thumb.jpg` : null } : null,
       text,
+      detail: null as NoticeDetail | null,
     });
   }
   return out;
@@ -120,7 +199,7 @@ export async function handleNotifications(request: Request, env: Env, path: stri
     const before = Number(new URL(request.url).searchParams.get('before')) || null;
     const { results } = await env.DB.prepare(
       `SELECT n.* FROM notifications n WHERE n.account_id = ?1 AND (?2 IS NULL OR n.id < ?2)
-         AND NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = n.actor_id)
+         AND (n.kind = 'removed' OR NOT EXISTS (SELECT 1 FROM blocked_accounts b WHERE b.account_id = n.actor_id))
        ORDER BY n.id DESC LIMIT ?3`,
     )
       .bind(account.id, before, PAGE)
@@ -163,7 +242,8 @@ export async function handleNotifications(request: Request, env: Env, path: stri
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
 
 /** One notification as a Telegram message (HTML). */
-function telegramText(n: Awaited<ReturnType<typeof present>>[number]): string {
+function telegramText(n: Awaited<ReturnType<typeof present>>[number], lang: string): string {
+  if (!n.actor) return noticeText(n.kind as SystemKind, n.detail ?? { what: 'video' }, lang, true);
   const who = `<b>@${esc(n.actor.handle)}</b>`;
   const title = esc(n.video?.title || (n.kind === 'post' ? 'a video' : 'your video'));
   // A link only when the address is known (the public domain or PUBLIC_URL): the cron has no request.
@@ -208,6 +288,6 @@ export async function sweepNotifications(env: Env): Promise<void> {
     if (!n) continue;
     if (!chats.has(r.account_id)) chats.set(r.account_id, (await getAccount(env, r.account_id))?.telegram_id ?? null);
     const chat = chats.get(r.account_id);
-    if (chat) await sendTelegramMessage(env, chat, telegramText(n));
+    if (chat) await sendTelegramMessage(env, chat, telegramText(n, 'en'));
   }
 }

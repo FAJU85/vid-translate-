@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Heart, Loader2, MessageCircle, Send, UserPlus, Video, X } from 'lucide-react';
+import { Bell, Heart, Loader2, MessageCircle, Send, ShieldAlert, UserPlus, Video, X } from 'lucide-react';
 import { ApiError, notificationsApi, type Inbox, type Notification } from '../../shared/api';
 import { formatDate, t } from '../../shared/i18n';
 
@@ -15,14 +15,40 @@ function ago(sec: number): string {
   return formatDate(sec);
 }
 
-const ICON = { follow: UserPlus, like: Heart, comment: MessageCircle, post: Video } as const;
-const TONE = { follow: 'text-sky-300', like: 'text-rose-400', comment: 'text-amber-300', post: 'text-emerald-300' } as const;
+const ICON = { follow: UserPlus, like: Heart, comment: MessageCircle, post: Video, removed: ShieldAlert } as const;
+const TONE = { follow: 'text-sky-300', like: 'text-rose-400', comment: 'text-amber-300', post: 'text-emerald-300', removed: 'text-rose-300' } as const;
+
+/** A notice from KAVOX: something of yours was taken down after a report. */
+function Notice({ n, isNew }: { n: Notification; isNew: boolean }) {
+  const d = n.detail ?? { what: 'video' as const };
+  const name = (d.what === 'video' ? d.title : d.text) || '';
+  const text =
+    d.what === 'video'
+      ? t('Your video “{name}” was taken down after a report, because it breaks the Terms of Use. Only you can see it now, and you can delete it.', { name })
+      : t(d.hidden ? 'Your comment “{name}” was hidden after a report, because it breaks the Terms of Use.' : 'Your comment “{name}” was removed after a report, because it breaks the Terms of Use.', { name });
+  return (
+    <li>
+      <a href="/terms" className={`flex gap-3 px-4 py-3 hover:bg-slate-800/70 ${isNew ? 'bg-amber-400/5' : ''}`}>
+        <span className={`mt-0.5 shrink-0 ${TONE.removed}`}>
+          <ShieldAlert className="w-4 h-4" />
+        </span>
+        <span className="min-w-0 flex-1 text-sm">
+          <span className="text-slate-200 break-words">{text}</span>
+          <span className="block mt-0.5 text-xs text-slate-500">{ago(n.created_at)}</span>
+        </span>
+        {isNew && <span className="mt-1.5 w-2 h-2 rounded-full bg-amber-400 shrink-0" aria-label={t("new")} />}
+      </a>
+    </li>
+  );
+}
 
 function Row({ n, isNew }: { n: Notification; isNew: boolean }) {
+  if (!n.actor) return <Notice n={n} isNew={isNew} />;
+  const actor = n.actor;
   const Icon = ICON[n.kind];
   const what =
     t(n.kind === 'follow' ? 'started following you' : n.kind === 'like' ? 'liked your video' : n.kind === 'comment' ? 'commented' : 'posted a new video');
-  const href = n.kind === 'follow' ? `/@${n.actor.handle}` : (n.video?.url ?? `/@${n.actor.handle}`);
+  const href = n.kind === 'follow' ? `/@${actor.handle}` : (n.video?.url ?? `/@${actor.handle}`);
   return (
     <li>
       <a href={href} className={`flex gap-3 px-4 py-3 hover:bg-slate-800/70 ${isNew ? 'bg-amber-400/5' : ''}`}>
@@ -31,7 +57,7 @@ function Row({ n, isNew }: { n: Notification; isNew: boolean }) {
         </span>
         <span className="min-w-0 flex-1 text-sm">
           <span className="text-slate-200">
-            <b className="text-white"><bdi dir="ltr">@{n.actor.handle}</bdi></b> {what}
+            <b className="text-white"><bdi dir="ltr">@{actor.handle}</bdi></b> {what}
             {n.video?.title && n.kind !== 'follow' ? <>: <span className="text-slate-300">{n.video.title}</span></> : null}
           </span>
           {n.text && <span className="block mt-0.5 text-slate-400 line-clamp-2 break-words">“{n.text}”</span>}

@@ -52,8 +52,9 @@ export async function handleFeedbackAdmin(request: Request, env: Env, path: stri
   const id = Number(body?.id);
   if (!Number.isInteger(id) || id < 1) return apiError(400, 'E_BAD_REQUEST', 'Say which feedback.');
   const action = String(body?.action ?? '');
-  if (action === 'delete') await deleteFeedback(env, id);
-  else if (action === 'done' || action === 'new') await setFeedbackStatus(env, id, action);
+  // Handled ("done") feedback is deleted: the Privacy Policy keeps feedback only until it is handled.
+  if (action === 'delete' || action === 'done') await deleteFeedback(env, id);
+  else if (action === 'new') await setFeedbackStatus(env, id, action);
   else return apiError(400, 'E_BAD_REQUEST', 'Unknown action.');
   return json({ ok: true });
 }

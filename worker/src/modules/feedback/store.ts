@@ -67,6 +67,9 @@ export const setFeedbackStatus = (env: Env, id: number, status: FeedbackStatus) 
 
 export const deleteFeedback = (env: Env, id: number) => env.DB.prepare('DELETE FROM feedback WHERE id = ?').bind(id).run();
 
-/** Feedback is kept at most a year (the Privacy Policy's promise): older messages are deleted. */
+/**
+ * Feedback is kept until it is handled, and at most a year (the Privacy Policy's promise): handled
+ * messages (and any marked done before this rule) and those older than a year are deleted.
+ */
 export const sweepFeedback = (env: Env) =>
-  env.DB.prepare('DELETE FROM feedback WHERE created_at < ?').bind(now() - 365 * 86400).run();
+  env.DB.prepare("DELETE FROM feedback WHERE status = 'done' OR created_at < ?").bind(now() - 365 * 86400).run();

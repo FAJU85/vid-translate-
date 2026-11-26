@@ -163,11 +163,15 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
             <span className="inline-flex items-center gap-1">
               <Eye className="w-3 h-3" /> {plural(share.views, '{n} view', '{n} views')}
             </span>
-            <span>{share.expires_at ? t('link until {date}', { date: formatDate(share.expires_at) }) : t('link kept')}</span>
+            {share.removed ? (
+              <span className="text-rose-300">{t("Taken down after a report: only you can see it, and you can delete it.")}</span>
+            ) : (
+              <span>{t("Kept until you delete it")}</span>
+            )}
           </div>
         )}
         <div className="flex flex-wrap gap-1.5 pt-1">
-          {share && (
+          {share && !share.removed && (
             <>
               <button onClick={copy} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-400 hover:bg-amber-300 text-xs font-semibold text-slate-950">
                 {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? t("Copied") : t("Copy link")}
@@ -177,7 +181,7 @@ function VideoCard({ v, lang, onOpen, onDeleted, signedIn }: {
               </a>
             </>
           )}
-          {share && signedIn && (
+          {share && signedIn && !share.removed && (
             <button
               onClick={togglePost}
               disabled={posting}
@@ -392,7 +396,7 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
         </ul>
         {data && data.videos.length > 0 && (
           <p className="text-xs text-slate-500">
-            {t("Files and the subtitle editor stay available for 24 hours; video pages last 30 days on the free plan, and as long as you keep them with a monthly plan.")}
+            {t("Files and the subtitle editor stay available for 24 hours; video pages stay until you delete them.")}
           </p>
         )}
       </section>

@@ -2,7 +2,7 @@
  * Base: the Worker's entry point. It only routes requests to bricks and wires them together;
  * the work lives in ./modules. See ARCHITECTURE.md.
  */
-import { safeEqual } from './shared/crypto';
+import { connectionKey, safeEqual } from './shared/crypto';
 import { ensureSchema } from './shared/db';
 import type { Env } from './shared/env';
 import { apiError, json } from './shared/http';
@@ -31,14 +31,14 @@ import {
   telegramJobListener,
 } from './modules/telegram';
 import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage, lyricsLogo } from './modules/settings';
-import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
+import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook, sweepSignIns } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
 import { LANDING_PATHS, handleLandingPage } from './modules/landing';
-import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
+import { PROFILE_PATH, SOCIAL_COLUMNS, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications, sweepSocial } from './modules/social';
 import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
 import { GROWTH_SCHEMA, registerJobsPerDay, sweepGrowth } from './modules/growth';
 import { REFERRALS_SCHEMA, referralsJobListener } from './modules/referrals';
-import { AUDIT_SCHEMA, sweepAudit } from './modules/audit';
+import { AUDIT_SCHEMA, audit, sweepAudit } from './modules/audit';
 import { FEATURES_SCHEMA, withFeatures } from './modules/features';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
 import { handleApi } from './modules/web-api';
@@ -68,7 +68,7 @@ registerDownloadPlanner(downloadPlanFor);
 registerJobListener(sitesJobListener);
 
 const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA, ...GROWTH_SCHEMA, ...REFERRALS_SCHEMA];
-const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS];
+const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS, ...SOCIAL_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -91,6 +91,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     if (!env.SHARED_SECRET || !safeEqual(auth, `Bearer ${env.SHARED_SECRET}`)) {
       return apiError(401, 'E_UNAUTHORIZED', 'Bad admin secret.');
     }
+    // An administrator change like any other: kept in the security log (Privacy Policy, Security).
+    await audit(env, { actor: 'admin', action: 'admin.setup_bot', target: path, conn: await connectionKey(env.SHARED_SECRET, request) });
     return json({ ...(await setupBot(env, origin)), backend: await backendHealth(env) });
   }
 
@@ -154,7 +156,7 @@ export default {
     }
   },
 
-  async scheduled(_event: ScheduledController, serverEnv: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledController, serverEnv: Env, ctx: ExecutionContext): Promise<void> {
     await ensureSchema(serverEnv, SCHEMA, ADDED_COLUMNS);
     const env = await withFeatures(serverEnv);
     ctx.waitUntil(sweep(env));
@@ -164,5 +166,8 @@ export default {
     ctx.waitUntil(sweepFeedback(env));
     ctx.waitUntil(sweepGrowth(env));
     ctx.waitUntil(sweepAudit(env));
+    ctx.waitUntil(sweepSignIns(env));
+    // Once an hour (the cron runs every minute): what belonged to deleted videos and comments, old reports.
+    if (new Date(event.scheduledTime).getUTCMinutes() === 7) ctx.waitUntil(sweepSocial(env));
   },
 } satisfies ExportedHandler<Env>;

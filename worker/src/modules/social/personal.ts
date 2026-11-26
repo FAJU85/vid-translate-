@@ -15,7 +15,12 @@ export async function exportSocial(env: Env, p: Person) {
       id,
     ),
     followers: (await env.DB.prepare('SELECT COUNT(*) AS n FROM follows WHERE followee_id = ?').bind(id).first<{ n: number }>())?.n ?? 0,
-    reports_sent: await all('SELECT kind, target, reason, details, created_at FROM reports WHERE reporter = ?', `acct:${id}`),
+    reports_sent: await all('SELECT kind, target, reason, details, created_at FROM reports WHERE reporter = ?', `acc:${id}`),
+    // Your inbox (kept 90 days): who followed you, liked or commented on your videos, or posted.
+    notifications: await all(
+      'SELECT n.kind, p.handle AS from_handle, n.share_id, n.created_at FROM notifications n LEFT JOIN profiles p ON p.account_id = n.actor_id WHERE n.account_id = ? ORDER BY n.id DESC',
+      id,
+    ),
     notifications_telegram: Boolean((await env.DB.prepare('SELECT telegram FROM notify_prefs WHERE account_id = ?').bind(id).first<{ telegram: number }>())?.telegram),
   };
 }
@@ -30,8 +35,9 @@ export async function eraseSocial(env: Env, p: Person): Promise<void> {
     env.DB.prepare('DELETE FROM follows WHERE follower_id = ? OR followee_id = ?').bind(id, id),
     env.DB.prepare('DELETE FROM notifications WHERE account_id = ? OR actor_id = ?').bind(id, id),
     env.DB.prepare('DELETE FROM notify_prefs WHERE account_id = ?').bind(id),
-    env.DB.prepare('DELETE FROM reports WHERE reporter = ?').bind(`acct:${id}`),
-    env.DB.prepare("DELETE FROM reports WHERE kind = 'profile' AND target = (SELECT handle FROM profiles WHERE account_id = ?)").bind(id),
+    env.DB.prepare('DELETE FROM reports WHERE reporter = ?').bind(`acc:${id}`),
+    // Reports about this profile (stored by account, since handles can change).
+    env.DB.prepare("DELETE FROM reports WHERE kind = 'profile' AND target = ?").bind(id),
     env.DB.prepare('DELETE FROM blocked_accounts WHERE account_id = ?').bind(id),
     env.DB.prepare('DELETE FROM profiles WHERE account_id = ?').bind(id),
   ]);

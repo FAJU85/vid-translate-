@@ -27,9 +27,7 @@ export const headLinks = (logo = DEFAULT_LOGO) => `<link rel="icon" href="${logo
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="theme-color" content="${PALETTE.navy}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">`;
+<link href="/fonts/fonts.css" rel="stylesheet">`;
 
 /** The page font stack (Arabic falls back to Noto Sans Arabic). */
 export const FONT = `"Plus Jakarta Sans", "Noto Sans Arabic", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;

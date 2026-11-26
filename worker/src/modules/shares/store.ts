@@ -3,8 +3,8 @@ import { now, type Env } from '../../shared/env';
 
 /**
  * Shares brick storage. Every finished video (subtitles burned in, or dubbed) gets a public page
- * at /v/<id>. Its files are copied from the Space (which keeps them a day) to R2, where they stay:
- * 30 days for free accounts, until deleted for monthly plans.
+ * at /v/<id>. Its files are copied from the Space (which keeps them a day) to R2, where they stay
+ * until their owner deletes them (or their account): KAVOX never deletes a video by itself.
  */
 export const SHARES_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS shares (
@@ -46,8 +46,11 @@ export const SHARES_COLUMNS: AddedColumn[] = [
 
 export type Visibility = 'link' | 'public';
 
-/** pending: still on the Space only; ready: copied to R2; failed: the files were gone. */
-export type ShareStatus = 'pending' | 'ready' | 'failed';
+/**
+ * pending: still on the Space only; ready: copied to R2; failed: the files were gone; removed:
+ * taken down after a report (hidden from everyone but its owner, never deleted by KAVOX).
+ */
+export type ShareStatus = 'pending' | 'ready' | 'failed' | 'removed';
 
 export interface ShareRow {
   id: string;
@@ -69,11 +72,21 @@ export interface ShareRow {
   visibility?: Visibility;
 }
 
-/** Still visible: not expired, and its files not lost. */
-const LIVE = "status != 'failed' AND (expires_at IS NULL OR expires_at > ?)";
+/** Visible to others: its files not lost, not taken down (and no end date passed, from older rules). */
+const LIVE = "status IN ('pending', 'ready') AND (expires_at IS NULL OR expires_at > ?)";
+/** Still its owner's: everything but lost files (a video taken down stays theirs to see and delete). */
+const OWNED = "status != 'failed' AND (expires_at IS NULL OR expires_at > ?)";
 
 export const getShare = (env: Env, id: string) =>
   env.DB.prepare(`SELECT * FROM shares WHERE id = ? AND ${LIVE}`).bind(id, now()).first<ShareRow>();
+
+/** A share as its owner sees it: also when taken down after a report. */
+export const getOwnShare = (env: Env, id: string) =>
+  env.DB.prepare(`SELECT * FROM shares WHERE id = ? AND ${OWNED}`).bind(id, now()).first<ShareRow>();
+
+/** Take a video down after a report: off its page, the profile and the feed, but kept for its owner. */
+export const takeDownShare = (env: Env, id: string) =>
+  env.DB.prepare("UPDATE shares SET status = 'removed', visibility = 'link' WHERE id = ?").bind(id).run();
 
 export const shareForJob = (env: Env, jobId: string) =>
   env.DB.prepare(`SELECT * FROM shares WHERE job_id = ? AND ${LIVE}`).bind(jobId, now()).first<ShareRow>();
@@ -128,7 +141,7 @@ export async function viewsSince(env: Env, shareIds: string[], sinceDay: string)
 /** A person's shares, newest first: by their account, or (no account) by the owner of the jobs. */
 export async function listShares(env: Env, who: { accountId?: string | null; owner?: string | null }, limit = 100): Promise<ShareRow[]> {
   const { results } = await env.DB.prepare(
-    `SELECT * FROM shares WHERE (account_id = ?1 OR owner = ?2) AND ${LIVE.replace('?', '?3')} ORDER BY created_at DESC LIMIT ?4`,
+    `SELECT * FROM shares WHERE (account_id = ?1 OR owner = ?2) AND ${OWNED.replace('?', '?3')} ORDER BY created_at DESC LIMIT ?4`,
   )
     .bind(who.accountId ?? '', who.owner ?? '', now(), limit)
     .all<ShareRow>();

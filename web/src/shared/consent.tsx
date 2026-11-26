@@ -64,7 +64,8 @@ export function ConsentCheck({ checked, onChange }: { checked: boolean; onChange
         <a href="/privacy" target="_blank" rel="noreferrer" className="text-amber-300 underline underline-offset-2">
           {t('Privacy Policy')}
         </a>
-        {t(', including the processing of my videos by services outside Saudi Arabia.')}
+        {t(', including the processing of my videos by services outside Saudi Arabia.')}{' '}
+        {t('I am at least 13, and if I am under 18, a parent or guardian allows it.')}
       </span>
     </label>
   );

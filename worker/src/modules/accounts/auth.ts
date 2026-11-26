@@ -76,6 +76,18 @@ export async function signIn(env: Env, request: Request, identity: Identity): Pr
   return { account, cookie: await startSession(env, request, account) };
 }
 
+/**
+ * Sign-in data the Privacy Policy keeps 1 day: one-time codes (with the email and the country of
+ * the request) go a day after they were made, and sessions once they end. Run by the cron.
+ */
+export async function sweepSignIns(env: Env): Promise<void> {
+  const ts = now();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM login_codes WHERE created_at < ?').bind(ts - 86400),
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(ts),
+  ]);
+}
+
 // ------------------------------------------------------------------ one-time codes
 
 async function newCode(
