@@ -17,7 +17,8 @@ export function parseVideoUrl(text: string): string | null {
   if (!match) return null;
   try {
     const url = new URL(match[0]);
-    const host = url.hostname.toLowerCase();
+    // "localhost." (a trailing dot) is the same host as "localhost": judge it without the dot.
+    const host = url.hostname.toLowerCase().replace(/\.+$/, '');
     if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
     if (!host.includes('.') || /^[\d.]+$/.test(host) || host.includes(':') || host.startsWith('[')) return null;
     if (/(^|\.)(localhost|local|internal|lan|home|corp)$/.test(host)) return null;
