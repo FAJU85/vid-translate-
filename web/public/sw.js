@@ -5,13 +5,13 @@
  *   page) is shown instead.
  * - Nothing else is cached: the API, videos, files and the admin always go to the network.
  */
-const VERSION = 'kavox-v1';
+const VERSION = 'kavox-v2';
 // The offline page (offline.html, served at /offline: the site drops the .html).
 const OFFLINE = '/offline';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll([OFFLINE, '/assets/icons/icon-192.png', '/assets/kavox-logo.svg'])).then(() => self.skipWaiting()),
+    caches.open(VERSION).then((cache) => cache.addAll([OFFLINE, '/assets/icons/icon-192.png', '/assets/kavox-icon.png'])).then(() => self.skipWaiting()),
   );
 });
 

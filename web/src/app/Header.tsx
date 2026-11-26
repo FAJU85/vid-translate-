@@ -40,7 +40,12 @@ export function Header({ tab, onTab, account, showPricing = false }: {
           ) : (
             <span className="h-9 w-9 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center">{(SITE.brand.mark || SITE.brand.name).slice(0, 1)}</span>
           )}
-          <span className="text-lg font-extrabold tracking-[0.14em] text-slate-100">{SITE.brand.name}</span>
+          {/* The approved wordmark while the site is called KAVOX; a renamed site shows its name. */}
+          {SITE.brand.name === 'KAVOX' && SITE.brand.wordmark ? (
+            <img src={SITE.brand.wordmark} alt="KAVOX" className="w-auto" style={{ height: Math.round(logoSize(SITE.brand.logoSize) * 0.6) }} />
+          ) : (
+            <span className="text-lg font-extrabold tracking-[0.14em] text-slate-100">{SITE.brand.name}</span>
+          )}
         </button>
         {/* Tablets and computers: the tabs in the header. */}
         <nav aria-label={t("Main")} className="hidden sm:flex items-center gap-1 text-sm min-w-0">

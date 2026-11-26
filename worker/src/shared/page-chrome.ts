@@ -19,8 +19,12 @@ export const PALETTE = {
   coral: '#E87C6A', // Coral Salmon: live, liked, warnings
 } as const;
 
-/** The default logo (web/public/assets/kavox-logo.svg), used when the admin has not uploaded one. */
-export const DEFAULT_LOGO = '/assets/kavox-logo.svg';
+/** The approved KAVOX icon (web/public/assets), used when the admin has not uploaded a logo. */
+export const DEFAULT_LOGO = '/assets/kavox-icon.png';
+/** The approved KAVOX wordmark: shown instead of the typed name while the site is called KAVOX. */
+export const WORDMARK = '/assets/kavox-wordmark.png';
+/** The picture shown when a page without its own (no video still) is shared. */
+export const SHARE_IMAGE = '/assets/og-image.png';
 
 /** Fonts and tab icon, for the <head>. */
 export const headLinks = (logo = DEFAULT_LOGO) => `<link rel="icon" href="${logo}">
@@ -45,7 +49,9 @@ export const chromeCss = `
  * in pixels (the admin's setting; a wide logo keeps its shape, up to four times as wide).
  */
 export const brandHeader = (brand: string, logo = DEFAULT_LOGO, size = 36) =>
-  `<header class="kx-head"><a class="kx-brand" href="/"><img src="${logo}" alt="" style="height:${size}px;max-width:${size * 4}px"><span>${brand}</span></a></header>`;
+  `<header class="kx-head"><a class="kx-brand" href="/"><img src="${logo}" alt="" style="height:${size}px;max-width:${size * 4}px">${
+    brand === 'KAVOX' ? `<img src="${WORDMARK}" alt="KAVOX" style="height:${Math.round(size * 0.6)}px">` : `<span>${brand}</span>`
+  }</a></header>`;
 
 /** A video as a tall tile: its picture, or (without one) its title on a soft brand gradient. */
 export interface TileVideo {

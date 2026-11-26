@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { reportDialog } from '../../shared/report-dialog';
 import { MESSAGES, htmlAttrs, languageName, pageLang, plural, translator, type PageLang } from '../../shared/page-i18n';
-import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, shareCss, shareRow, tileCss, videoTile } from '../../shared/page-chrome';
+import { FONT, SHARE_IMAGE, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, shareCss, shareRow, tileCss, videoTile } from '../../shared/page-chrome';
 import { fileLink } from '../jobs';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { creatorOf, thumbKey, videoFile, videoKey } from './service';
@@ -63,7 +63,7 @@ ${headLinks(logo)}
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(url)}">
-${thumb ? `<meta property="og:image" content="${esc(thumb)}">` : ''}
+<meta property="og:image" content="${esc(thumb || `${origin}${SHARE_IMAGE}`)}">
 <meta property="og:video" content="${esc(files)}/video.mp4">
 <meta property="og:video:type" content="video/mp4">
 <meta name="twitter:card" content="${thumb ? 'summary_large_image' : 'summary'}">
