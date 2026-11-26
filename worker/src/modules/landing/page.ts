@@ -1,6 +1,6 @@
 import type { Env } from '../../shared/env';
 import { LANGUAGES } from '../../shared/languages';
-import { FONT, PALETTE, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
+import { FONT, PALETTE, SHARE_IMAGE, brandHeader, chromeCss, headLinks } from '../../shared/page-chrome';
 import { htmlAttrs, type PageLang } from '../../shared/page-i18n';
 import { creditsEnabled } from '../accounts';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
@@ -202,7 +202,9 @@ export async function handleLandingPage(request: Request, env: Env, path: string
 <meta property="og:description" content="${c.description}">
 <meta property="og:url" content="${alt(lang)}">
 <meta property="og:locale" content="${lang === 'ar' ? 'ar_SA' : 'en_US'}">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="${base}${SHARE_IMAGE}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${base}${SHARE_IMAGE}">
 ${headLinks(logo)}
 ${ld(appLd)}
 ${ld(faqLd)}

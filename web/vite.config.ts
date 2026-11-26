@@ -18,10 +18,23 @@ function siteHead(): Plugin {
       const icon = site.brand?.logo
         ? `<link rel="icon" href="${escapeHtml(site.brand.logo)}" />`
         : '';
+      // The picture shown when a link to the site is shared (approved KAVOX assets).
+      // The Worker turns these addresses into full ones (worker/src/index.ts) as it serves the page.
+      const title = escapeHtml(site.seo?.title ?? '');
+      const description = escapeHtml(site.seo?.description ?? '');
+      const share = [
+        `<meta property="og:type" content="website" />`,
+        `<meta property="og:title" content="${title}" />`,
+        `<meta property="og:description" content="${description}" />`,
+        `<meta property="og:url" content="/" />`,
+        `<meta property="og:image" content="/assets/og-image.png" />`,
+        `<meta name="twitter:card" content="summary_large_image" />`,
+        `<meta name="twitter:image" content="/assets/og-image.png" />`,
+      ].join('\n    ');
       return html
         .replace('%SITE_TITLE%', escapeHtml(site.seo?.title ?? ''))
         .replace('%SITE_DESCRIPTION%', escapeHtml(site.seo?.description ?? ''))
-        .replace('<!--SITE_ICON-->', icon);
+        .replace('<!--SITE_ICON-->', `${icon}\n    ${share}`);
     },
   };
 }

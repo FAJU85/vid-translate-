@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
 import { htmlAttrs, languageName, pageLang, plural, translator } from '../../shared/page-i18n';
 import { reportDialog } from '../../shared/report-dialog';
-import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, shareCss, shareRow, tileCss, videoTile } from '../../shared/page-chrome';
+import { FONT, brandHeader, chromeCss, ctaCss, headLinks, makeYourOwn, shareCss, shareRow, tileCss, videoTile, SHARE_IMAGE } from '../../shared/page-chrome';
 import { logoSize, publicOrigin, publicSettings } from '../settings';
 import { listPublicShares, publicTotals } from '../shares';
 import { followCounts, isBlocked, profileByHandle } from './store';
@@ -56,7 +56,7 @@ ${headLinks(logo)}
 <meta property="og:url" content="${esc(url)}">
 <meta property="og:description" content="${esc(profile.bio || tr('Translated and dubbed videos by @{handle} on {brand}.', { handle: profile.handle, brand }))}">
 <meta name="twitter:card" content="${videos[0]?.has_thumb ? 'summary_large_image' : 'summary'}">
-${videos[0]?.has_thumb ? `<meta property="og:image" content="${esc(`${base}/v/${videos[0].id}/thumb.jpg`)}">` : ''}
+<meta property="og:image" content="${esc(videos[0]?.has_thumb ? `${base}/v/${videos[0].id}/thumb.jpg` : `${base}${SHARE_IMAGE}`)}">
 <link rel="canonical" href="${esc(url)}">
 <style>
   :root { color-scheme: dark; --accent: ${accent}; }

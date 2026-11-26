@@ -7,7 +7,7 @@ import type { SiteSettings } from './api';
 import { RTL } from './i18n';
 
 export interface SiteContent {
-  brand: { name: string; mark: string; logo: string; accent: string; footer: string; logoSize?: number };
+  brand: { name: string; mark: string; logo: string; wordmark?: string; accent: string; footer: string; logoSize?: number };
   seo: { title: string; description: string };
   translate: { title: string; intro: string; link_hint: string };
   history: { title: string };

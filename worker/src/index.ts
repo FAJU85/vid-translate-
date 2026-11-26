@@ -30,7 +30,7 @@ import {
   setupBot,
   telegramJobListener,
 } from './modules/telegram';
-import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage, lyricsLogo } from './modules/settings';
+import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage, lyricsLogo, publicOrigin } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook, sweepSignIns } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
 import { LANDING_PATHS, handleLandingPage } from './modules/landing';
@@ -114,7 +114,20 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path.startsWith('/api/')) return handleApi(request, env, ctx, { origin, botUsername: () => getBotUsername(env) });
 
   // Every other page is the website (its files are served before the Worker runs; see wrangler.toml).
-  if (env.ASSETS) return env.ASSETS.fetch(request);
+  if (env.ASSETS) {
+    const res = await env.ASSETS.fetch(request);
+    if (!(res.headers.get('Content-Type') ?? '').includes('text/html')) return res;
+    // Apps that show a shared link's picture (WhatsApp, X, Facebook…) need its full address.
+    const base = await publicOrigin(env, origin);
+    return new HTMLRewriter()
+      .on('meta[property="og:image"], meta[name="twitter:image"], meta[property="og:url"]', {
+        element(el) {
+          const content = el.getAttribute('content');
+          if (content?.startsWith('/')) el.setAttribute('content', base + content);
+        },
+      })
+      .transform(res);
+  }
   return apiError(404, 'E_NOT_FOUND', 'Not found.');
 }
 

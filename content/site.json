@@ -2,7 +2,8 @@
   "brand": {
     "name": "KAVOX",
     "mark": "",
-    "logo": "/assets/kavox-logo.svg",
+    "logo": "/assets/kavox-icon.png",
+    "wordmark": "/assets/kavox-wordmark.png",
     "accent": "#2AB8A1",
     "footer": "KAVOX · Translated and dubbed videos, in your language"
   },
