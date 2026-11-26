@@ -266,7 +266,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   }
 
   // Profiles and @handles, the feed, likes and follows (social brick).
-  if (path === '/api/profile/me' || path.startsWith('/api/handles/') || path.startsWith('/api/profiles/')) {
+  if (path === '/api/profile/me' || path === '/api/profile/avatar' || path.startsWith('/api/avatars/') || path.startsWith('/api/handles/') || path.startsWith('/api/profiles/')) {
     const social = await handleSocial(request, env, path, api.origin);
     if (social) return social;
   }

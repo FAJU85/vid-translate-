@@ -48,7 +48,7 @@ ${table(
   [
     ['Account', 'Your name and email address (from the sign-in you choose: email, Google or Telegram), and when you agreed to these terms.', 'To sign you in and keep your videos and credits in one place.'],
     ['Videos and links', 'The video file you upload or the link you send, and what is made from it: transcript, translation, subtitles, dubbed voice.', 'To do the translation you asked for.'],
-    ['What you post', 'Your @handle, name, bio, posted videos, comments, likes and follows.', 'To show them on your profile and in the feed, as you chose.'],
+    ['What you post', 'Your @handle, name, bio, profile photo (if you add one; resized in your browser, which also removes the place and device data a camera writes into it), posted videos, comments, likes and follows.', 'To show them on your profile and in the feed, as you chose.'],
     ['Credits and payments', 'Your balance, how it was used, and what you bought (no card numbers).', 'To give you what you paid for.'],
     ['Feedback and reports', 'What you write to us, and what you report.', 'To improve the service and act on reports.'],
     ['Technical', 'A keyed fingerprint of your connection (never the address itself), your browser language, and the country of a sign-in request (kept one day).', 'To prevent abuse, count views by language, and protect sign-in.'],
@@ -89,7 +89,7 @@ ${table(PROCESSORS.en, ['Service', 'What it does with your data', 'Where'])}
 <p>Under the PDPL you have the right to: be told how your data is used (this policy); see your data and get a copy of it; have it corrected; have it deleted; and withdraw your consent. In ${brand}:</p>
 <ul>
   <li><b>See and download:</b> Dashboard → Your data → Download my data (a file with everything linked to your account).</li>
-  <li><b>Correct:</b> edit your name, @handle and bio on the Dashboard.</li>
+  <li><b>Correct:</b> edit your name, @handle, bio and photo on the Dashboard.</li>
   <li><b>Delete:</b> Dashboard → Your data → Delete my account. This permanently deletes your account, profile, videos and their files, comments, likes, follows and credits. It cannot be undone.</li>
   <li>Or write to ${contact}. We answer within 30 days.</li>
 </ul>
@@ -117,7 +117,7 @@ ${table(
   [
     ['الحساب', 'اسمك وبريدك الإلكتروني (من طريقة الدخول التي تختارها: البريد أو Google أو تيليجرام)، ووقت موافقتك على هذه الشروط.', 'لتسجيل دخولك وحفظ فيديوهاتك ورصيدك في مكان واحد.'],
     ['الفيديوهات والروابط', 'ملف الفيديو الذي ترفعه أو الرابط الذي ترسله، وما يُنتج منه: النص والترجمة والترجمة النصية والصوت المدبلج.', 'لتنفيذ الترجمة التي طلبتها.'],
-    ['ما تنشره', 'معرّفك @ واسمك ونبذتك والفيديوهات المنشورة والتعليقات والإعجابات والمتابعات.', 'لعرضها في ملفك وفي الخلاصة كما اخترت.'],
+    ['ما تنشره', 'معرّفك @ واسمك ونبذتك وصورة ملفك (إن أضفتها؛ يصغّرها متصفحك، فيحذف منها بيانات المكان والجهاز التي تكتبها الكاميرا) والفيديوهات المنشورة والتعليقات والإعجابات والمتابعات.', 'لعرضها في ملفك وفي الخلاصة كما اخترت.'],
     ['الرصيد والمدفوعات', 'رصيدك وكيف استُخدم وما اشتريته (دون أرقام البطاقات).', 'لتسليمك ما دفعت مقابله.'],
     ['الملاحظات والبلاغات', 'ما تكتبه لنا وما تبلّغ عنه.', 'لتحسين الخدمة والتعامل مع البلاغات.'],
     ['بيانات تقنية', 'بصمة مشفّرة لاتصالك (لا العنوان نفسه أبدًا)، ولغة متصفحك، وبلد طلب تسجيل الدخول (يُحفظ يومًا واحدًا).', 'لمنع إساءة الاستخدام، وعدّ المشاهدات حسب اللغة، وحماية تسجيل الدخول.'],
@@ -158,7 +158,7 @@ ${table(PROCESSORS.ar, ['الخدمة', 'ما تفعله ببياناتك', 'ا�
 <p>وفق النظام يحق لك: أن تُبلَّغ بكيفية استخدام بياناتك (هذه السياسة)؛ والاطلاع على بياناتك والحصول على نسخة منها؛ وتصحيحها؛ وحذفها؛ وسحب موافقتك. في ${brand}:</p>
 <ul>
   <li><b>الاطلاع والتنزيل:</b> لوحتي ← بياناتك ← تنزيل بياناتي (ملف يضم كل ما يرتبط بحسابك).</li>
-  <li><b>التصحيح:</b> عدّل اسمك ومعرّفك @ ونبذتك من لوحتي.</li>
+  <li><b>التصحيح:</b> عدّل اسمك ومعرّفك @ ونبذتك وصورتك من لوحتي.</li>
   <li><b>الحذف:</b> لوحتي ← بياناتك ← حذف حسابي. يحذف ذلك نهائيًا حسابك وملفك وفيديوهاتك وملفاتها وتعليقاتك وإعجاباتك ومتابعاتك ورصيدك، ولا يمكن التراجع عنه.</li>
   <li>أو راسلنا على ${contact}. نرد خلال 30 يومًا.</li>
 </ul>

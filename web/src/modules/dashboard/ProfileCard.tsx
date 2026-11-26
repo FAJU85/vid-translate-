@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { AtSign, Check, ExternalLink, Loader2, Pencil } from 'lucide-react';
+import { AtSign, Camera, Check, ExternalLink, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { ApiError, socialApi, type Profile } from '../../shared/api';
 import { t } from '../../shared/i18n';
+import { Avatar, squarePhoto } from '../../shared/avatar';
 
 const HANDLE = /^(?=.{3,24}$)[a-z0-9_](?:[a-z0-9_]|\.(?!\.))*[a-z0-9_]$/;
 const REASON: Record<string, string> = {
@@ -24,6 +25,38 @@ export function ProfileCard() {
   const [changeDays, setChangeDays] = useState(7);
   // Loading failed: different from "no profile yet" (that opens the form to create one).
   const [loadError, setLoadError] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  async function pickPhoto(file: File | undefined) {
+    if (!file || !profile) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const photo = await squarePhoto(file).catch(() => {
+        throw new ApiError('E_BAD_REQUEST', t('That picture could not be read. Try a JPEG or PNG photo.'));
+      });
+      const r = await socialApi.setAvatar(photo);
+      setProfile({ ...profile, avatar_url: r.avatar_url });
+    } catch (err) {
+      setPhotoError(err instanceof ApiError ? err.message : t('Your photo could not be saved.'));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  async function removePhoto() {
+    if (!profile || !window.confirm(t('Remove your profile photo?'))) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      await socialApi.removeAvatar();
+      setProfile({ ...profile, avatar_url: null });
+    } catch (err) {
+      setPhotoError(err instanceof ApiError ? err.message : t('Your photo could not be removed.'));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const load = () => {
     setLoadError(false);
@@ -117,6 +150,30 @@ export function ProfileCard() {
 
       {profile && !editing && (
         <div className="text-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <Avatar handle={profile.handle} url={profile.avatar_url} className="w-16 h-16 text-2xl" />
+            <div className="flex flex-wrap gap-2">
+              <label className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 hover:bg-slate-800 cursor-pointer ${photoBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+                {photoBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}{' '}
+                {profile.avatar_url ? t('Change photo') : t('Add a photo')}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(e) => {
+                    void pickPhoto(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {profile.avatar_url && (
+                <button type="button" onClick={removePhoto} disabled={photoBusy} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-rose-300 disabled:opacity-50">
+                  <Trash2 className="w-3.5 h-3.5" />{' '}{t('Remove photo')}
+                </button>
+              )}
+            </div>
+          </div>
+          {photoError && <p className="mb-2 text-xs text-rose-300">{photoError}</p>}
           <div className="text-white font-medium">{profile.display_name || `@${profile.handle}`}</div>
           <div className="text-slate-400"><bdi dir="ltr">@{profile.handle}</bdi></div>
           {profile.bio && <p className="mt-1 text-slate-300 whitespace-pre-wrap break-words">{profile.bio}</p>}

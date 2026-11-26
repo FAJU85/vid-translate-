@@ -1,3 +1,4 @@
+import { avatarUrl, handleAvatar } from './avatars';
 import { now, type Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
@@ -9,7 +10,7 @@ import { followCounts, isBlocked, profileByAccount, profileByHandle, saveProfile
 const MAX_NAME = 40;
 const MAX_BIO = 160;
 
-const publicProfile = (p: Profile) => ({ handle: p.handle, display_name: p.display_name, bio: p.bio, created_at: p.created_at });
+const publicProfile = (p: Profile) => ({ handle: p.handle, display_name: p.display_name, bio: p.bio, avatar_url: avatarUrl(p), created_at: p.created_at });
 
 /** The text tidied (null when empty), or tooLong when it is longer than allowed. */
 const clean = (value: unknown, max: number): { text: string | null; tooLong: boolean } => {
@@ -20,7 +21,7 @@ const clean = (value: unknown, max: number): { text: string | null; tooLong: boo
 /** The @handle and name of an account with a profile (shares brick's creator port). */
 export async function creatorFor(env: Env, accountId: string) {
   const p = await profileByAccount(env, accountId);
-  return p && !(await isBlocked(env, accountId)) ? { handle: p.handle, name: p.display_name } : null;
+  return p && !(await isBlocked(env, accountId)) ? { handle: p.handle, name: p.display_name, avatar: avatarUrl(p) } : null;
 }
 
 /**
@@ -28,6 +29,9 @@ export async function creatorFor(env: Env, accountId: string) {
  * (is it free?) and GET /api/profiles/<handle> (a profile with its posted videos).
  */
 export async function handleSocial(request: Request, env: Env, path: string, origin: string): Promise<Response | null> {
+  // Profile photos: set or remove yours, and show anyone's.
+  const photo = await handleAvatar(request, env, path);
+  if (photo) return photo;
   const method = request.method;
 
   if (path === '/api/profile/me') {

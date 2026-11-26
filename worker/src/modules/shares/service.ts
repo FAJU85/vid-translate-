@@ -55,7 +55,7 @@ async function createShare(env: Env, job: JobRow): Promise<void> {
  * Port through which another brick (social) says who made a video: their @handle and name, for
  * the video's page. Registered by the base; without it a page shows no creator.
  */
-export type CreatorLookup = (env: Env, accountId: string) => Promise<{ handle: string; name: string | null } | null>;
+export type CreatorLookup = (env: Env, accountId: string) => Promise<{ handle: string; name: string | null; avatar?: string | null } | null>;
 let creatorLookup: CreatorLookup | null = null;
 export function registerCreatorLookup(lookup: CreatorLookup): void {
   creatorLookup = lookup;

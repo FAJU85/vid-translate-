@@ -108,6 +108,7 @@ const AR: Record<string, string> = {
   'Not found': 'غير موجود',
   'No one is called {handle} on {brand}.': 'لا يوجد أحد باسم {handle} على {brand}.',
   'Translated and dubbed videos by @{handle} on {brand}.': 'فيديوهات مترجمة ومدبلجة من @{handle} على {brand}.',
+  'Photo of @{handle}': 'صورة @{handle}',
   '{n} video': '{n} فيديو',
   '{n} videos': '{n} فيديوهات',
   '{n} follower': '{n} متابع',

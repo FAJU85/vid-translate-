@@ -1,3 +1,4 @@
+import { avatarUrl } from './avatars';
 import { now, type Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
@@ -51,7 +52,7 @@ export async function handleDiscover(request: Request, env: Env, path: string, o
     ]);
     return json({
       q,
-      creators: creators.map((p) => ({ handle: p.handle, display_name: p.display_name, bio: p.bio, followers: p.followers })),
+      creators: creators.map((p) => ({ handle: p.handle, display_name: p.display_name, bio: p.bio, followers: p.followers, avatar_url: avatarUrl(p) })),
       videos: await items(env, videos, await viewer(), base),
       tag: null,
     });
