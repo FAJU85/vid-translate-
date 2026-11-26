@@ -19,10 +19,8 @@ export interface Settings {
   takedown_email: string;
   /** The logo's height in the headers, in CSS pixels (LOGO_SIZE.min to .max), or empty for the default. */
   logo_size: string;
-  /** The Product Hunt post (https://www.producthunt.com/posts/…), or empty. */
-  ph_url: string;
-  /** "1" on launch day: every visitor sees "We're live on Product Hunt today"; after it, a footer badge. */
-  ph_live: string;
+  /** Banners and footer links (JSON, see blocks.ts); empty: the defaults. */
+  blocks: string;
 }
 
 /** The logo's height in the site and page headers: chosen on the /admin page within these bounds. */
@@ -44,7 +42,7 @@ export const SETTINGS_SCHEMA = [
    )`,
 ];
 
-const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '', takedown_email: '', logo_size: '', ph_url: '', ph_live: '' };
+const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '', takedown_email: '', logo_size: '', blocks: '' };
 
 export async function readSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
   const res = await env.DB.prepare('SELECT key, value, updated_at FROM settings').all<{ key: string; value: string; updated_at: number }>();

@@ -114,8 +114,8 @@ what makes it different, and one specific question. Like a person, not a press r
   midnight Pacific. There is no magic weekday: weekdays bring more visitors and more competition,
   weekends are quieter. Pick a day you can be online for the first hours, with no holiday in your
   main market and nothing else big on your side.
-- **/admin → Features → Product Hunt**: paste the post address, then **Start launch day**. Every
-  visitor sees "KAVOX is live on Product Hunt today" with a button to support it.
+- **/admin → Banners → "Product Hunt: live today"**: paste the post address in its button, turn it
+  on and Save. Every visitor sees "KAVOX is live on Product Hunt today" with a button to support it.
 - Post the first comment straight away.
 - Tell your own people where you already are (your Telegram channels, WhatsApp, X, LinkedIn,
   communities you take part in). Ask them to *try it and share feedback*. Product Hunt's rules:
@@ -126,7 +126,8 @@ what makes it different, and one specific question. Like a person, not a press r
 - Answer every comment, all day, as close to real time as you can (split shifts if someone can
   help, including the night in your time zone). Reply with a link or a short video where it helps.
 - Watch **/admin → Growth**: visits from Product Hunt show as "Product Hunt".
-- The next day: **End launch day**. A small "Featured on Product Hunt" link stays in the footer.
+- The next day, on the same page: turn "live today" off, put the post address in "Product Hunt:
+  footer link" and turn that on: a small "Featured on Product Hunt" link stays in the footer.
 
 ## After launch
 
@@ -142,6 +143,8 @@ what makes it different, and one specific question. Like a person, not a press r
   producthunt.com) get a short welcome: "Welcome, Product Hunt! Free, no sign-up", with the two
   things to try: **Translate a video** and **Make a lyrics video**.
 - On launch day, the "live on Product Hunt today" banner for everyone (above).
+- All three are ordinary banners on **/admin → Banners**: change their words (English and
+  Arabic), buttons, colour or dates, duplicate them, or delete them.
 - They count on the Growth page under "Product Hunt"; the videos they start show there per
   journey (translations, lyrics videos).
 - Every video they make ends with the share card ("Your video is ready. Post it!"), and every

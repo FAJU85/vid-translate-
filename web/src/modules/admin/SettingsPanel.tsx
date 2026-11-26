@@ -60,7 +60,8 @@ export function SettingsPanel({ password }: { password: string }) {
     setBusy(true);
     setMessage(null);
     try {
-      const { has_logo: _ignored, ...fields } = values;
+      // Banners are saved on their own page: never send back a copy loaded earlier.
+      const { has_logo: _ignored, blocks: _blocks, ...fields } = values;
       const payload: Partial<AdminSettings> = { ...fields };
       if (logo === 'remove') payload.logo = '';
       else if (logo) payload.logo = logo.dataUrl;

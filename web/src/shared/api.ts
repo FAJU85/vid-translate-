@@ -105,9 +105,46 @@ export interface SiteSettings {
   logo_url: string;
   /** The logo's height in pixels; empty: the default. */
   logo_size?: string;
-  /** The Product Hunt post, and "1" on launch day (the "we're live" banner); otherwise a footer badge. */
-  ph_url?: string;
-  ph_live?: string;
+  /** The banners and footer links to show today (admin: Banners). */
+  blocks?: SiteBlock[];
+}
+
+export const BLOCK_PLACES = ['top', 'translate', 'lyrics', 'feed', 'telegram', 'dashboard', 'footer'] as const;
+export const BLOCK_TABS = ['translate', 'lyrics', 'feed', 'telegram', 'dashboard'] as const;
+export const BLOCK_TONES = ['brand', 'info', 'success', 'warning', 'danger', 'producthunt'] as const;
+export const BLOCK_ICONS = ['none', 'rocket', 'megaphone', 'gift', 'sparkles', 'info', 'heart'] as const;
+export type BlockTab = (typeof BLOCK_TABS)[number];
+
+export interface SiteBlockButton {
+  label_en: string;
+  label_ar: string;
+  /** Opens a page of the site, or (no tab) the address in url; no address: hidden. */
+  tab?: BlockTab;
+  url?: string;
+  primary?: boolean;
+}
+
+/** A banner (top of every page or of one page) or a footer link, made on /admin → Banners. */
+export interface SiteBlock {
+  id: string;
+  name: string;
+  enabled: boolean;
+  place: (typeof BLOCK_PLACES)[number];
+  /** Empty: everyone; else only visitors who arrived from one of these (?ref=…). */
+  sources: string[];
+  /** YYYY-MM-DD, inclusive; empty: no limit. */
+  start: string;
+  end: string;
+  tone: (typeof BLOCK_TONES)[number];
+  icon: (typeof BLOCK_ICONS)[number];
+  title_en: string;
+  title_ar: string;
+  text_en: string;
+  text_ar: string;
+  buttons: SiteBlockButton[];
+  dismissible: boolean;
+  /** Footer links: where it goes. */
+  url: string;
 }
 
 /** Everything the /admin page edits. `logo` is a data: URL to upload, '' to remove, absent to keep. */
@@ -124,10 +161,8 @@ export interface AdminSettings {
   takedown_email: string;
   /** The logo's height in the headers, in pixels (LOGO_SIZE); empty: the default. */
   logo_size: string;
-  /** The Product Hunt post (https://www.producthunt.com/posts/…); empty: none. */
-  ph_url?: string;
-  /** "1" on launch day: every visitor sees "We're live on Product Hunt today". */
-  ph_live?: string;
+  /** Every banner and footer link, on or off (saved from the Banners page only). */
+  blocks?: SiteBlock[];
   has_logo?: boolean;
   logo?: string;
 }

@@ -56,15 +56,19 @@ export function visitSource(url: URL, referrer: string): string {
   }
 }
 
-/** True when this visit came from Product Hunt (its links carry ?ref=producthunt). */
-export function fromProductHunt(): boolean {
+/**
+ * Where this visit came from (as visitSource), kept for the whole visit: still known after the
+ * address is cleaned. Banners for one source (e.g. producthunt) use it.
+ */
+export function arrivalSource(): string {
   try {
-    if (sessionStorage.getItem('kavox_from_ph')) return true;
-    const yes = visitSource(new URL(window.location.href), document.referrer) === 'producthunt';
-    if (yes) sessionStorage.setItem('kavox_from_ph', '1'); // still known after the address is cleaned
-    return yes;
+    const kept = sessionStorage.getItem('kavox_source');
+    if (kept) return kept;
+    const source = visitSource(new URL(window.location.href), document.referrer);
+    sessionStorage.setItem('kavox_source', source);
+    return source;
   } catch {
-    return false;
+    return visitSource(new URL(window.location.href), document.referrer);
   }
 }
 
