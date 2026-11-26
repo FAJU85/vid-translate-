@@ -18,6 +18,7 @@ export {
   listJobs,
   type JobOwner,
   type JobStats,
+  jobsPerDay,
 } from './store';
 export {
   DEFAULT_STYLE,

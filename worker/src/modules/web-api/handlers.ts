@@ -30,6 +30,7 @@ import { ASPECTS, handleMemoryAdmin, learnFromEdit, rate, ratingsOf, siteStatus,
 import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '../shares';
 import { LEGAL_VERSION, handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
 import { handleFeedback, handleFeedbackAdmin } from '../feedback';
+import { handleGrowth, handleGrowthAdmin } from '../growth';
 import { handlePrivacy } from '../privacy';
 import { audit, handleAuditAdmin } from '../audit';
 import { handleFeatures } from '../features';
@@ -309,6 +310,12 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (path === '/api/me/export' || path === '/api/me/delete' || path === '/api/me/name') {
     const rights = await handlePrivacy(request, env, path);
     if (rights) return rights;
+  }
+  // Anonymous growth counts (a visit's source, a share, an install), and the admin's Growth page.
+  if (path === '/api/growth') return handleGrowth(request, env);
+  if (path === '/api/admin/growth' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Admin password required.');
+    return handleGrowthAdmin(request, env);
   }
   // "Send feedback" (anyone), and reading it on the /admin page.
   if (path === '/api/feedback') {
