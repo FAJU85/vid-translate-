@@ -433,6 +433,14 @@ export interface AdminFeatures {
   search: { site: string; sitemap: string; verification: string; file_url: string | null };
 }
 
+export interface GrowthReport {
+  days: number;
+  /** Daily totals: visits by where they came from, shares by app, installs. */
+  counts: { day: string; kind: 'visit' | 'share' | 'install'; source: string; n: number }[];
+  /** Jobs started per day and journey (lyrics, video, dub, files). */
+  jobs: { day: string; journey: string; n: number }[];
+}
+
 export interface AuditItem {
   id: number;
   at: number;
@@ -628,6 +636,7 @@ const auth = (password: string) => ({ Authorization: `Bearer ${password}` });
 export const adminApi = {
   login: (password: string, code = '') =>
     call<{ ok: true; token: string; expires_at: number; two_factor: boolean }>('/api/admin/login', { method: 'POST', headers: auth(password), body: JSON.stringify({ code }) }),
+  growth: (password: string, days: number) => call<GrowthReport>(`/api/admin/growth?days=${days}`, { headers: auth(password) }),
   features: (password: string) => call<AdminFeatures>('/api/admin/features', { headers: auth(password) }),
   feature: (password: string, body: Record<string, unknown>) =>
     call<{ ok: true; token?: string; secret?: string; uri?: string; result?: unknown }>('/api/admin/features', { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),

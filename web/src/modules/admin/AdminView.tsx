@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BarChart3, BookOpenCheck, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, ScrollText, Settings, ToggleRight, ShieldAlert, Users } from 'lucide-react';
+import { BarChart3, BookOpenCheck, TrendingUp, ExternalLink, KanbanSquare, Loader2, Lock, LogOut, MessageSquareHeart, ScrollText, Settings, ToggleRight, ShieldAlert, Users } from 'lucide-react';
 import { ADMIN_SIGNED_OUT, ApiError, adminApi, api } from '../../shared/api';
 import { SITE, applySiteSettings } from '../../shared/content';
 import { JobsWorkspace } from './jobs/JobsWorkspace';
@@ -7,6 +7,7 @@ import { AccountsPanel } from './AccountsPanel';
 import { FeedbackPanel } from './FeedbackPanel';
 import { AuditPanel } from './AuditPanel';
 import { FeaturesPanel } from './FeaturesPanel';
+import { GrowthPanel } from './GrowthPanel';
 import { InsightsPanel } from './InsightsPanel';
 import { LearningPanel } from './LearningPanel';
 import { ModerationPanel } from './ModerationPanel';
@@ -14,9 +15,10 @@ import { SettingsPanel } from './SettingsPanel';
 
 const TOKEN_KEY = 'kavox_admin_token';
 
-type Workspace = 'jobs' | 'accounts' | 'moderation' | 'feedback' | 'audit' | 'features' | 'insights' | 'learning' | 'settings';
+type Workspace = 'jobs' | 'growth' | 'accounts' | 'moderation' | 'feedback' | 'audit' | 'features' | 'insights' | 'learning' | 'settings';
 const WORKSPACES: { id: Workspace; label: string; icon: typeof Settings }[] = [
   { id: 'jobs', label: 'Jobs', icon: KanbanSquare },
+  { id: 'growth', label: 'Growth', icon: TrendingUp },
   { id: 'accounts', label: 'Accounts', icon: Users },
   { id: 'moderation', label: 'Reports', icon: ShieldAlert },
   { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart },
@@ -40,7 +42,7 @@ function readToken(): string {
 
 const workspaceFromHash = (): Workspace => {
   const hash = window.location.hash.slice(1);
-  return hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' || hash === 'audit' || hash === 'features' ? hash : 'jobs';
+  return hash === 'growth' || hash === 'settings' || hash === 'insights' || hash === 'accounts' || hash === 'learning' || hash === 'audit' || hash === 'features' ? hash : 'jobs';
 };
 
 /**
@@ -252,6 +254,10 @@ export function AdminView() {
         ) : workspace === 'learning' ? (
           <div className="h-full overflow-y-auto">
             <LearningPanel password={token} />
+          </div>
+        ) : workspace === 'growth' ? (
+          <div className="h-full overflow-y-auto">
+            <GrowthPanel password={token} />
           </div>
         ) : workspace === 'insights' ? (
           <div className="h-full overflow-y-auto">

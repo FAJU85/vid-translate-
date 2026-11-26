@@ -24,8 +24,12 @@ async function page(env: Env, share: ShareRow, origin: string, lang: PageLang): 
   const url = `${origin}/${share.id}`;
   const files = `${origin}/v/${share.id}`;
   const creator = await creatorOf(env, share);
+  // A lyrics video (made on the Lyrics page): its invitation leads to the Lyrics page.
+  const lyrics = Boolean(
+    await env.DB.prepare(`SELECT 1 AS x FROM jobs WHERE id = ? AND style LIKE '%"visual":true%'`).bind(share.job_id).first().catch(() => null),
+  );
   const title = share.title || tr('Translated video');
-  const what = tr(share.mode === 'dub' ? 'Dubbed' : 'Subtitled');
+  const what = tr(lyrics ? 'Lyrics video' : share.mode === 'dub' ? 'Dubbed' : 'Subtitled');
   const from = share.src_lang && share.src_lang !== 'auto' && share.src_lang !== share.tgt_lang ? `${langName(share.src_lang)} ${lang === 'ar' ? '←' : '→'} ` : '';
   const langs = `${from}${langName(share.tgt_lang)}`;
   const description = tr('{what} in {lang} with {brand}.', { what, lang: langName(share.tgt_lang), brand });
@@ -137,7 +141,7 @@ ${brandHeader(esc(brand), logo, logoSize(site))}
     <button class="btn" id="comment-more" type="button" hidden>${tr('More comments')}</button>
   </section>
   ${more.length ? `<section class="more"><h2>${tr('More from {handle}', { handle: `<bdi dir="ltr">@${esc(creator!.handle)}</bdi>` })}</h2><div class="grid">${more.map((v) => videoTile({ ...v, has_thumb: Number(v.has_thumb), language: langName(v.tgt_lang) }, tr)).join('')}</div></section>` : ''}
-  ${makeYourOwn(esc(brand), tr)}
+  ${makeYourOwn(esc(brand), tr, lyrics ? 'lyrics' : 'translate')}
 </main>
 <footer>${tr('Translated with {brand}: subtitles and dubbing for any video, in minutes.', { brand: `<a href="/">${esc(brand)}</a>` })} · <a href="/terms">${tr('Terms')}</a> · <a href="/privacy">${tr('Privacy')}</a></footer>
 ${reportDialog('video', share.id, tr)}
@@ -256,6 +260,16 @@ ${creator ? `<script>
     try { await navigator.clipboard.writeText(${JSON.stringify(url)}); e.target.textContent = ${JSON.stringify(tr('Copied'))}; }
     catch { prompt(${JSON.stringify(tr('Copy this link'))}, ${JSON.stringify(url)}); }
   });
+</script>
+<script>
+  // Someone arrived by a shared link (?ref=wa…): one anonymous count of where from. Link-preview
+  // robots (WhatsApp, Telegram, X) do not run this, so they are not counted.
+  (function () {
+    var ref = new URLSearchParams(location.search).get('ref');
+    if (!ref) return;
+    try { fetch('/api/growth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'visit', source: ref }), keepalive: true }).catch(function () {}); } catch (e) {}
+    history.replaceState(null, '', location.pathname);
+  })();
 </script>
 </body>
 </html>`;

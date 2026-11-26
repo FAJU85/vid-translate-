@@ -52,6 +52,7 @@ ${table(
     ['Credits and payments', 'Your balance, how it was used, and what you bought (no card numbers).', 'To give you what you paid for.'],
     ['Feedback and reports', 'What you write to us, and what you report.', 'To improve the service and act on reports.'],
     ['Technical', 'A keyed fingerprint of your connection (never the address itself), your browser language, and the country of a sign-in request (kept one day).', 'To prevent abuse, count views by language, and protect sign-in.'],
+    ['Visit counts', 'Daily totals only, never per person: how many visits came from each place (a search engine, WhatsApp, a shared video…), how many shares went to each app, how many installs. No cookie, no address, nothing that points to you.', 'To know which ways of sharing ${brand} work.'],
   ],
   ['Data', 'What exactly', 'Why'],
 )}
@@ -71,6 +72,7 @@ ${table(
     ['Notifications', '90 days'],
     ['Feedback', 'Until it is handled, at most 1 year'],
     ['Security log (admin actions, data downloads and deletions)', '1 year'],
+    ['Daily visit counts (no personal data)', '400 days'],
     ['Account, profile, posts, comments, credits', 'Until you delete your account'],
     ['Payment records', 'As long as the law requires for accounting'],
   ],
@@ -118,6 +120,7 @@ ${table(
     ['الرصيد والمدفوعات', 'رصيدك وكيف استُخدم وما اشتريته (دون أرقام البطاقات).', 'لتسليمك ما دفعت مقابله.'],
     ['الملاحظات والبلاغات', 'ما تكتبه لنا وما تبلّغ عنه.', 'لتحسين الخدمة والتعامل مع البلاغات.'],
     ['بيانات تقنية', 'بصمة مشفّرة لاتصالك (لا العنوان نفسه أبدًا)، ولغة متصفحك، وبلد طلب تسجيل الدخول (يُحفظ يومًا واحدًا).', 'لمنع إساءة الاستخدام، وعدّ المشاهدات حسب اللغة، وحماية تسجيل الدخول.'],
+    ['عدد الزيارات', 'مجاميع يومية فقط، لا لكل شخص: كم زيارة جاءت من كل مكان (محرك بحث، واتساب، فيديو مُشارك…)، وكم مشاركة ذهبت إلى كل تطبيق، وكم مرة ثُبّت التطبيق. بلا ملفات تعريف ارتباط ولا عنوان ولا أي شيء يدل عليك.', 'لمعرفة طرق مشاركة ${brand} التي تنجح.'],
   ],
   ['البيانات', 'ما هي بالتحديد', 'لماذا'],
 )}
@@ -137,6 +140,7 @@ ${table(
     ['الإشعارات', '90 يومًا'],
     ['الملاحظات', 'حتى تُعالج، وسنة واحدة كحد أقصى'],
     ['سجل الأمان (إجراءات المشرف وتنزيل البيانات وحذفها)', 'سنة واحدة'],
+    ['عدد الزيارات اليومي (بلا بيانات شخصية)', '400 يوم'],
     ['الحساب والملف والمنشورات والتعليقات والرصيد', 'حتى تحذف حسابك'],
     ['سجلات الدفع', 'المدة التي يشترطها النظام للمحاسبة'],
   ],

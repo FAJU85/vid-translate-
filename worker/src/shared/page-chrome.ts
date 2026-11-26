@@ -82,7 +82,18 @@ export const tileCss = `
   .views { bottom: 6px; font-weight: 700; }`;
 
 /** The invitation every public page ends with: make your own translated video. */
-export const makeYourOwn = (brand: string, tr: Tr = english) => `<a class="kx-cta" href="/">
+/**
+ * The invitation under a video: make your own, on the page for the same kind of video (a lyrics
+ * video invites to the Lyrics page). The link says where the visitor came from (ref=video).
+ */
+export const makeYourOwn = (brand: string, tr: Tr = english, kind: 'translate' | 'lyrics' = 'translate') =>
+  kind === 'lyrics'
+    ? `<a class="kx-cta" href="/?tab=lyrics&amp;ref=video">
+  <span class="kx-cta-icon">♪</span>
+  <span><b>${tr('Make your own lyrics video')}</b><span>${tr('A song or any video: moving visuals and the words lit as they are sung, with a translation if you like. Free with {brand}.', { brand })}</span></span>
+  <span class="kx-cta-go">${tr('Try it →')}</span>
+</a>`
+    : `<a class="kx-cta" href="/?ref=video">
   <span class="kx-cta-icon">✦</span>
   <span><b>${tr('Watch any video in your language')}</b><span>${tr('Paste a link or upload a file: {brand} adds subtitles or a dubbed voice in minutes.', { brand })}</span></span>
   <span class="kx-cta-go">${tr('Try it →')}</span>
@@ -97,13 +108,14 @@ export const ctaCss = `
   .kx-cta-go { margin-inline-start: auto; flex: none; color: ${PALETTE.teal}; font-weight: 700; font-size: 14px; }`;
 
 /** One-tap share links to WhatsApp, X and Telegram (each app's own share address; no script). */
-export const shareRow = (url: string, text: string, tr: Tr = english) => {
-  const u = encodeURIComponent(url);
+export const shareRow = (link: string, text: string, tr: Tr = english) => {
+  // Each app's link says which app it was shared to (?ref=wa), counted when someone arrives by it.
+  const tagged = (ref: string) => `${link}${link.includes('?') ? '&' : '?'}ref=${ref}`;
   const t = encodeURIComponent(text);
   const links: [string, string, string][] = [
-    ['wa', 'WhatsApp', `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`],
-    ['x', 'X', `https://x.com/intent/post?text=${t}&url=${u}`],
-    ['tg', 'Telegram', `https://t.me/share/url?url=${u}&text=${t}`],
+    ['wa', 'WhatsApp', `https://wa.me/?text=${encodeURIComponent(`${text} ${tagged('wa')}`)}`],
+    ['x', 'X', `https://x.com/intent/post?text=${t}&url=${encodeURIComponent(tagged('x'))}`],
+    ['tg', 'Telegram', `https://t.me/share/url?url=${encodeURIComponent(tagged('tg'))}&text=${t}`],
   ];
   return `<div class="kx-share">${links
     .map(([id, name, href]) => `<a class="kx-share-${id}" href="${escHtml(href)}" target="_blank" rel="noopener" aria-label="${escHtml(tr('Share on {app}', { app: name }))}">${name}</a>`)

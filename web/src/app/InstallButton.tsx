@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Download, Share, X } from 'lucide-react';
+import { countGrowth } from '../shared/growth';
 import { t } from '../shared/i18n';
 
 /** The browser's install prompt (Chrome, Edge, Android), kept until the button is pressed. */
@@ -30,6 +31,7 @@ export function InstallButton() {
     const done = () => {
       setInstalled(true);
       setPrompt(null);
+      countGrowth('install', 'browser'); // anonymous daily total (iPhone has no such event)
     };
     window.addEventListener('beforeinstallprompt', keep);
     window.addEventListener('appinstalled', done);

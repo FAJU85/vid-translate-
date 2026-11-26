@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, CheckCircle2, Crosshair, Download, Film, Link2, Loader2, Pencil, RotateCcw, Search, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { api, type AppConfig, type Cue, type Job, type RatingAspect } from '../../shared/api';
 import { ShareLink } from './ShareLink';
+import { SITE } from '../../shared/content';
+import { ShareVideoFile } from '../../shared/share';
 import { Progress } from './Progress';
 import { PostToProfile } from './PostToProfile';
 import { RTL, STAGE_LABEL, cuesToSrt, jobError, timestamp, tokens, wordAt, wordTimes } from './format';
@@ -334,6 +336,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
                 </span>
               </span>
             </div>
+            {job.share_url && (job.outputs.mp4_url || job.outputs.dubbed_url ? <ShareVideoFile pageUrl={job.share_url} title={job.title || t('My video')} brand={SITE.brand.name} /> : null)}
             {job.share_url && <ShareLink url={job.share_url} title={job.title} />}
             {job.share_url && <PostToProfile shareUrl={job.share_url} signedIn={signedIn} onSignIn={onSignIn} />}
             <div className="flex flex-wrap gap-2">

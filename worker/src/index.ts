@@ -11,6 +11,7 @@ import {
   JOBS_SCHEMA,
   backendHealth,
   handleBackendCallback,
+  jobsPerDay,
   registerJobListener,
   registerDownloadPlanner,
   registerMemoryProvider,
@@ -34,6 +35,7 @@ import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, ch
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
 import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
+import { GROWTH_SCHEMA, registerJobsPerDay, sweepGrowth } from './modules/growth';
 import { AUDIT_SCHEMA, sweepAudit } from './modules/audit';
 import { FEATURES_SCHEMA, withFeatures } from './modules/features';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
@@ -50,6 +52,8 @@ registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
 // The site's logo on lyrics videos, when switched on (settings brick).
 registerLogoProvider(lyricsLogo);
+// The admin's Growth page counts jobs per day and journey (jobs brick).
+registerJobsPerDay(jobsPerDay);
 // A video's page names its creator's @handle (social brick).
 registerCreatorLookup(creatorFor);
 registerPostListener(notifyPost);
@@ -59,7 +63,7 @@ registerMemoryProvider(memoryFor);
 registerDownloadPlanner(downloadPlanFor);
 registerJobListener(sitesJobListener);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA, ...GROWTH_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -152,6 +156,7 @@ export default {
     ctx.waitUntil(sweepShares(env));
     ctx.waitUntil(sweepNotifications(env));
     ctx.waitUntil(sweepFeedback(env));
+    ctx.waitUntil(sweepGrowth(env));
     ctx.waitUntil(sweepAudit(env));
   },
 } satisfies ExportedHandler<Env>;

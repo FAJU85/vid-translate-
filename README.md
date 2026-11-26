@@ -465,6 +465,22 @@ translating. On the Translate page an audio file shows a link to the Lyrics page
 - Song lyrics are still recognised less well than speech: check them in the editor before
   sharing. Post only songs you have the right to share.
 
+## Growth: sharing and measuring
+
+- **The share loop**: when a video is ready, the result screen says "Your video is ready. Post it!"
+  and on phones **Share the video** sends the video file itself to the system share sheet:
+  TikTok, Instagram (Reels, Stories), YouTube Shorts, WhatsApp Status, Snapchat. The caption
+  carries the video's link ("Made with KAVOX"). Computers get **Download the video** and
+  **Copy the caption**.
+- **The video page invites to the same journey**: a lyrics video says "Make your own lyrics
+  video" and opens the Lyrics page; others open Translate.
+- **Every shared link says where it went** (`?ref=wa`, `x`, `tg`, `copy`, `native`, `file`).
+  Your own posts can carry any tag too, e.g. `https://your-domain/?ref=instagram-bio`.
+- **Admin → Growth**: visits by where they came from (tags, search engines, social sites),
+  shares by app, installs, and videos started per journey, day by day. Only anonymous daily
+  totals are kept (no cookie, no IP address, nothing about a person), for 400 days; the Privacy
+  Policy says so.
+
 ## App (PWA) and screen sizes
 
 KAVOX can be installed as an app, from the same website, at no cost and with no app store:

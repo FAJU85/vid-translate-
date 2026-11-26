@@ -122,6 +122,24 @@ export interface JobStats {
   per_day: { day: string; videos: number }[];
 }
 
+/**
+ * Jobs started per UTC day and journey, for the admin's Growth page: lyrics (a lyrics video),
+ * dub, video (subtitles burned in) or files (subtitle files). Re-renders and abandoned uploads left out.
+ */
+export async function jobsPerDay(env: Env, days: number): Promise<{ day: string; journey: string; n: number }[]> {
+  const since = Math.floor(Date.now() / 1000 / 86400) * 86400 - (days - 1) * 86400;
+  const { results } = await env.DB.prepare(
+    `SELECT date(created_at, 'unixepoch') AS day,
+            CASE WHEN style LIKE '%"visual":true%' THEN 'lyrics' WHEN mode = 'dub' THEN 'dub' WHEN mode = 'hard' THEN 'video' ELSE 'files' END AS journey,
+            COUNT(*) AS n
+     FROM jobs WHERE created_at >= ? AND source_kind != 'rerender' AND status != 'awaiting_upload'
+     GROUP BY day, journey ORDER BY day`,
+  )
+    .bind(since)
+    .all<{ day: string; journey: string; n: number }>();
+  return results;
+}
+
 /** What a person has translated: totals, kinds, languages and the last weeks. */
 export async function jobStats(env: Env, who: JobOwner): Promise<JobStats> {
   const done = `${MINE} AND status = 'done' AND source_kind != 'rerender'`;

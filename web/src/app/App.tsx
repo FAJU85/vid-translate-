@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { sendConsent, storedConsent } from '../shared/consent';
+import { countVisit } from '../shared/growth';
 import { FeedbackButton } from '../modules/feedback';
 import { DashboardView } from '../modules/dashboard';
 import { FeedView } from '../modules/feed';
@@ -85,7 +86,9 @@ function Site() {
   useEffect(() => {
     refreshMe();
     const url = new URL(window.location.href);
-    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted'];
+    // Where this visit came from (anonymous daily totals), read before the address is cleaned.
+    countVisit();
+    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted', 'ref', 'utm_source', 'utm_medium', 'utm_campaign'];
     if (once.some((k) => url.searchParams.has(k))) {
       once.forEach((k) => url.searchParams.delete(k));
       window.history.replaceState(null, '', url);
