@@ -12,6 +12,8 @@ export const SOCIAL_COLUMNS: AddedColumn[] = [
   { table: 'notifications', column: 'detail', definition: 'TEXT' },
   // The profile photo's version (when it was set), or null: the photo itself is in R2 (avatars.ts).
   { table: 'profiles', column: 'avatar', definition: 'INTEGER' },
+  // 1: the photo was taken down after a report (hidden from everyone, kept for its owner).
+  { table: 'profiles', column: 'avatar_hidden', definition: 'INTEGER NOT NULL DEFAULT 0' },
 ];
 
 export const SOCIAL_SCHEMA = [
@@ -100,6 +102,8 @@ export interface Profile {
   bio: string | null;
   /** When the profile photo was set (its version), or null for none. */
   avatar?: number | null;
+  /** 1 when the photo was taken down after a report: shown to no one, kept for its owner. */
+  avatar_hidden?: number;
   handle_changed_at: number;
   created_at: number;
   updated_at: number;

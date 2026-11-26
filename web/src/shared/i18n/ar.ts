@@ -700,4 +700,6 @@ export const AR: Record<string, string> = {
   "The photo must be a JPEG, PNG or WebP image.": "يجب أن تكون الصورة بصيغة JPEG أو PNG أو WebP.",
   "The photo is too large.": "الصورة كبيرة جدًا.",
   "Choose your @handle first.": "اختر معرّفك @ أولًا.",
+  "Your profile photo was taken down after a report, because it breaks the Terms of Use. No one sees it now; you can add another one or delete it.": "أُزيلت صورة ملفك بعد بلاغ، لأنها تخالف شروط الاستخدام. لا يراها أحد الآن؛ يمكنك وضع صورة أخرى أو حذفها.",
+  "Your photo was taken down after a report: no one sees it. Add another one, or remove it.": "أُزيلت صورتك بعد بلاغ: لا يراها أحد. أضف صورة أخرى أو احذفها.",
 };

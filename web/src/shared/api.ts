@@ -372,6 +372,8 @@ export interface Profile {
   bio: string | null;
   /** The profile photo, or null for the letter. */
   avatar_url?: string | null;
+  /** Your own profile only: your photo was taken down after a report (kept for you, shown to no one). */
+  photo_taken_down?: boolean;
   created_at: number;
 }
 
@@ -563,7 +565,7 @@ export interface Notification {
   /** The comment, for kind "comment". */
   text: string | null;
   /** kind "removed": what of yours was taken down after a report. */
-  detail?: { what: 'video' | 'comment'; title?: string | null; text?: string | null; hidden?: boolean } | null;
+  detail?: { what: 'video' | 'comment' | 'photo'; title?: string | null; text?: string | null; hidden?: boolean } | null;
 }
 export interface Inbox {
   items: Notification[];
@@ -601,6 +603,9 @@ export interface ReportGroup {
     thumb?: string | null;
     owner?: string | null;
     account_id?: string | null;
+    /** A reported profile's photo (while shown), and whether it was already taken down. */
+    photo?: string | null;
+    photo_hidden?: boolean;
   };
 }
 export interface BlockedAccount {

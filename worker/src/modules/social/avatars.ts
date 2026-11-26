@@ -14,8 +14,15 @@ const TYPES: Record<string, (b: Uint8Array) => boolean> = {
 const avatarKey = (accountId: string) => `avatars/${accountId}`;
 
 /** Where a profile's photo is (its version in the address, so it can be kept for long), or null. */
-export const avatarUrl = (p: Pick<Profile, 'handle' | 'avatar'>): string | null =>
-  p.avatar ? `/api/avatars/${encodeURIComponent(p.handle)}?v=${p.avatar}` : null;
+export const avatarUrl = (p: Pick<Profile, 'handle' | 'avatar' | 'avatar_hidden'>): string | null =>
+  p.avatar && !p.avatar_hidden ? `/api/avatars/${encodeURIComponent(p.handle)}?v=${p.avatar}` : null;
+
+/**
+ * Take a profile photo down after a report: shown to no one any more, but never deleted (it
+ * stays the owner's, to replace or delete). A new photo from its owner clears it.
+ */
+export const hideAvatar = (env: Env, accountId: string) =>
+  env.DB.prepare('UPDATE profiles SET avatar_hidden = 1 WHERE account_id = ?').bind(accountId).run();
 
 /** Delete a person's photo from storage (Delete my account). */
 export async function eraseAvatar(env: Env, accountId: string): Promise<void> {
@@ -36,7 +43,7 @@ export async function handleAvatar(request: Request, env: Env, path: string): Pr
     if (!profile) return apiError(400, 'E_NO_PROFILE', 'Choose your @handle first.');
     if (method === 'DELETE') {
       await env.MEDIA.delete(avatarKey(account.id));
-      await env.DB.prepare('UPDATE profiles SET avatar = NULL, updated_at = ? WHERE account_id = ?').bind(now(), account.id).run();
+      await env.DB.prepare('UPDATE profiles SET avatar = NULL, avatar_hidden = 0, updated_at = ? WHERE account_id = ?').bind(now(), account.id).run();
       return json({ avatar_url: null });
     }
     const type = (request.headers.get('Content-Type') ?? '').split(';')[0].trim().toLowerCase();
@@ -48,13 +55,13 @@ export async function handleAvatar(request: Request, env: Env, path: string): Pr
     if (!TYPES[type](bytes)) return apiError(400, 'E_BAD_REQUEST', 'That file is not the image it says it is.');
     await env.MEDIA.put(avatarKey(account.id), bytes, { httpMetadata: { contentType: type } });
     const version = now();
-    await env.DB.prepare('UPDATE profiles SET avatar = ?, updated_at = ? WHERE account_id = ?').bind(version, version, account.id).run();
+    await env.DB.prepare('UPDATE profiles SET avatar = ?, avatar_hidden = 0, updated_at = ? WHERE account_id = ?').bind(version, version, account.id).run();
     return json({ avatar_url: avatarUrl({ handle: profile.handle, avatar: version }) });
   }
   const m = path.match(/^\/api\/avatars\/([^/]{1,40})$/);
   if (m && method === 'GET') {
     const profile = await profileByHandle(env, decodeURIComponent(m[1]));
-    if (!profile?.avatar || !env.MEDIA || (await isBlocked(env, profile.account_id))) return apiError(404, 'E_NOT_FOUND', 'No photo.');
+    if (!profile?.avatar || profile.avatar_hidden || !env.MEDIA || (await isBlocked(env, profile.account_id))) return apiError(404, 'E_NOT_FOUND', 'No photo.');
     const object = await env.MEDIA.get(avatarKey(profile.account_id));
     if (!object) return apiError(404, 'E_NOT_FOUND', 'No photo.');
     return new Response(object.body, {

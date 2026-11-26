@@ -13,7 +13,7 @@ const SYSTEM: readonly string[] = ['removed'];
 
 /** What a notice from KAVOX is about: a video (its title) or a comment (its text). */
 export interface NoticeDetail {
-  what: 'video' | 'comment';
+  what: 'video' | 'comment' | 'photo';
   title?: string | null;
   text?: string | null;
   /** removed: only hidden (a comment), not deleted. */
@@ -83,6 +83,11 @@ export function noticeText(kind: SystemKind, d: NoticeDetail, lang: string, html
   const e = (s: string) => (html ? esc(s) : s);
   const ar = lang === 'ar';
   const name = e(quote(d.what === 'video' ? d.title : d.text)) || (ar ? (d.what === 'video' ? 'بلا عنوان' : '…') : d.what === 'video' ? 'untitled' : '…');
+  if (d.what === 'photo') {
+    return ar
+      ? 'أُزيلت صورة ملفك بعد بلاغ، لأنها تخالف شروط الاستخدام. لا يراها أحد الآن؛ يمكنك وضع صورة أخرى أو حذفها من لوحتك.'
+      : 'Your profile photo was taken down after a report, because it breaks the Terms of Use. No one sees it now; you can add another one or delete it from your Dashboard.';
+  }
   if (d.what === 'video') {
     return ar
       ? `أُزيل فيديو «${name}» بعد بلاغ، لأنه يخالف شروط الاستخدام. لا يراه الآن غيرك، ويمكنك حذفه من لوحتك. إن رأيت أن هذا خطأ فراسلنا.`

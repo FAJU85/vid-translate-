@@ -38,7 +38,11 @@ export async function handleSocial(request: Request, env: Env, path: string, ori
     const account = await signedInAccount(env, request);
     if (!account) return apiError(401, 'E_SIGN_IN', 'Sign in to have a profile.');
     const current = await profileByAccount(env, account.id);
-    if (method === 'GET') return json({ profile: current ? publicProfile(current) : null, change_days: HANDLE_CHANGE_DAYS });
+    if (method === 'GET') {
+      // The owner also learns when their photo was taken down after a report (it is kept for them).
+      const own = current ? { ...publicProfile(current), photo_taken_down: Boolean(current.avatar && current.avatar_hidden) } : null;
+      return json({ profile: own, change_days: HANDLE_CHANGE_DAYS });
+    }
     if (method !== 'POST') return null;
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
