@@ -33,6 +33,7 @@ import {
 import { ADMIN_AUTH_SCHEMA, SETTINGS_SCHEMA, handlePrivacyPage, handleTermsPage, lyricsLogo } from './modules/settings';
 import { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, PAYMENTS_SCHEMA, billingListener, chooseOutro, handleStripeWebhook } from './modules/accounts';
 import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCreatorLookup, registerPostListener, sharesJobListener, sweepShares } from './modules/shares';
+import { LANDING_PATHS, handleLandingPage } from './modules/landing';
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
 import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
 import { GROWTH_SCHEMA, registerJobsPerDay, sweepGrowth } from './modules/growth';
@@ -97,6 +98,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path.startsWith('/v/') || SHORT_PATH.test(path)) {
     return (await handleSharePage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   }
+  // Pages for people who search: each journey, in English and Arabic (/translate-video, /ar/lyrics-video…).
+  if (path.replace(/\/+$/, '') in LANDING_PATHS) return (await handleLandingPage(request, env, path, origin)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // The terms of use, with the takedown address (/terms).
   if (path === '/terms') return (await handleTermsPage(request, env, path)) ?? apiError(404, 'E_NOT_FOUND', 'Not found.');
   // The privacy policy (/privacy).
