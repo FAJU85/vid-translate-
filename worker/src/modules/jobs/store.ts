@@ -169,6 +169,16 @@ export async function jobStats(env: Env, who: JobOwner): Promise<JobStats> {
   };
 }
 
+/** True once this browser or chat (owner), or this account, has a finished video (invites: "new"). */
+export async function hasFinishedVideo(env: Env, owner: string, accountId: string | null): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `SELECT 1 AS x FROM jobs WHERE status = 'done' AND source_kind != 'rerender' AND (owner = ? OR account_id = ?) LIMIT 1`,
+  )
+    .bind(owner, accountId ?? '')
+    .first();
+  return Boolean(row);
+}
+
 /** Every job except unfinished uploads, newest first (the /admin dashboard). */
 export async function allJobs(env: Env, limit = 1000): Promise<JobRow[]> {
   const res = await env.DB.prepare(`SELECT * FROM jobs WHERE status != 'awaiting_upload' ORDER BY created_at DESC LIMIT ?`)

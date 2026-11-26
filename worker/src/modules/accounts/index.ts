@@ -4,7 +4,7 @@
  */
 export { ACCOUNTS_COLUMNS, ACCOUNTS_SCHEMA, getAccount, recordConsent, type Account } from './store';
 export { cancelTelegramLogin, confirmTelegramLogin, describeTelegramLogin } from './auth';
-export { SECONDS_PER_CREDIT, balance, costSeconds, creditsEnabled, grant, type Balance } from './credits';
+export { SECONDS_PER_CREDIT, balance, costSeconds, creditsEnabled, grant, grantStatements, guardChanged, type Balance } from './credits';
 export { billingListener, chargeJob, checkJob, estimateSeconds, releaseJob, type ChargeResult, type Refusal } from './billing';
 export { DAILY_SECONDS, FREE_MAX_VIDEO_SECONDS, freshBalance } from './allowances';
 export { accountForTelegram, accountForWeb, existingTelegramAccount, handleAccounts, signedInAccount, type AccountsContext } from './handlers';

@@ -18,6 +18,7 @@ export {
   listJobs,
   type JobOwner,
   type JobStats,
+  hasFinishedVideo,
   jobsPerDay,
 } from './store';
 export {

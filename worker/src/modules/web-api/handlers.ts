@@ -15,6 +15,7 @@ import {
   getJob,
   jobStats,
   jobsFor,
+  hasFinishedVideo,
   listJobs,
   maxPerHour,
   parseSubtitleStyle,
@@ -396,7 +397,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     // Arrived by a friend's invite link: counted for them if this is a first video (never your own).
     if (typeof body.invite === 'string' && CODE_RE.test(body.invite)) {
       const owner = `web:${body.client_id}`;
-      const isNew = (await listJobs(env, owner, 1)).length === 0;
+      // New: no finished video yet, in this browser or on this account (failed tries do not count).
+      const isNew = !(await hasFinishedVideo(env, owner, webAccount.id));
       await recordReferral(env, body.invite, { account: webAccount.id, owner, isNew }, 'web').catch(() => false);
     }
     const tgtLang = String(body.tgt_lang ?? 'ar');

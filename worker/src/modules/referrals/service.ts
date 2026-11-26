@@ -1,7 +1,7 @@
 import type { Env } from '../../shared/env';
-import { creditsEnabled, grant } from '../accounts';
+import { creditsEnabled, grantStatements, guardChanged } from '../accounts';
 import type { JobRow } from '../jobs';
-import { markFirstVideo, waitingReferral } from './store';
+import { markFirstVideoStatement, waitingReferral } from './store';
 
 const on = (v: string | undefined) => ['1', 'true', 'yes'].includes(String(v ?? '').toLowerCase());
 
@@ -26,11 +26,23 @@ export const referralsJobListener = {
     const waiting = await waitingReferral(env, job.owner, job.account_id);
     if (!waiting) return;
     const minutes = rewardMinutes(env);
-    // Marked first, so a job finishing twice (retries) never pays twice.
-    if (!(await markFirstVideo(env, waiting.referred_account, minutes !== null))) return;
-    if (minutes === null) return;
-    const seconds = minutes * 60;
-    await grant(env, waiting.referred_account, 'bonus', seconds, 'invite: welcome gift');
-    await grant(env, waiting.referrer_account, 'bonus', seconds, 'invite: a friend made a first video');
+    // The friend's gift goes to whoever made the video (a guest who signed in since: their account).
+    const friend = job.account_id ?? waiting.referred_account;
+    const pay = minutes !== null && friend !== waiting.referrer_account;
+    // One transaction: marked, and both sides paid, or nothing at all. The guard stops the batch
+    // when the referral was already marked (a job reported finished twice): never paid twice. A
+    // failed grant undoes the mark too, so a later video can still complete it.
+    await env.DB.batch([
+      markFirstVideoStatement(env, waiting.referred_account, pay),
+      guardChanged(env),
+      ...(pay
+        ? [
+            ...grantStatements(env, friend, 'bonus', minutes! * 60, 'invite: welcome gift'),
+            ...grantStatements(env, waiting.referrer_account, 'bonus', minutes! * 60, 'invite: a friend made a first video'),
+          ]
+        : []),
+    ]).catch(() => {
+      /* already marked (the guard), or the database refused: nothing was changed */
+    });
   },
 };

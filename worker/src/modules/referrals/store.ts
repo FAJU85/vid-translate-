@@ -75,25 +75,32 @@ export interface Referral {
   rewarded_at: number | null;
 }
 
-/** The referral of someone whose job this is (by the job's owner), if any and still waiting. */
+/**
+ * The waiting referral a finished job completes. With a signed-in account on the job: that
+ * account's own referral, or a guest referral made in the same browser or chat before signing
+ * in; never one made by another account that happens to share the browser. Oldest first.
+ */
 export async function waitingReferral(env: Env, owner: string, accountId: string | null): Promise<Referral | null> {
   return env.DB.prepare(
-    `SELECT referred_account, referrer_account, first_video_at, rewarded_at FROM referrals
-     WHERE (referred_owner = ? OR referred_account = ?) AND first_video_at IS NULL LIMIT 1`,
+    `SELECT r.referred_account, r.referrer_account, r.first_video_at, r.rewarded_at
+     FROM referrals r LEFT JOIN accounts a ON a.id = r.referred_account
+     WHERE r.first_video_at IS NULL
+       AND (r.referred_account = ?2 OR (r.referred_owner = ?1 AND (?2 = '' OR a.guest_client IS NOT NULL)))
+     ORDER BY (r.referred_account = ?2) DESC, r.created_at ASC
+     LIMIT 1`,
   )
     .bind(owner, accountId ?? '')
     .first<Referral>();
 }
 
-/** Mark the first video made; `rewarded`: the free minutes were given too. Once only. */
-export async function markFirstVideo(env: Env, referredAccount: string, rewarded: boolean): Promise<boolean> {
+/** The statement that marks a referral's first video (and, `rewarded`, its rewards); changes no row when already marked. */
+export function markFirstVideoStatement(env: Env, referredAccount: string, rewarded: boolean): D1PreparedStatement {
   const ts = now();
-  const res = await env.DB.prepare(
-    'UPDATE referrals SET first_video_at = ?, rewarded_at = ? WHERE referred_account = ? AND first_video_at IS NULL',
-  )
-    .bind(ts, rewarded ? ts : null, referredAccount)
-    .run();
-  return Boolean(res.meta.changes);
+  return env.DB.prepare('UPDATE referrals SET first_video_at = ?, rewarded_at = ? WHERE referred_account = ? AND first_video_at IS NULL').bind(
+    ts,
+    rewarded ? ts : null,
+    referredAccount,
+  );
 }
 
 /** How many friends this account brought: arrived, and made a first video. */
@@ -120,8 +127,14 @@ export async function referralTotals(env: Env): Promise<{ joined: number; made_v
 export async function referralsOf(env: Env, accountId: string) {
   const [code, rows] = await Promise.all([
     env.DB.prepare('SELECT code, created_at FROM referral_codes WHERE account_id = ?').bind(accountId).first(),
-    env.DB.prepare('SELECT referrer_account = ? AS invited_by_you, channel, created_at, first_video_at, rewarded_at FROM referrals WHERE referrer_account = ? OR referred_account = ?')
-      .bind(accountId, accountId, accountId)
+    // Each invite with its other side: the account you invited, or the account that invited you.
+    env.DB.prepare(
+      `SELECT CASE WHEN referrer_account = ?1 THEN 'you invited' ELSE 'invited you' END AS direction,
+              CASE WHEN referrer_account = ?1 THEN referred_account ELSE referrer_account END AS other_account,
+              channel, created_at, first_video_at, rewarded_at
+       FROM referrals WHERE referrer_account = ?1 OR referred_account = ?1`,
+    )
+      .bind(accountId)
       .all(),
   ]);
   return { code, referrals: rows.results };

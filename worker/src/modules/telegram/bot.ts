@@ -22,6 +22,7 @@ import {
   createJob,
   dispatch,
   getJob,
+  hasFinishedVideo,
   listJobs,
   maxPerHour,
   parseSubtitleStyle,
@@ -227,8 +228,9 @@ async function handleMessage(env: Env, msg: any, origin: string): Promise<void> 
   const invite = command === '/start' ? /^\/start\s+r_([A-Za-z0-9]{8})$/.exec(text) : null;
   if (invite && CODE_RE.test(invite[1])) {
     const owner = `tg:${chatId}`;
-    const isNew = (await listJobs(env, owner, 1)).length === 0;
     const account = await accountForTelegram(env, msg.from?.id ?? chatId, msg.from?.first_name ?? null);
+    // New: no finished video yet, in this chat or on this account (failed tries do not count).
+    const isNew = !(await hasFinishedVideo(env, owner, account.id));
     await recordReferral(env, invite[1], { account: account.id, owner, isNew }, 'telegram').catch(() => false);
   }
   if (command === '/start' || command === '/help') {

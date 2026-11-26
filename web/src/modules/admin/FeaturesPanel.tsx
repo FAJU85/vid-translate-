@@ -385,10 +385,11 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
           {' '}({f.referrals.totals.joined} joined, {f.referrals.totals.made_video} made a video, {f.referrals.totals.rewarded} rewarded so far).
           With rewards on, both get free minutes for that first video, once. Rewards are credits, so they are only given and shown while credits are on.
         </p>
-        {locked('REFERRAL_REWARDS') ? (
-          <ServerNote />
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The switch and the minutes are separate settings: either can be set on the server alone. */}
+          {locked('REFERRAL_REWARDS') ? (
+            <ServerNote />
+          ) : (
             <button
               className={f.referrals.on ? quiet : primary}
               disabled={busy !== null}
@@ -396,17 +397,17 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
             >
               {f.referrals.on ? 'Turn off' : 'Turn on'}
             </button>
-            {!locked('REFERRAL_MINUTES') && (
-              <>
-                <label className="text-sm text-slate-300" htmlFor="invite-minutes">Free minutes for each side</label>
-                <input id="invite-minutes" type="number" min={1} max={120} value={inviteMinutes} onChange={(e) => setInviteMinutes(e.target.value)} className={input.replace('w-full', 'w-24')} />
-                <button className={quiet} disabled={busy !== null || inviteMinutes === String(f.referrals.minutes)} onClick={() => set('REFERRAL_MINUTES', inviteMinutes)}>
-                  Save
-                </button>
-              </>
-            )}
-          </div>
-        )}
+          )}
+          {!locked('REFERRAL_MINUTES') && (
+            <>
+              <label className="text-sm text-slate-300" htmlFor="invite-minutes">Free minutes for each side</label>
+              <input id="invite-minutes" type="number" min={1} max={120} value={inviteMinutes} onChange={(e) => setInviteMinutes(e.target.value)} className={input.replace('w-full', 'w-24')} />
+              <button className={quiet} disabled={busy !== null || inviteMinutes === String(f.referrals.minutes)} onClick={() => set('REFERRAL_MINUTES', inviteMinutes)}>
+                Save
+              </button>
+            </>
+          )}
+        </div>
         {f.referrals.on && !f.credits.on && <p className="text-xs text-amber-200">Credits are off, so no reward is given or promised yet: invites are only counted.</p>}
       </Card>
 

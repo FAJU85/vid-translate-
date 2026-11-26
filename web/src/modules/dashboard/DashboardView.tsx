@@ -370,7 +370,8 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
           </div>
         </section>
       )}
-      <InviteCard />
+      {/* Per account: signing in or out shows that account's own link, never the previous one's. */}
+      <InviteCard key={me?.account?.id ?? 'guest'} />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-white">{t("Your videos")}</h2>
         {!data && !error && <Loader2 className="w-5 h-5 animate-spin text-slate-500" />}
