@@ -317,7 +317,7 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
 
       {/* The three parts of the dashboard, one at a time. */}
       {me?.account && (
-        <div role="tablist" aria-label={t("Dashboard")} className="sticky top-[61px] z-30 -mx-4 px-4 py-2 bg-slate-950/90 backdrop-blur-xl flex gap-1 text-sm">
+        <div role="tablist" aria-label={t("Dashboard")} className="sticky top-[61px] z-30 -mx-4 px-4 py-2 bg-slate-950/95 sm:bg-slate-950/90 sm:backdrop-blur-xl flex gap-1 text-sm">
           {SECTIONS.map(([id, label], i) => (
             <button
               key={id}

@@ -27,17 +27,27 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
   useEffect(() => {
     const el = box.current;
     if (!el) return;
+    let inView = false;
+    const sync = () => {
+      const v = video.current;
+      if (!v) return;
+      // Plays only on screen and with the app in front: never in the background (battery, data).
+      if (inView && document.visibilityState === 'visible') v.play().catch(() => {});
+      else v.pause();
+    };
     const seen = new IntersectionObserver(
       ([entry]) => {
-        const v = video.current;
-        if (!v) return;
-        if (entry.isIntersecting) v.play().catch(() => {});
-        else v.pause();
+        inView = entry.isIntersecting;
+        sync();
       },
       { threshold: 0.6 },
     );
     seen.observe(el);
-    return () => seen.disconnect();
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      seen.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+    };
   }, []);
   useEffect(() => {
     if (video.current) video.current.muted = muted;
@@ -78,7 +88,8 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
 
   const from = item.src_lang && item.src_lang !== 'auto' && item.src_lang !== item.tgt_lang ? `${lang(item.src_lang)} → ` : '';
   const action = 'flex flex-col items-center gap-0.5 text-[11px] font-semibold text-white drop-shadow';
-  const round = 'w-11 h-11 rounded-full bg-slate-950/70 ring-1 ring-slate-100/15 backdrop-blur flex items-center justify-center';
+  // No blur over a playing video: it would be redrawn every frame (battery).
+  const round = 'w-11 h-11 rounded-full bg-slate-950/75 ring-1 ring-slate-100/15 flex items-center justify-center';
   return (
     <div ref={box} className="relative h-full w-full snap-start snap-always bg-black overflow-hidden">
       <video

@@ -26,7 +26,7 @@ export function Header({ tab, onTab, account, showPricing = false }: {
   const tabs = TABS.filter((t) => t.id !== 'pricing' || showPricing);
   return (
     <>
-    <header className="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800">
+    <header className="sticky top-0 z-40 bg-slate-950/95 sm:bg-slate-950/85 sm:backdrop-blur-xl border-b border-slate-800">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
         <button onClick={() => onTab('translate')} aria-label={`${SITE.brand.name}: home`} className="flex items-center gap-2.5 shrink-0">
           {SITE.brand.logo ? (
@@ -82,7 +82,7 @@ export function Header({ tab, onTab, account, showPricing = false }: {
     {/* Phones: a tab bar at the bottom, in reach of the thumb, with labels (as in most phone apps). */}
     <nav
       aria-label={t("Main")}
-      className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
+      className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-950 border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex">
         {tabs.map(({ id, short, icon: Icon }) => (

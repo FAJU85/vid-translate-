@@ -4,7 +4,8 @@ import { ApiError, notificationsApi, type Inbox, type Notification } from '../..
 import { formatDate, t } from '../../shared/i18n';
 
 /** How often the bell asks for the unread count while the page is open. */
-const POLL_MS = 60_000;
+// Every two minutes while the app is in front (and at once when it comes back): fewer wake-ups.
+const POLL_MS = 120_000;
 
 function ago(sec: number): string {
   const d = Date.now() / 1000 - sec;
