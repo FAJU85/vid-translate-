@@ -105,6 +105,9 @@ export interface SiteSettings {
   logo_url: string;
   /** The logo's height in pixels; empty: the default. */
   logo_size?: string;
+  /** The Product Hunt post, and "1" on launch day (the "we're live" banner); otherwise a footer badge. */
+  ph_url?: string;
+  ph_live?: string;
 }
 
 /** Everything the /admin page edits. `logo` is a data: URL to upload, '' to remove, absent to keep. */
@@ -121,6 +124,10 @@ export interface AdminSettings {
   takedown_email: string;
   /** The logo's height in the headers, in pixels (LOGO_SIZE); empty: the default. */
   logo_size: string;
+  /** The Product Hunt post (https://www.producthunt.com/posts/…); empty: none. */
+  ph_url?: string;
+  /** "1" on launch day: every visitor sees "We're live on Product Hunt today". */
+  ph_live?: string;
   has_logo?: boolean;
   logo?: string;
 }

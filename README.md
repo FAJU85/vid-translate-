@@ -488,6 +488,14 @@ translating. On the Translate page an audio file shows a link to the Lyrics page
   totals are kept (no cookie, no IP address, nothing about a person), for 400 days; the Privacy
   Policy says so.
 
+## Product Hunt
+
+`docs/PRODUCT-HUNT.md` is the launch kit: what must be true before the day, the listing (copy,
+thumbnail and gallery in `docs/launch/`), and the day itself. **Admin → Features → Product Hunt**
+holds the post's address and the launch-day switch (a "live on Product Hunt today" banner for
+everyone; afterwards a footer link). Visitors from Product Hunt (`?ref=producthunt`) are welcomed
+with the two things to try, and counted on the Growth page.
+
 ## App (PWA) and screen sizes
 
 KAVOX can be installed as an app, from the same website, at no cost and with no app store:

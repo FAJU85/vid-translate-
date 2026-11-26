@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import qrcode from 'qrcode-generator';
-import { Activity, Bot, Check, Coins, Gift, Image as ImageIcon, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Activity, Bot, Check, Coins, Gift, Rocket, Image as ImageIcon, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { ApiError, adminApi, type AdminFeatures } from '../../shared/api';
 
 const input = 'w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400';
@@ -100,6 +100,64 @@ function SecurityReportsCard() {
           <RefreshCw className="w-4 h-4" /> Check again
         </button>
       </div>
+    </Card>
+  );
+}
+
+/**
+ * Product Hunt: the post's address, and the launch-day switch. On launch day every visitor sees
+ * "live on Product Hunt today" with a link to support it; afterwards the footer keeps a small badge.
+ * Visitors from Product Hunt are welcomed either way, and counted on the Growth page.
+ */
+function ProductHuntCard({ password }: { password: string }) {
+  const [saved, setSaved] = useState<{ ph_url: string; ph_live: boolean } | null>(null);
+  const [link, setLink] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    adminApi
+      .load(password)
+      .then((s) => {
+        setSaved({ ph_url: s.ph_url ?? '', ph_live: s.ph_live === '1' });
+        setLink(s.ph_url ?? '');
+      })
+      .catch(() => setMsg({ ok: false, text: 'Could not load the settings.' }));
+  }, [password]);
+  async function save(patch: { ph_url?: string; ph_live?: string }, done: string) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await adminApi.save(password, patch);
+      const next = { ph_url: patch.ph_url ?? saved?.ph_url ?? '', ph_live: patch.ph_live !== undefined ? patch.ph_live === '1' : Boolean(saved?.ph_live) };
+      setSaved(next);
+      setMsg({ ok: true, text: done });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof ApiError ? err.message : 'That did not work.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!saved) return null;
+  return (
+    <Card icon={Rocket} title="Product Hunt" status={<Chip on={saved.ph_live} label={saved.ph_live ? 'Launch day' : saved.ph_url ? 'Badge in footer' : 'Not set'} />}>
+      <p className="text-sm text-slate-400">
+        Paste your Product Hunt post once it exists. Turn on <b>launch day</b> on the day: every visitor sees "live on Product Hunt today" with a link to support
+        it. Turn it off the next day: a small "Featured on Product Hunt" link stays in the footer. Visitors from Product Hunt are welcomed and counted on the Growth page.
+      </p>
+      <div className="flex gap-2">
+        <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://www.producthunt.com/posts/kavox" className={input} dir="ltr" />
+        <button className={quiet} disabled={busy || link.trim() === saved.ph_url} onClick={() => save({ ph_url: link.trim() }, 'Saved.')}>
+          Save
+        </button>
+      </div>
+      <button
+        className={saved.ph_live ? quiet : primary}
+        disabled={busy || (!saved.ph_live && !saved.ph_url)}
+        onClick={() => save({ ph_live: saved.ph_live ? '' : '1' }, saved.ph_live ? 'Launch day is over: the footer badge stays.' : 'Launch day is on: every visitor sees the banner.')}
+      >
+        {saved.ph_live ? 'End launch day' : 'Start launch day'}
+      </button>
+      {msg && <p className={`text-xs ${msg.ok ? 'text-emerald-300' : 'text-rose-300'}`}>{msg.text}</p>}
     </Card>
   );
 }
@@ -284,6 +342,7 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
         </ol>
         <Copyable value={f.search.sitemap} />
       </Card>
+      <ProductHuntCard password={password} />
       <SecurityReportsCard />
       <LogsCard />
 

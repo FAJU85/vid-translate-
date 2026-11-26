@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { sendConsent, storedConsent } from '../shared/consent';
-import { countVisit } from '../shared/growth';
+import { countVisit, fromProductHunt } from '../shared/growth';
+import { LaunchBanner, ProductHuntBadge } from './LaunchBanner';
 import { FeedbackButton } from '../modules/feedback';
 import { DashboardView } from '../modules/dashboard';
 import { FeedView } from '../modules/feed';
@@ -56,6 +57,8 @@ function Site() {
     return [q.get('link'), q.get('text'), q.get('title')].map((v) => v?.match(/https?:\/\/\S+/)?.[0]).find(Boolean) ?? null;
   });
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
+  // Came from Product Hunt (read before the address is cleaned): welcomed by the launch banner.
+  const [fromPH] = useState(fromProductHunt);
   // A lyrics video being made (the Lyrics page): followed apart from a translation.
   const [lyricsJobId, setLyricsJobId] = useState<string | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -185,6 +188,7 @@ function Site() {
             {t("Waiting for your payment… Finish it in the other tab or in Telegram; this page carries on by itself.")}
           </div>
         )}
+        <LaunchBanner site={config?.site} fromPH={fromPH} onTry={setTab} />
         {configError && (
           <div className="mb-6 p-3 text-sm rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200">
             {t("The service is not reachable right now. If you run this site, check that")}{' '}<code>{t("VITE_API_BASE")}</code>{' '}{t("points at your Worker.")}
@@ -246,7 +250,8 @@ function Site() {
         ·{' '}
         <a href="/privacy" className="hover:text-slate-300 underline-offset-2 hover:underline">
           {t("Privacy")}
-        </a>{' '}
+        </a>
+        <ProductHuntBadge site={config?.site} />{' '}
         ·{' '}
         <FeedbackButton className="hover:text-slate-300 underline-offset-2 hover:underline" />
       </footer>

@@ -87,6 +87,14 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
     if (email && !/^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}\.[a-z]{2,63}$/i.test(email)) return apiError(400, 'E_BAD_REQUEST', 'The takedown address must be an email address.');
     patch.takedown_email = email;
   }
+  if ('ph_url' in body) {
+    const link = String(body.ph_url ?? '').trim().replace(/[?#].*$/, '');
+    if (link && !/^https:\/\/(www\.)?producthunt\.com\/(posts|products)\/[a-z0-9-]{1,100}(\/[a-z0-9-]{1,100})?\/?$/i.test(link)) {
+      return apiError(400, 'E_BAD_REQUEST', 'Paste the address of your Product Hunt post, like https://www.producthunt.com/posts/kavox.');
+    }
+    patch.ph_url = link;
+  }
+  if ('ph_live' in body) patch.ph_live = body.ph_live === true || body.ph_live === '1' ? '1' : '';
   if ('public_domain' in body) {
     // Accept "https://kavox.to/" as well as "kavox.to".
     const domain = String(body.public_domain ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');

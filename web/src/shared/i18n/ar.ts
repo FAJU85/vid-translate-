@@ -680,4 +680,10 @@ export const AR: Record<string, string> = {
   "Your own link: anyone new who starts from it and makes a first video counts as your friend.": "رابطك الخاص: كل شخص جديد يبدأ منه ويصنع أول فيديو يُحسب صديقًا لك.",
   "For each friend’s first video, you both get {n} free minutes.": "عن أول فيديو لكل صديق تحصلان كلاكما على {n} دقيقة مجانية.",
   "Translate any video, or turn a song into a lyrics video. Free:": "ترجم أي فيديو، أو حوّل أغنية إلى فيديو كلمات. مجانًا:",
+  "Welcome, Product Hunt!": "أهلًا بمجتمع Product Hunt!",
+  "{brand} is live on Product Hunt today.": "{brand} متاح على Product Hunt اليوم.",
+  "Free, no sign-up: translate any video, or turn a song into a lyrics video.": "مجاني ودون تسجيل: ترجم أي فيديو، أو حوّل أغنية إلى فيديو كلمات.",
+  "Translate a video": "ترجم فيديو",
+  "Support us on Product Hunt": "ادعمنا على Product Hunt",
+  "Featured on Product Hunt": "ظهر على Product Hunt",
 };

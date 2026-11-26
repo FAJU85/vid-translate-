@@ -35,6 +35,7 @@ const REFERRERS: [RegExp, string][] = [
   [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube'],
   [/(^|\.)reddit\.com$/, 'reddit'],
   [/(^|\.)linkedin\.com$/, 'linkedin'],
+  [/(^|\.)producthunt\.com$/, 'producthunt'],
 ];
 
 /**
@@ -52,6 +53,18 @@ export function visitSource(url: URL, referrer: string): string {
     return REFERRERS.find(([re]) => re.test(host))?.[1] ?? host.replace(/^www\./, '').slice(0, 40);
   } catch {
     return 'direct';
+  }
+}
+
+/** True when this visit came from Product Hunt (its links carry ?ref=producthunt). */
+export function fromProductHunt(): boolean {
+  try {
+    if (sessionStorage.getItem('kavox_from_ph')) return true;
+    const yes = visitSource(new URL(window.location.href), document.referrer) === 'producthunt';
+    if (yes) sessionStorage.setItem('kavox_from_ph', '1'); // still known after the address is cleaned
+    return yes;
+  } catch {
+    return false;
   }
 }
 
