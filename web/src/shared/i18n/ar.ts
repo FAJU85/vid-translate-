@@ -629,8 +629,6 @@ export const AR: Record<string, string> = {
   "The words as they are said or sung, like karaoke. Tick the box below to add the translation under them.": "الكلمات كما تُقال أو تُغنّى، مثل الكاريوكي. فعّل الخيار أدناه لإضافة الترجمة تحتها.",
   "The words in the language you chose.": "الكلمات باللغة التي اخترتها.",
   "Show the translation too, in smaller letters": "اعرض الترجمة أيضًا بحروف أصغر",
-  "If it is a song or audio only: its picture": "إذا كان أغنية أو صوتًا فقط: صورته",
-  "A link or file with sound only becomes a video: a background, the sound drawn as it plays, and the words.": "الرابط أو الملف الصوتي فقط يصبح فيديو: خلفية، وشكل الصوت يتحرك معه، والكلمات.",
   "Lyrics video": "فيديو كلمات",
   "A video made from the sound: moving visuals and the words, lit as they are sung.": "فيديو مصنوع من الصوت: رسوم متحركة والكلمات تُضاء عند غنائها.",
   "Colours": "الألوان",

@@ -499,13 +499,6 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
           </div>
         </div>
       </div>
-      {!sound && (
-        <details className="rounded-lg border border-slate-800 p-3">
-          <summary className="text-sm text-slate-300 cursor-pointer">{t("If it is a song or audio only: its picture")}</summary>
-          <p className="mt-2 mb-3 text-xs text-slate-400">{t("A link or file with sound only becomes a video: a background, the sound drawn as it plays, and the words.")}</p>
-          {soundChoices}
-        </details>
-      )}
     </div>
   );
 }
