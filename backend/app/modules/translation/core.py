@@ -7,7 +7,7 @@ import re
 import threading
 from typing import Callable
 
-from ...shared import config
+from ...shared import config, load
 from . import opus
 from .memory import PLACEHOLDER, Memory
 
@@ -131,7 +131,7 @@ def _nllb_translate(texts: list[str], src: str, tgt: str, progress: ProgressFn) 
         results = translator.translate_batch(
             tokens,
             target_prefix=[[tgt_code]] * len(chunk),
-            beam_size=4,
+            beam_size=2 if load.under_load() else 4,  # quicker while videos are waiting
             max_decoding_length=256,
             repetition_penalty=1.1,
         )

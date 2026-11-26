@@ -92,6 +92,9 @@ MAX_DURATION_SEC = _int("MAX_DURATION_MIN", 60) * 60
 MAX_UPLOAD_BYTES = _int("MAX_UPLOAD_MB", 500) * 1024 * 1024
 MAX_DOWNLOAD_BYTES = _int("MAX_DOWNLOAD_MB", 1500) * 1024 * 1024
 MAX_QUEUE = _int("MAX_QUEUE", 20)
+# With this many videos waiting, speech recognition and translation switch to their quicker
+# settings (shared/load.py) until the line is short again. 0: always the careful settings.
+FAST_WHEN_WAITING = _int("FAST_WHEN_WAITING", 2)
 OUTPUT_TTL_SEC = _int("OUTPUT_TTL_HOURS", 24) * 3600
 # A subscriber's own ending clip (outro), sent with each job.
 MAX_OUTRO_BYTES = _int("MAX_OUTRO_MB", 30) * 1024 * 1024

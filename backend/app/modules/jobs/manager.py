@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from ...shared import config
+from ...shared import config, load
 from ...shared.errors import Cancelled, PipelineError
 from . import pipeline
 from .callbacks import post_callback
@@ -139,6 +139,8 @@ class JobManager:
             job = self.jobs.get(job_id)
             if not job or job.status in TERMINAL:
                 continue  # cancelled while it was still waiting
+            # How many wait behind this one: under load, the slow steps go faster (shared/load.py).
+            load.set_waiting(self._queue.qsize())
             job.started_at = time.time()
             try:
                 if job.cancel_requested:
