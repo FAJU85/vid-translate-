@@ -79,17 +79,32 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
   const programmaticScroll = useRef(false);
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Poll while the job is in progress.
+  // Poll while the job is in progress: often at first, then less (each check is a request against
+  // the free daily limit), and rarely while the tab is in the background or far back in the line.
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
+    const started = Date.now();
+    const nextDelay = (j: Job) => {
+      if (document.visibilityState === 'hidden') return 15_000;
+      if ((j.queue_position ?? 0) > 2) return 8_000;
+      const elapsed = Date.now() - started;
+      return elapsed < 30_000 ? 2_000 : elapsed < 120_000 ? 4_000 : 8_000;
+    };
+    // Back on screen: check at once instead of waiting out a long background delay.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || stopped) return;
+      clearTimeout(timer);
+      void tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     const tick = async () => {
       try {
         const next = await api.job(jobId);
         if (stopped) return;
         setJob(next);
         setLoadError(null);
-        if (ACTIVE.has(next.status)) timer = setTimeout(tick, 2500);
+        if (ACTIVE.has(next.status)) timer = setTimeout(tick, nextDelay(next));
       } catch (err) {
         if (stopped) return;
         setLoadError(err instanceof Error ? err.message : t("Could not load this translation."));
@@ -100,6 +115,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
     return () => {
       stopped = true;
       clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [jobId]);
 

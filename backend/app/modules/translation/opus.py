@@ -18,7 +18,7 @@ import logging
 import threading
 from pathlib import Path
 
-from ...shared import config
+from ...shared import config, load
 
 log = logging.getLogger("translation.opus")
 
@@ -83,7 +83,7 @@ def translate(texts: list[str], src: str, tgt: str, progress, tidy) -> list[str]
     for i in range(0, len(texts), 16):
         chunk = texts[i : i + 16]
         tokens = [[*([prefix] if prefix else []), *source_sp.encode(t, out_type=str), "</s>"] for t in chunk]
-        results = translator.translate_batch(tokens, beam_size=4, max_decoding_length=256, repetition_penalty=1.1)
+        results = translator.translate_batch(tokens, beam_size=2 if load.under_load() else 4, max_decoding_length=256, repetition_penalty=1.1)
         out += [tidy(target_sp.decode(r.hypotheses[0])) for r in results]
         progress(min(1.0, (i + len(chunk)) / len(texts)))
     return out

@@ -3,12 +3,7 @@ import { sendConsent, storedConsent } from '../shared/consent';
 import { arrivalSource, countVisit } from '../shared/growth';
 import { FooterLinks, SiteBanners } from '../shared/blocks';
 import { FeedbackButton } from '../modules/feedback';
-import { DashboardView } from '../modules/dashboard';
-import { FeedView } from '../modules/feed';
-import { PricingView } from '../modules/pricing';
-import { TelegramView } from '../modules/telegram';
 import { TranslateView } from '../modules/translate';
-import { LyricsView } from '../modules/lyrics';
 import { AccountButton, AccountDialog } from '../modules/account';
 import { NotificationBell } from '../modules/notifications';
 import { InstallButton } from './InstallButton';
@@ -20,6 +15,15 @@ import { t } from '../shared/i18n';
 
 // The dashboard (drag and drop, virtual lists) is only downloaded by people who open /admin.
 const AdminView = lazy(() => import('../modules/admin').then((m) => ({ default: m.AdminView })));
+// The other pages are downloaded when first opened: the first visit (Translate) loads less.
+const DashboardView = lazy(() => import('../modules/dashboard').then((m) => ({ default: m.DashboardView })));
+const FeedView = lazy(() => import('../modules/feed').then((m) => ({ default: m.FeedView })));
+const PricingView = lazy(() => import('../modules/pricing').then((m) => ({ default: m.PricingView })));
+const TelegramView = lazy(() => import('../modules/telegram').then((m) => ({ default: m.TelegramView })));
+const LyricsView = lazy(() => import('../modules/lyrics').then((m) => ({ default: m.LyricsView })));
+
+/** While a page's code arrives (once, then it is cached). */
+const PageLoading = () => <div className="py-16 flex justify-center"><span className="w-6 h-6 rounded-full border-2 border-slate-700 border-t-amber-400 animate-spin" /></div>;
 
 const IS_ADMIN = window.location.pathname.replace(/\/+$/, '') === '/admin';
 
@@ -60,6 +64,11 @@ function Site() {
   const [jobId, setJobId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('job'));
   // Where this visit came from (read before the address is cleaned): some banners are only for one source.
   const [source] = useState(arrivalSource);
+  // The Lyrics page's code is loaded the first time it is opened, then it stays mounted.
+  const [lyricsOpened, setLyricsOpened] = useState(false);
+  useEffect(() => {
+    if (tab === 'lyrics') setLyricsOpened(true);
+  }, [tab]);
   // A lyrics video being made (the Lyrics page): followed apart from a translation.
   const [lyricsJobId, setLyricsJobId] = useState<string | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -229,7 +238,9 @@ function Site() {
             onLyrics={() => setTab('lyrics')}
           />
         </div>
-        {/* Its own journey; stays mounted too, for an upload in progress. */}
+        {/* Its own journey: loaded when first opened, then stays mounted (an upload in progress survives). */}
+        <Suspense fallback={tab === 'lyrics' ? <PageLoading /> : null}>
+        {lyricsOpened && (
         <div className={tab === 'lyrics' ? '' : 'hidden'}>
           <LyricsView
             config={config}
@@ -241,6 +252,7 @@ function Site() {
             onSignIn={() => setAccountOpen(true)}
           />
         </div>
+        )}
         {tab === 'dashboard' && (
           <DashboardView
             me={me}
@@ -260,6 +272,7 @@ function Site() {
         {tab === 'pricing' && (
           <PricingView me={me} config={config} onSignIn={() => setAccountOpen(true)} onPaymentStarted={() => setAwaitingSince(Date.now())} />
         )}
+        </Suspense>
       </main>
       <footer className={`${tab === 'feed' ? 'hidden sm:block ' : ''}border-t border-slate-900 pt-5 pb-24 sm:pb-5 px-4 text-center text-xs text-slate-500`}>
         {SITE.brand.footer} ·{' '}

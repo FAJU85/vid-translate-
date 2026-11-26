@@ -266,7 +266,7 @@ export function BannersPanel({ password }: { password: string }) {
       const fresh = await adminApi.load(password);
       setList(fresh.blocks ?? []);
       setDirty(false);
-      setMsg({ ok: true, text: 'Saved. Visitors see the change on their next page load.' });
+      setMsg({ ok: true, text: 'Saved. Visitors see it within about 15 seconds, on their next page load.' });
     } catch (err) {
       setMsg({ ok: false, text: err instanceof ApiError ? err.message : 'Could not save.' });
     } finally {

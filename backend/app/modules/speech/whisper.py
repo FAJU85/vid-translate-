@@ -8,7 +8,7 @@ import wave
 from pathlib import Path
 from typing import Callable
 
-from ...shared import config
+from ...shared import config, load
 from ...shared.errors import Cancelled
 
 _model = None
@@ -134,7 +134,8 @@ def transcribe(
     segments, info = model.transcribe(
         samples,
         language=language or None,
-        beam_size=config.WHISPER_BEAM_SIZE,
+        # Videos waiting: greedy search (beam 1), about a third quicker; otherwise the set beam.
+        beam_size=1 if load.under_load() else config.WHISPER_BEAM_SIZE,
         vad_filter=not music,
         condition_on_previous_text=False,
         word_timestamps=config.WORD_TIMESTAMPS,

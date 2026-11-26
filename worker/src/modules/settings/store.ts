@@ -44,7 +44,27 @@ export const SETTINGS_SCHEMA = [
 
 const EMPTY: Settings = { name: '', accent: '', translate_title: '', translate_intro: '', welcome_en: '', welcome_ar: '', logo: '', public_domain: '', takedown_email: '', logo_size: '', blocks: '' };
 
-export async function readSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
+/**
+ * Settings are read on almost every request (name, logo, public address, banners): kept in memory
+ * for a few seconds per Worker instance instead of asking the database each time. A save in this
+ * instance clears it at once; other instances see the change within SETTINGS_CACHE_MS.
+ */
+export const SETTINGS_CACHE_MS = 15_000;
+let cached: { at: number; value: Promise<{ settings: Settings; updatedAt: number }> } | null = null;
+
+export function readSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
+  // Each caller gets its own copy, so no one can change what the others read.
+  const copy = (r: { settings: Settings; updatedAt: number }) => ({ settings: { ...r.settings }, updatedAt: r.updatedAt });
+  if (cached && Date.now() - cached.at < SETTINGS_CACHE_MS) return cached.value.then(copy);
+  const value = loadSettings(env);
+  cached = { at: Date.now(), value };
+  value.catch(() => {
+    if (cached?.value === value) cached = null; // a failed read is not kept
+  });
+  return value.then(copy);
+}
+
+async function loadSettings(env: Env): Promise<{ settings: Settings; updatedAt: number }> {
   const res = await env.DB.prepare('SELECT key, value, updated_at FROM settings').all<{ key: string; value: string; updated_at: number }>();
   const settings: Settings = { ...EMPTY };
   let updatedAt = 0;
@@ -57,6 +77,7 @@ export async function readSettings(env: Env): Promise<{ settings: Settings; upda
 
 /** Save the given fields; an empty string clears a field back to its default. */
 export async function writeSettings(env: Env, patch: Partial<Settings>): Promise<void> {
+  cached = null;
   const ts = now();
   const statements = Object.entries(patch).map(([key, value]) =>
     value
@@ -72,4 +93,5 @@ export async function writeSettings(env: Env, patch: Partial<Settings>): Promise
   )
     .bind(ts)
     .run();
+  cached = null; // read again, with what was just saved
 }
