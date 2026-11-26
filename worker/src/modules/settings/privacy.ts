@@ -7,7 +7,7 @@ import { logoSize, readSettings } from './store';
  * The version of the Terms and the Privacy Policy people agree to. Change it (to the date) when
  * either changes in substance: everyone is then asked to agree again before their next video.
  */
-export const LEGAL_VERSION = '2026-11-25';
+export const LEGAL_VERSION = '2026-11-26';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
