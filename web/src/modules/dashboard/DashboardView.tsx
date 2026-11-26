@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { YourData } from '../privacy';
+import { InviteCard } from './InviteCard';
 import { Bot, Check, Coins, Copy, ExternalLink, Eye, Film, Globe2, Loader2, Pencil, Play, RefreshCw, Trash2, Video } from 'lucide-react';
 import { ApiError, accountApi, dashboardApi, type AppConfig, type Dashboard, type DashboardVideo, type Me } from '../../shared/api';
 import { BUCKET_LABEL, OutroSettings, creditsText } from '../account';
@@ -369,6 +370,8 @@ export function DashboardView({ me, config, onMe, onOpenJob, onSignIn, onPricing
           </div>
         </section>
       )}
+      {/* Per account: signing in or out shows that account's own link, never the previous one's. */}
+      <InviteCard key={me?.account?.id ?? 'guest'} />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-white">{t("Your videos")}</h2>
         {!data && !error && <Loader2 className="w-5 h-5 animate-spin text-slate-500" />}

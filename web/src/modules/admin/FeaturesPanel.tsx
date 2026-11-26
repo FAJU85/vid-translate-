@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import qrcode from 'qrcode-generator';
-import { Activity, Bot, Check, Coins, Image as ImageIcon, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Activity, Bot, Check, Coins, Gift, Image as ImageIcon, CreditCard, Gauge, Globe, KeyRound, Loader2, Mail, RefreshCw, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { ApiError, adminApi, type AdminFeatures } from '../../shared/api';
 
 const input = 'w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400';
@@ -177,6 +177,7 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
   const [emailFrom, setEmailFrom] = useState('');
   const [clientId, setClientId] = useState('');
   const [verification, setVerification] = useState('');
+  const [inviteMinutes, setInviteMinutes] = useState('');
 
   const load = () =>
     adminApi
@@ -187,6 +188,7 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
         setEmailFrom(r.email.from);
         setClientId(r.google.client_id);
         setVerification(r.search.verification);
+        setInviteMinutes(String(r.referrals.minutes));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the features.'));
   useEffect(() => {
@@ -375,6 +377,38 @@ export function FeaturesPanel({ password, onToken }: { password: string; onToken
             {busy === 'LYRICS_LOGO' && <Loader2 className="w-4 h-4 animate-spin" />} {f.lyrics_logo.on ? 'Turn off' : 'Turn on'}
           </button>
         )}
+      </Card>
+
+      <Card icon={Gift} title="Invite rewards" status={<Chip on={f.referrals.paying} label={f.referrals.paying ? 'Paying' : f.referrals.on ? 'Waiting for credits' : 'Off'} />}>
+        <p className="text-sm text-slate-400">
+          Everyone has an invite link (website Dashboard, and /invite in the bot). A new person who starts from it and makes a first video counts as a friend
+          {' '}({f.referrals.totals.joined} joined, {f.referrals.totals.made_video} made a video, {f.referrals.totals.rewarded} rewarded so far).
+          With rewards on, both get free minutes for that first video, once. Rewards are credits, so they are only given and shown while credits are on.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The switch and the minutes are separate settings: either can be set on the server alone. */}
+          {locked('REFERRAL_REWARDS') ? (
+            <ServerNote />
+          ) : (
+            <button
+              className={f.referrals.on ? quiet : primary}
+              disabled={busy !== null}
+              onClick={() => set('REFERRAL_REWARDS', f.referrals.on ? '' : '1', f.referrals.on ? 'Invite rewards are off.' : 'Invite rewards are on.')}
+            >
+              {f.referrals.on ? 'Turn off' : 'Turn on'}
+            </button>
+          )}
+          {!locked('REFERRAL_MINUTES') && (
+            <>
+              <label className="text-sm text-slate-300" htmlFor="invite-minutes">Free minutes for each side</label>
+              <input id="invite-minutes" type="number" min={1} max={120} value={inviteMinutes} onChange={(e) => setInviteMinutes(e.target.value)} className={input.replace('w-full', 'w-24')} />
+              <button className={quiet} disabled={busy !== null || inviteMinutes === String(f.referrals.minutes)} onClick={() => set('REFERRAL_MINUTES', inviteMinutes)}>
+                Save
+              </button>
+            </>
+          )}
+        </div>
+        {f.referrals.on && !f.credits.on && <p className="text-xs text-amber-200">Credits are off, so no reward is given or promised yet: invites are only counted.</p>}
       </Card>
 
       <Card icon={Gauge} title="Limits" status={<Chip on label={`${f.limits.max_jobs_per_hour}/hour · ${f.limits.max_upload_mb} MB`} />}>

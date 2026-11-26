@@ -30,6 +30,10 @@ export interface Env {
   CREDITS_ENABLED?: string;
   /** "1": the site's logo goes in the corner of lyrics videos (switched on from the Features page). */
   LYRICS_LOGO?: string;
+  /** "1": a friend's first video gives free minutes to both sides (Features page; needs credits on). */
+  REFERRAL_REWARDS?: string;
+  /** Free minutes per side for an invite (1–120; default 10). */
+  REFERRAL_MINUTES?: string;
   /** Email sign-in links through Resend (resend.com): its API key and the sender address. */
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;

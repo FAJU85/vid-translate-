@@ -83,8 +83,23 @@ export async function grant(
   detail: string,
   expiresAt: number | null = null,
 ): Promise<void> {
+  await env.DB.batch(grantStatements(env, accountId, bucket, seconds, detail, expiresAt));
+}
+
+/**
+ * The statements of a grant, for another brick to run inside its own batch (one transaction):
+ * e.g. "mark the invite rewarded" and both sides' grants together, all or nothing.
+ */
+export function grantStatements(
+  env: Env,
+  accountId: string,
+  bucket: Bucket,
+  seconds: number,
+  detail: string,
+  expiresAt: number | null = null,
+): D1PreparedStatement[] {
   const ts = now();
-  await env.DB.batch([
+  return [
     // An expired bucket starts again from zero.
     env.DB.prepare(
       `INSERT INTO credit_buckets (account_id, bucket, seconds, expires_at) VALUES (?1, ?2, MAX(0, ?3), ?4)
@@ -93,7 +108,7 @@ export async function grant(
          expires_at = COALESCE(?4, CASE WHEN expires_at IS NOT NULL AND expires_at <= ?5 THEN NULL ELSE expires_at END)`,
     ).bind(accountId, bucket, Math.round(seconds), expiresAt, ts),
     log(env, accountId, seconds >= 0 ? 'grant' : 'remove', Math.round(seconds), null, `${bucket}: ${detail}`.slice(0, 200)),
-  ]);
+  ];
 }
 
 /** What a hold took from one bucket, and that bucket's expiry then (to give it back to the same credits). */
@@ -106,7 +121,7 @@ export type Breakdown = Partial<Record<Bucket, Part>>;
 // A statement that fails on purpose (SQLite: integer overflow) when its condition holds. D1 runs a
 // batch as one transaction, so a failing guard undoes the whole batch: nothing half-done is kept.
 const ABORT = 'abs(-9223372036854775808)';
-const guardChanged = (env: Env) => env.DB.prepare(`SELECT CASE WHEN changes() = 0 THEN ${ABORT} END`);
+export const guardChanged = (env: Env) => env.DB.prepare(`SELECT CASE WHEN changes() = 0 THEN ${ABORT} END`);
 const guardNotNegative = (env: Env, accountId: string) =>
   env.DB.prepare(`SELECT CASE WHEN EXISTS (SELECT 1 FROM credit_buckets WHERE account_id = ? AND seconds < 0) THEN ${ABORT} END`).bind(accountId);
 

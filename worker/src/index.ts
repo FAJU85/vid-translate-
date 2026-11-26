@@ -36,6 +36,7 @@ import { SHARES_COLUMNS, SHARES_SCHEMA, SHORT_PATH, handleSharePage, registerCre
 import { PROFILE_PATH, SOCIAL_SCHEMA, creatorFor, handleProfilePage, handleSeo, notifyPost, sweepNotifications } from './modules/social';
 import { FEEDBACK_SCHEMA, sweepFeedback } from './modules/feedback';
 import { GROWTH_SCHEMA, registerJobsPerDay, sweepGrowth } from './modules/growth';
+import { REFERRALS_SCHEMA, referralsJobListener } from './modules/referrals';
 import { AUDIT_SCHEMA, sweepAudit } from './modules/audit';
 import { FEATURES_SCHEMA, withFeatures } from './modules/features';
 import { LEARNING_SCHEMA, RATINGS_SCHEMA, SITES_SCHEMA, downloadPlanFor, memoryFor, sitesJobListener } from './modules/learning';
@@ -48,6 +49,8 @@ registerJobListener(sharesJobListener);
 registerJobListener(telegramJobListener);
 // Credits follow jobs the same way: refunds when a job fails, the real cost once its length is known.
 registerJobListener(billingListener);
+// A friend's first video counts their invite (and gives the rewards when switched on).
+registerJobListener(referralsJobListener);
 registerSourceFetcher('telegram', fetchTelegramFile);
 registerOutroChooser(chooseOutro);
 // The site's logo on lyrics videos, when switched on (settings brick).
@@ -63,7 +66,7 @@ registerMemoryProvider(memoryFor);
 registerDownloadPlanner(downloadPlanFor);
 registerJobListener(sitesJobListener);
 
-const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA, ...GROWTH_SCHEMA];
+const SCHEMA = [...JOBS_SCHEMA, ...CHATS_SCHEMA, ...SETTINGS_SCHEMA, ...ACCOUNTS_SCHEMA, ...PAYMENTS_SCHEMA, ...SHARES_SCHEMA, ...LEARNING_SCHEMA, ...SITES_SCHEMA, ...RATINGS_SCHEMA, ...SOCIAL_SCHEMA, ...FEEDBACK_SCHEMA, ...AUDIT_SCHEMA, ...ADMIN_AUTH_SCHEMA, ...FEATURES_SCHEMA, ...GROWTH_SCHEMA, ...REFERRALS_SCHEMA];
 const ADDED_COLUMNS = [...JOBS_COLUMNS, ...CHATS_COLUMNS, ...ACCOUNTS_COLUMNS, ...SHARES_COLUMNS];
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

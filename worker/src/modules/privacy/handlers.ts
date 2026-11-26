@@ -4,6 +4,7 @@ import { audit } from '../audit';
 import { apiError, json } from '../../shared/http';
 import { eraseAccount, exportAccount, personFor, renameAccount } from '../accounts';
 import { eraseFeedback, exportFeedback } from '../feedback';
+import { eraseReferrals, referralsOf } from '../referrals';
 import { eraseJobs, exportJobs } from '../jobs';
 import { eraseLearning, exportLearning } from '../learning';
 import { LEGAL_VERSION, publicSettings } from '../settings';
@@ -36,6 +37,7 @@ export async function handlePrivacy(request: Request, env: Env, path: string): P
       feedback: await exportFeedback(env, person),
       learning: await exportLearning(env, person),
       telegram_bot: await exportTelegram(env, person),
+      invites: person.accountId ? await referralsOf(env, person.accountId) : null,
     };
     return new Response(JSON.stringify(data, null, 2), {
       headers: {
@@ -58,6 +60,7 @@ export async function handlePrivacy(request: Request, env: Env, path: string): P
     await eraseFeedback(env, person);
     await eraseLearning(env, person);
     await eraseTelegram(env, person);
+    if (person.accountId) await eraseReferrals(env, person.accountId);
     await eraseAccount(env, person);
     // Kept without the person's details: only that an account was deleted, and how much went.
     await audit(env, { actor: person.accountId ? 'user' : 'guest', action: 'account.delete', detail: { videos, jobs }, conn: await connectionKey(env.SHARED_SECRET, request) });

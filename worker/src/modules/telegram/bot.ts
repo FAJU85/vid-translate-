@@ -22,6 +22,7 @@ import {
   createJob,
   dispatch,
   getJob,
+  hasFinishedVideo,
   listJobs,
   maxPerHour,
   parseSubtitleStyle,
@@ -32,6 +33,7 @@ import {
   type SubtitleStyle,
 } from '../jobs';
 import { telegramFeedback } from '../feedback';
+import { CODE_RE, codeFor, invitedBy, recordReferral, rewardMinutes } from '../referrals';
 import { LEGAL_VERSION, publicOrigin, welcomeOverride } from '../settings';
 import { siteStatus } from '../learning';
 import {
@@ -218,6 +220,19 @@ async function handleMessage(env: Env, msg: any, origin: string): Promise<void> 
     await sendMessage(env, chatId, text);
     return;
   }
+  if (command === '/invite') {
+    await sendInvite(env, chatId, msg.from?.id ?? chatId, msg.from?.first_name ?? null, ui);
+    return;
+  }
+  // Opened by a friend's invite link (/start r_<code>): counted for them if this chat is new.
+  const invite = command === '/start' ? /^\/start\s+r_([A-Za-z0-9]{8})$/.exec(text) : null;
+  if (invite && CODE_RE.test(invite[1])) {
+    const owner = `tg:${chatId}`;
+    const account = await accountForTelegram(env, msg.from?.id ?? chatId, msg.from?.first_name ?? null);
+    // New: no finished video yet, in this chat or on this account (failed tries do not count).
+    const isNew = !(await hasFinishedVideo(env, owner, account.id));
+    await recordReferral(env, invite[1], { account: account.id, owner, isNew }, 'telegram').catch(() => false);
+  }
   if (command === '/start' || command === '/help') {
     // A welcome message saved on the /admin page replaces the default. It is plain text, so
     // it is escaped: anything typed there is shown as written.
@@ -226,6 +241,7 @@ async function handleMessage(env: Env, msg: any, origin: string): Promise<void> 
       env,
       chatId,
       custom ? esc(custom).replace(/\{lang\}/g, langName(chat.tgt_lang, ui)) : t(ui, 'welcome', { lang: langName(chat.tgt_lang, ui) }),
+      [[{ text: t(ui, 'btn_invite'), callback_data: 'invite' }]],
     );
     return;
   }
@@ -470,6 +486,8 @@ async function handleCallbackQuery(env: Env, ctx: ExecutionContext, origin: stri
       if (pending) await askMode(env, { ...chat, consent: LEGAL_VERSION }, ui, pending);
     } else if (data === 'go:soft' || data === 'go:hard' || data === 'go:dub' || data === 'go:lyrics') {
       alert = await startJob(env, ctx, origin, chat, ui, messageId, data.slice(3) as SubtitleMode | 'lyrics');
+    } else if (data === 'invite') {
+      await sendInvite(env, chatId, query.from?.id ?? chatId, query.from?.first_name ?? null, ui);
     } else if (data === 'style') {
       // From the "video with subtitles" choice: open the style menu below, keeping that message.
       const menu = styleMenu(ui, chatStyle(chat));
@@ -574,6 +592,22 @@ export async function handleWebhook(request: Request, env: Env, ctx: ExecutionCo
 let botUsername: string | null = null;
 
 /** The bot's @username, for links on the website (null when no bot token is configured). */
+/** "Invite friends": this chat's own link to the bot, a Telegram share button, and the count so far. */
+async function sendInvite(env: Env, chatId: number, fromId: number, name: string | null, ui: UiLang): Promise<void> {
+  const bot = await getBotUsername(env).catch(() => null);
+  if (!bot) return;
+  const account = await accountForTelegram(env, fromId, name);
+  const link = `https://t.me/${bot}?start=r_${await codeFor(env, account.id)}`;
+  const { joined, made_video } = await invitedBy(env, account.id);
+  const minutes = rewardMinutes(env);
+  const text =
+    t(ui, 'invite_text', { link }) +
+    (minutes ? '\n\n' + t(ui, 'invite_reward', { n: minutes }) : '') +
+    (joined ? '\n\n' + t(ui, 'invite_count', { joined, made: made_video }) : '');
+  const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t(ui, 'invite_share'))}`;
+  await sendMessage(env, chatId, text, [[{ text: t(ui, 'btn_invite_share'), url: share }]]);
+}
+
 export async function getBotUsername(env: Env): Promise<string | null> {
   if (!botUsername && env.TELEGRAM_BOT_TOKEN) botUsername = (await tg<{ username: string }>(env, 'getMe'))?.username ?? null;
   return botUsername;
@@ -616,6 +650,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'buy', description: 'شراء رصيد بنجوم تيليجرام' },
           { command: 'cancel', description: 'إيقاف الطلب الحالي' },
           { command: 'feedback', description: 'أرسل ملاحظاتك لفريق KAVOX' },
+          { command: 'invite', description: 'ادعُ أصدقاءك إلى البوت' },
         ]
       : [
           { command: 'start', description: 'How the bot works' },
@@ -626,6 +661,7 @@ export async function setupBot(env: Env, origin: string): Promise<Record<string,
           { command: 'buy', description: 'Buy credits with Telegram Stars' },
           { command: 'cancel', description: 'Stop the running job' },
           { command: 'feedback', description: 'Send feedback to the KAVOX team' },
+          { command: 'invite', description: 'Invite friends to the bot' },
         ];
   await tg(env, 'setMyCommands', { commands: commands('en') });
   await tg(env, 'setMyCommands', { commands: commands('ar'), language_code: 'ar' });

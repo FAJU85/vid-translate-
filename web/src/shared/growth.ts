@@ -42,6 +42,7 @@ const REFERRERS: [RegExp, string][] = [
  * (?source=app), the site that linked here, or "direct".
  */
 export function visitSource(url: URL, referrer: string): string {
+  if (url.searchParams.get('invite')) return 'invite';
   const tag = url.searchParams.get('ref') || url.searchParams.get('utm_source');
   if (tag) return tag.toLowerCase().slice(0, 40);
   if (url.searchParams.get('source') === 'app' || window.matchMedia?.('(display-mode: standalone)').matches) return 'app';

@@ -145,7 +145,13 @@
     "tr_at_top": "🌐 Translation: top",
     "tr_at_middle": "🌐 Translation: middle",
     "tr_at_bottom": "🌐 Translation: bottom",
-    "tr_at_off": "🌐 Translation: off"
+    "tr_at_off": "🌐 Translation: off",
+    "btn_invite": "📣 Invite friends",
+    "btn_invite_share": "📣 Send to a friend",
+    "invite_text": "📣 <b>Invite your friends</b>\nThis is your own link to the bot. Anyone who starts it from here and makes a first video counts as your friend:\n{link}",
+    "invite_reward": "🎁 For each friend's first video, you both get <b>{n} free minutes</b>.",
+    "invite_count": "👥 Friends so far: {joined} joined, {made} made a video.",
+    "invite_share": "Translate any video, or turn a song into a lyrics video, right here in Telegram:"
   },
   "ar": {
     "welcome": "👋 <b>KAVOX</b>\n\nأرسل لي ملف فيديو أو صوت (أو رابط فيديو عام من فيسبوك أو إنستغرام أو تيك توك وغيرها؛ روابط يوتيوب غير مدعومة)، وسأرسل لك ملف الترجمة — أو الفيديو مع الترجمة مدمجة فيه، أو مدبلجاً بصوت مترجم.\n\nلغة الترجمة: <b>{lang}</b>\n\n/lang — تغيير لغة الترجمة\n/style — تصميم الترجمة: الخط والحجم والموضع واللون\n/status — آخر طلباتك\n/cancel — إيقاف الطلب الحالي",
@@ -293,6 +299,12 @@
     "tr_at_top": "🌐 الترجمة: أعلى",
     "tr_at_middle": "🌐 الترجمة: وسط",
     "tr_at_bottom": "🌐 الترجمة: أسفل",
-    "tr_at_off": "🌐 الترجمة: إيقاف"
+    "tr_at_off": "🌐 الترجمة: إيقاف",
+    "btn_invite": "📣 ادعُ أصدقاءك",
+    "btn_invite_share": "📣 أرسله لصديق",
+    "invite_text": "📣 <b>ادعُ أصدقاءك</b>\nهذا رابطك الخاص إلى البوت. كل من يبدأه من هنا ويصنع أول فيديو يُحسب صديقًا لك:\n{link}",
+    "invite_reward": "🎁 عن أول فيديو لكل صديق تحصلان كلاكما على <b>{n} دقيقة مجانية</b>.",
+    "invite_count": "👥 أصدقاؤك حتى الآن: انضم {joined}، وصنع {made} فيديو.",
+    "invite_share": "ترجم أي فيديو، أو حوّل أغنية إلى فيديو كلمات، هنا في تيليجرام:"
   }
 }

@@ -20,6 +20,8 @@ export const FEATURES_SCHEMA = [
 export const FIELDS = {
   CREDITS_ENABLED: { secret: false },
   LYRICS_LOGO: { secret: false },
+  REFERRAL_REWARDS: { secret: false },
+  REFERRAL_MINUTES: { secret: false },
   MAX_JOBS_PER_HOUR: { secret: false },
   MAX_UPLOAD_MB: { secret: false },
   RESEND_API_KEY: { secret: true },
