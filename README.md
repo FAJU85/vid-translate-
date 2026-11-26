@@ -488,6 +488,22 @@ translating. On the Translate page an audio file shows a link to the Lyrics page
   totals are kept (no cookie, no IP address, nothing about a person), for 400 days; the Privacy
   Policy says so.
 
+## Product Hunt
+
+`docs/PRODUCT-HUNT.md` is the launch kit: what must be true before the day, the listing (copy,
+thumbnail and gallery in `docs/launch/`), and the day itself. Its three banners are ready on
+**Admin → Banners**: the welcome for visitors from Product Hunt (`?ref=producthunt`, on), "live
+on Product Hunt today" for everyone (off until launch day), and a footer link for afterwards.
+
+## Banners and footer links
+
+**Admin → Banners** holds every message at the top of the site (or of one page: Translate,
+Lyrics, Feed, Telegram, My videos) and every extra footer link. Each can be added, edited,
+duplicated, deleted, reordered and turned on or off, in English and Arabic, with a colour, an
+icon, up to three buttons (a page of the site or an address), first and last days, and an
+audience: everyone, or only visitors who arrived from a source (`?ref=name`, as on the Growth
+page). Saved as one list in the settings table; the site gets only what is on and in its dates.
+
 ## App (PWA) and screen sizes
 
 KAVOX can be installed as an app, from the same website, at no cost and with no app store:

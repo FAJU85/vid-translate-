@@ -35,6 +35,7 @@ const REFERRERS: [RegExp, string][] = [
   [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube'],
   [/(^|\.)reddit\.com$/, 'reddit'],
   [/(^|\.)linkedin\.com$/, 'linkedin'],
+  [/(^|\.)producthunt\.com$/, 'producthunt'],
 ];
 
 /**
@@ -52,6 +53,22 @@ export function visitSource(url: URL, referrer: string): string {
     return REFERRERS.find(([re]) => re.test(host))?.[1] ?? host.replace(/^www\./, '').slice(0, 40);
   } catch {
     return 'direct';
+  }
+}
+
+/**
+ * Where this visit came from (as visitSource), kept for the whole visit: still known after the
+ * address is cleaned. Banners for one source (e.g. producthunt) use it.
+ */
+export function arrivalSource(): string {
+  try {
+    const kept = sessionStorage.getItem('kavox_source');
+    if (kept) return kept;
+    const source = visitSource(new URL(window.location.href), document.referrer);
+    sessionStorage.setItem('kavox_source', source);
+    return source;
+  } catch {
+    return visitSource(new URL(window.location.href), document.referrer);
   }
 }
 

@@ -2,6 +2,7 @@ import { hmacHex } from '../../shared/crypto';
 import type { Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { isAdmin } from './admin-auth';
+import { checkBlocks, storedBlocks, visibleBlocks, type Block } from './blocks';
 import { LOGO_SIZE, TEXT_FIELDS, readSettings, writeSettings, type Settings } from './store';
 
 const MAX_LOGO_BYTES = 256 * 1024;
@@ -39,11 +40,14 @@ export async function publicOrigin(env: Env, fallback: string): Promise<string> 
   return settings.public_domain ? `https://${settings.public_domain}` : fallback.replace(/\/$/, '');
 }
 
-/** What the website needs: the saved values, with the logo as a URL instead of its bytes. */
-export async function publicSettings(env: Env): Promise<Omit<Settings, 'logo' | 'welcome_en' | 'welcome_ar'> & { logo_url: string }> {
+/**
+ * What the website needs: the saved values, with the logo as a URL instead of its bytes, and only
+ * the banners and footer links to show today.
+ */
+export async function publicSettings(env: Env): Promise<Omit<Settings, 'logo' | 'welcome_en' | 'welcome_ar' | 'blocks'> & { logo_url: string; blocks: Block[] }> {
   const { settings, updatedAt } = await readSettings(env);
-  const { logo, welcome_en: _en, welcome_ar: _ar, ...rest } = settings;
-  return { ...rest, logo_url: logo ? `/api/logo?v=${updatedAt}` : '' };
+  const { logo, welcome_en: _en, welcome_ar: _ar, blocks, ...rest } = settings;
+  return { ...rest, logo_url: logo ? `/api/logo?v=${updatedAt}` : '', blocks: visibleBlocks(storedBlocks(blocks)) };
 }
 
 /** The saved bot welcome message for a language, or '' to use the default. */
@@ -57,8 +61,8 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
   if (!(await isAdmin(request, env))) return apiError(401, 'E_UNAUTHORIZED', 'Wrong password.');
   if (request.method === 'GET') {
     const { settings } = await readSettings(env);
-    const { logo, ...rest } = settings;
-    return json({ ...rest, has_logo: Boolean(logo) });
+    const { logo, blocks, ...rest } = settings;
+    return json({ ...rest, has_logo: Boolean(logo), blocks: storedBlocks(blocks) });
   }
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -86,6 +90,11 @@ export async function handleAdminSettings(request: Request, env: Env): Promise<R
     const email = String(body.takedown_email ?? '').trim();
     if (email && !/^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}\.[a-z]{2,63}$/i.test(email)) return apiError(400, 'E_BAD_REQUEST', 'The takedown address must be an email address.');
     patch.takedown_email = email;
+  }
+  if ('blocks' in body) {
+    const checked = checkBlocks(body.blocks);
+    if ('error' in checked) return apiError(400, 'E_BAD_REQUEST', checked.error);
+    patch.blocks = JSON.stringify(checked.blocks); // "[]" (all deleted) is kept, unlike an empty value
   }
   if ('public_domain' in body) {
     // Accept "https://kavox.to/" as well as "kavox.to".
