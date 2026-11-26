@@ -31,6 +31,7 @@ import { handleShares, listShares, publicShare, shareTotals, shareUrl } from '..
 import { LEGAL_VERSION, handleAdminLogin, handleAdminSettings, isAdmin, publicOrigin, publicSettings, serveInstance, serveLogo } from '../settings';
 import { handleFeedback, handleFeedbackAdmin } from '../feedback';
 import { handleGrowth, handleGrowthAdmin } from '../growth';
+import { CODE_RE, handleReferral, recordReferral } from '../referrals';
 import { handlePrivacy } from '../privacy';
 import { audit, handleAuditAdmin } from '../audit';
 import { handleFeatures } from '../features';
@@ -311,6 +312,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const rights = await handlePrivacy(request, env, path);
     if (rights) return rights;
   }
+  // Your invite link and how many friends it brought (Dashboard).
+  if (path === '/api/referral' && method === 'GET') return handleReferral(request, env, api.origin);
   // Anonymous growth counts (a visit's source, a share, an install), and the admin's Growth page.
   if (path === '/api/growth') return handleGrowth(request, env);
   if (path === '/api/admin/growth' && method === 'GET') {
@@ -388,7 +391,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     if (body.consent !== LEGAL_VERSION) {
       return apiError(400, 'E_CONSENT', 'Please agree to the Terms of Use and Privacy Policy first.');
     }
-    await recordConsent(env, (await accountForWeb(env, request, body.client_id)).id, LEGAL_VERSION);
+    const webAccount = await accountForWeb(env, request, body.client_id);
+    await recordConsent(env, webAccount.id, LEGAL_VERSION);
+    // Arrived by a friend's invite link: counted for them if this is a first video (never your own).
+    if (typeof body.invite === 'string' && CODE_RE.test(body.invite)) {
+      const owner = `web:${body.client_id}`;
+      const isNew = (await listJobs(env, owner, 1)).length === 0;
+      await recordReferral(env, body.invite, { account: webAccount.id, owner, isNew }, 'web').catch(() => false);
+    }
     const tgtLang = String(body.tgt_lang ?? 'ar');
     if (!isTargetLang(tgtLang)) return apiError(400, 'E_BAD_REQUEST', 'Unsupported target language.');
     const srcLang = /^[a-z]{2,3}$/.test(body.src_lang ?? '') ? body.src_lang : 'auto';

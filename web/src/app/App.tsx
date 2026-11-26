@@ -11,7 +11,7 @@ import { LyricsView } from '../modules/lyrics';
 import { AccountButton, AccountDialog } from '../modules/account';
 import { NotificationBell } from '../modules/notifications';
 import { InstallButton } from './InstallButton';
-import { accountApi, api, type AppConfig, type Me } from '../shared/api';
+import { accountApi, api, keepInvite, type AppConfig, type Me } from '../shared/api';
 import { SITE, applySiteSettings } from '../shared/content';
 import { Header, type NavTab } from './Header';
 import { t } from '../shared/i18n';
@@ -88,7 +88,8 @@ function Site() {
     const url = new URL(window.location.href);
     // Where this visit came from (anonymous daily totals), read before the address is cleaned.
     countVisit();
-    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted', 'ref', 'utm_source', 'utm_medium', 'utm_campaign'];
+    keepInvite(url.searchParams.get('invite'));
+    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted', 'ref', 'utm_source', 'utm_medium', 'utm_campaign', 'invite'];
     if (once.some((k) => url.searchParams.has(k))) {
       once.forEach((k) => url.searchParams.delete(k));
       window.history.replaceState(null, '', url);

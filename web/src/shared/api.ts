@@ -134,6 +134,38 @@ export class ApiError extends Error {
 }
 
 /** Anonymous per-browser id: it is what lets this browser list and cancel its own jobs. */
+const INVITE_KEY = 'kavox_invite';
+const INVITE_DAYS = 30;
+
+/** Arrived by a friend's invite link (?invite=CODE): remembered in this browser for 30 days. */
+export function keepInvite(code: string | null): void {
+  if (!code || !/^[A-HJ-NP-Za-hj-np-z2-9]{8}$/.test(code)) return;
+  try {
+    localStorage.setItem(INVITE_KEY, JSON.stringify({ code, at: Date.now() }));
+  } catch {
+    /* storage blocked: the invite is not kept */
+  }
+}
+
+export function storedInvite(): string | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INVITE_KEY) ?? 'null') as { code?: string; at?: number } | null;
+    return saved?.code && Date.now() - (saved.at ?? 0) < INVITE_DAYS * 86400_000 ? saved.code : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface Referral {
+  code: string;
+  link: string;
+  joined: number;
+  made_video: number;
+  /** Free minutes for each side per friend's first video; null when rewards are off. */
+  reward_minutes: number | null;
+}
+export const referralApi = { mine: () => call<Referral>(`/api/referral?client_id=${clientId()}`) };
+
 export function clientId(): string {
   const key = 'tarjim_client_id';
   try {
@@ -422,6 +454,8 @@ export interface AdminFeatures {
   unreadable: string[];
   two_step: { on: boolean; source: FeatureSource };
   credits: { on: boolean; source: FeatureSource };
+  /** Invite rewards: the switch, minutes per side, whether they are paid (credits on), and totals. */
+  referrals: { on: boolean; minutes: number; paying: boolean; totals: { joined: number; made_video: number; rewarded: number }; source: FeatureSource };
   /** The site's logo on lyrics videos: the switch, and whether the saved logo can be drawn (an SVG cannot). */
   lyrics_logo: { on: boolean; logo: 'none' | 'drawable' | 'svg'; source: FeatureSource };
   limits: { max_jobs_per_hour: number; max_upload_mb: number; source: FeatureSource };
@@ -550,7 +584,8 @@ export const api = {
   job: (id: string) => call<Job>(`/api/jobs/${id}`),
   jobs: () => call<Job[]>(`/api/jobs?client_id=${clientId()}`),
   create: (body: Record<string, unknown>) =>
-    call<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ ...body, client_id: clientId() }) }),
+    // A friend's invite this browser arrived by goes with each new video (the Worker counts it once).
+    call<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ ...body, client_id: clientId(), invite: storedInvite() ?? undefined }) }),
   start: (id: string, duration?: number | null) =>
     call<Job>(`/api/jobs/${id}/start`, { method: 'POST', body: JSON.stringify({ client_id: clientId(), duration }) }),
   /** Your corrections to a translation: they teach the translation memory (signed in). */

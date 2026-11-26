@@ -476,6 +476,13 @@ translating. On the Translate page an audio file shows a link to the Lyrics page
   video" and opens the Lyrics page; others open Translate.
 - **Every shared link says where it went** (`?ref=wa`, `x`, `tg`, `copy`, `native`, `file`).
   Your own posts can carry any tag too, e.g. `https://your-domain/?ref=instagram-bio`.
+- **Invites** (Dashboard → Invite friends, and `/invite` or the welcome button in the bot): everyone
+  has their own link (`/?invite=CODE`, `t.me/<bot>?start=r_CODE`). A new person (no video yet, not
+  yourself) who starts from it and makes a first video counts as a friend. **Admin → Features →
+  Invite rewards** gives both sides free minutes (a "bonus" that does not expire, 10 by default,
+  1–120) for that first video, once; rewards are credits, so they are only given and mentioned
+  while credits are on. Codes and who invited whom are in "Download my data" and deleted with the
+  account.
 - **Admin → Growth**: visits by where they came from (tags, search engines, social sites),
   shares by app, installs, and videos started per journey, day by day. Only anonymous daily
   totals are kept (no cookie, no IP address, nothing about a person), for 400 days; the Privacy

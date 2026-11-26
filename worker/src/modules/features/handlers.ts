@@ -4,6 +4,7 @@ import { apiError, json } from '../../shared/http';
 import { audit } from '../audit';
 import { issueAdminToken, logoKind, publicOrigin, publicSettings, totpOk } from '../settings';
 import { getBotUsername, setupBot } from '../telegram';
+import { referralTotals, rewardMinutes } from '../referrals';
 import { forgetFeatures, readFeatures, withFeatures, writeFeature, type FieldName } from './store';
 
 /** Where a value comes from: the server (Worker settings, wins), this page, or nowhere yet. */
@@ -40,13 +41,21 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
 
   if (request.method === 'GET') {
     const site = await publicSettings(server).catch(() => null);
-    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'LYRICS_LOGO', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
+    const fields: FieldName[] = ['ADMIN_TOTP_SECRET', 'CREDITS_ENABLED', 'LYRICS_LOGO', 'REFERRAL_REWARDS', 'REFERRAL_MINUTES', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
     return json({
       // Per setting: set on the server (locked here), saved here, or not set; and which saved keys cannot be read.
       sources: Object.fromEntries(fields.map((n) => [n, source(n)])),
       unreadable: unreadable.filter((n) => n !== 'ADMIN_TOTP_PENDING'),
       two_step: { on: Boolean(live.ADMIN_TOTP_SECRET), source: source('ADMIN_TOTP_SECRET') },
       credits: { on: ['1', 'true', 'yes'].includes(String(live.CREDITS_ENABLED ?? '').toLowerCase()), source: source('CREDITS_ENABLED') },
+      referrals: {
+        on: ['1', 'true', 'yes'].includes(String(live.REFERRAL_REWARDS ?? '').toLowerCase()),
+        minutes: Number(live.REFERRAL_MINUTES) || 10,
+        // Rewards are credits: with credits off, invites are only counted.
+        paying: rewardMinutes(live) !== null,
+        totals: await referralTotals(server).catch(() => ({ joined: 0, made_video: 0, rewarded: 0 })),
+        source: source('REFERRAL_REWARDS'),
+      },
       lyrics_logo: {
         on: ['1', 'true', 'yes'].includes(String(live.LYRICS_LOGO ?? '').toLowerCase()),
         logo: await logoKind(server).catch(() => 'none' as const),
@@ -146,14 +155,14 @@ export async function handleFeatures(request: Request, env: Env, path: string, o
   // --- A switch, a number or a key ---
   if (action === 'set') {
     const name = String(body?.name ?? '') as FieldName;
-    const settable: FieldName[] = ['CREDITS_ENABLED', 'LYRICS_LOGO', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
+    const settable: FieldName[] = ['CREDITS_ENABLED', 'LYRICS_LOGO', 'REFERRAL_REWARDS', 'REFERRAL_MINUTES', 'MAX_JOBS_PER_HOUR', 'MAX_UPLOAD_MB', 'RESEND_API_KEY', 'EMAIL_FROM', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'GOOGLE_SITE_VERIFICATION'];
     if (!settable.includes(name)) return apiError(400, 'E_BAD_REQUEST', 'That cannot be set here.');
     if (server[name as keyof Env]) return apiError(409, 'E_SET_ON_SERVER', 'This is set on the server; change it there.');
     let value = String(body?.value ?? '').trim();
-    if (name === 'CREDITS_ENABLED' || name === 'LYRICS_LOGO') value = value === '1' ? '1' : '';
-    if (name === 'MAX_JOBS_PER_HOUR' || name === 'MAX_UPLOAD_MB') {
+    if (name === 'CREDITS_ENABLED' || name === 'LYRICS_LOGO' || name === 'REFERRAL_REWARDS') value = value === '1' ? '1' : '';
+    if (name === 'MAX_JOBS_PER_HOUR' || name === 'MAX_UPLOAD_MB' || name === 'REFERRAL_MINUTES') {
       const n = Number(value);
-      const max = name === 'MAX_UPLOAD_MB' ? 2000 : 1000;
+      const max = name === 'MAX_UPLOAD_MB' ? 2000 : name === 'REFERRAL_MINUTES' ? 120 : 1000;
       if (value && (!Number.isInteger(n) || n < 1 || n > max)) return apiError(400, 'E_BAD_REQUEST', `Give a whole number from 1 to ${max}.`);
     }
     if (name === 'EMAIL_FROM' && value && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$|^.+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>$/.test(value)) {

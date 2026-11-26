@@ -675,4 +675,9 @@ export const AR: Record<string, string> = {
   "Download the video": "نزّل الفيديو",
   "Copy the caption": "انسخ الوصف",
   "My video": "فيديوي",
+  "Invite friends": "ادعُ أصدقاءك",
+  "{joined} joined · {made} made a video": "انضم {joined} · صنع {made} فيديو",
+  "Your own link: anyone new who starts from it and makes a first video counts as your friend.": "رابطك الخاص: كل شخص جديد يبدأ منه ويصنع أول فيديو يُحسب صديقًا لك.",
+  "For each friend’s first video, you both get {n} free minutes.": "عن أول فيديو لكل صديق تحصلان كلاكما على {n} دقيقة مجانية.",
+  "Translate any video, or turn a song into a lyrics video. Free:": "ترجم أي فيديو، أو حوّل أغنية إلى فيديو كلمات. مجانًا:",
 };
