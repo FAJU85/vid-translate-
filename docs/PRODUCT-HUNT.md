@@ -125,13 +125,13 @@ what makes it different, and one specific question. Like a person, not a press r
   unsure, ask hello@producthunt.com first.
 - Answer every comment, all day, as close to real time as you can (split shifts if someone can
   help, including the night in your time zone). Reply with a link or a short video where it helps.
-- Watch **/admin → Growth**: visits from Product Hunt show as "producthunt".
+- Watch **/admin → Growth**: visits from Product Hunt show as "Product Hunt".
 - The next day: **End launch day**. A small "Featured on Product Hunt" link stays in the footer.
 
 ## After launch
 
 - Keep answering comments for days; thank the people who tried it.
-- Compare the results with your goals (/admin → Growth: visits from "producthunt", videos started).
+- Compare the results with your goals (/admin → Growth: visits from "Product Hunt", videos started).
 - Ask happy users for a review on the Product Page; awards (e.g. Product of the Day) arrive by
   email with a badge.
 - Turn the feedback into fixes, and post updates in the Product Hunt Forums.
@@ -142,7 +142,7 @@ what makes it different, and one specific question. Like a person, not a press r
   producthunt.com) get a short welcome: "Welcome, Product Hunt! Free, no sign-up", with the two
   things to try: **Translate a video** and **Make a lyrics video**.
 - On launch day, the "live on Product Hunt today" banner for everyone (above).
-- They count on the Growth page under "producthunt"; the videos they start show there per
+- They count on the Growth page under "Product Hunt"; the videos they start show there per
   journey (translations, lyrics videos).
 - Every video they make ends with the share card ("Your video is ready. Post it!"), and every
   shared video invites its viewers to make their own: one launch visitor can bring the next.

@@ -25,6 +25,7 @@ const NAMES: Record<string, string> = {
   youtube: 'YouTube',
   reddit: 'Reddit',
   linkedin: 'LinkedIn',
+  producthunt: 'Product Hunt',
   browser: 'Installed from the browser',
 };
 const JOURNEYS: Record<string, string> = { lyrics: 'Lyrics videos', video: 'Subtitled videos', dub: 'Dubbed videos', files: 'Subtitle files' };
