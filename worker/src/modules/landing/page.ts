@@ -167,7 +167,7 @@ export async function handleLandingPage(request: Request, env: Env, path: string
   const logo = site?.logo_url || undefined;
   const c = copy(journey, lang, brand, !creditsEnabled(env));
   // The app opens on the right page, in the page's language; the visit counts as "seo".
-  const app = `/?tab=${journey}&amp;ref=seo-${journey}${lang === 'ar' ? '-ar' : ''}`;
+  const app = `/?tab=${journey}&amp;lang=${lang}&amp;ref=seo-${journey}${lang === 'ar' ? '-ar' : ''}`;
   const otherJourney: Journey = journey === 'translate' ? 'lyrics' : 'translate';
   const alt = (l: PageLang) => `${base}${pathFor(journey, l)}`;
   const faqLd = {

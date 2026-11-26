@@ -12,6 +12,16 @@ export type Lang = 'en' | 'ar';
 const KEY = 'kavox_lang';
 
 function detect(): Lang {
+  // A link that names the language (?lang=ar, e.g. from the Arabic landing pages) wins, and is kept.
+  const linked = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lang') : null;
+  if (linked === 'ar' || linked === 'en') {
+    try {
+      localStorage.setItem(KEY, linked);
+    } catch {
+      /* storage blocked: the cookie below still carries it */
+    }
+    return linked;
+  }
   try {
     const saved = localStorage.getItem(KEY);
     if (saved === 'ar' || saved === 'en') return saved;
