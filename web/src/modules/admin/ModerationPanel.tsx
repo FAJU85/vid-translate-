@@ -32,13 +32,23 @@ export function ModerationPanel({ password }: { password: string }) {
   useEffect(load, [password]);
 
   async function act(g: ReportGroup, action: ModerationAction) {
-    const what = action === 'remove' ? `Remove this ${g.kind} for good?` : action === 'block' ? `Block @${g.preview.owner ?? 'this account'}?` : null;
+    // Nothing of a person's is deleted: a video or photo is taken down (hidden, kept for its owner), who is told.
+    const what =
+      action === 'remove'
+        ? g.kind === 'video'
+          ? 'Take this video down? It is hidden from everyone but its owner, who is told.'
+          : g.kind === 'profile'
+            ? 'Take this profile photo down? It is hidden from everyone but its owner, who is told.'
+            : 'Remove this comment? Its author is told.'
+        : action === 'block'
+          ? `Block @${g.preview.owner ?? 'this account'}?`
+          : null;
     if (what && !window.confirm(what)) return;
     const reason = action === 'block' ? window.prompt('Why (kept with the block, for you)?', reasonLabel(g.reasons.split(',')[0])) : undefined;
     if (reason === null) return; // cancelled
     setBusy(`${g.kind}:${g.target}`);
     try {
-      await adminApi.moderate(password, { action, kind: g.kind, target: g.target, reason });
+      await adminApi.moderate(password, { action, kind: g.kind, target: g.target, reason, ...(g.preview.photo_version ? { version: g.preview.photo_version } : {}) });
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'That did not work.');
@@ -82,6 +92,7 @@ export function ModerationPanel({ password }: { password: string }) {
             <li key={key} className="p-4 rounded-2xl border border-slate-800 bg-slate-900 space-y-3">
               <div className="flex gap-3">
                 {p.thumb && <img src={p.thumb} alt="" className="w-16 h-24 object-cover rounded-lg bg-slate-950 shrink-0" />}
+                {p.photo && <img src={p.photo} alt="" className="w-16 h-16 object-cover rounded-full bg-slate-950 shrink-0" />}
                 <div className="min-w-0 flex-1 text-sm space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="px-2 py-0.5 rounded-md bg-slate-800 text-xs uppercase tracking-wide text-slate-300">{g.kind}</span>
@@ -90,6 +101,7 @@ export function ModerationPanel({ password }: { password: string }) {
                     </span>
                     {p.owner && <span className="text-slate-300">@{p.owner}</span>}
                     {p.status === 'hidden' && <span className="text-xs text-slate-500">(hidden)</span>}
+                    {p.photo_hidden && <span className="text-xs text-slate-500">(photo taken down)</span>}
                   </div>
                   {p.gone ? (
                     <p className="text-slate-500">Already deleted.</p>
@@ -116,7 +128,12 @@ export function ModerationPanel({ password }: { password: string }) {
                 )}
                 {g.kind !== 'profile' && !p.gone && (
                   <button disabled={busy === key} onClick={() => act(g, 'remove')} className={`${btn} border-rose-800 text-rose-200 hover:bg-rose-950`}>
-                    Remove {g.kind}
+                    {g.kind === 'video' ? 'Take video down' : 'Remove comment'}
+                  </button>
+                )}
+                {g.kind === 'profile' && p.photo && (
+                  <button disabled={busy === key} onClick={() => act(g, 'remove')} className={`${btn} border-rose-800 text-rose-200 hover:bg-rose-950`}>
+                    Take photo down
                   </button>
                 )}
                 {p.account_id && (

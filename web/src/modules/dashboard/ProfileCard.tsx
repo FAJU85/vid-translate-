@@ -37,7 +37,7 @@ export function ProfileCard() {
         throw new ApiError('E_BAD_REQUEST', t('That picture could not be read. Try a JPEG or PNG photo.'));
       });
       const r = await socialApi.setAvatar(photo);
-      setProfile({ ...profile, avatar_url: r.avatar_url });
+      setProfile({ ...profile, avatar_url: r.avatar_url, photo_taken_down: false });
     } catch (err) {
       setPhotoError(err instanceof ApiError ? err.message : t('Your photo could not be saved.'));
     } finally {
@@ -50,7 +50,7 @@ export function ProfileCard() {
     setPhotoError(null);
     try {
       await socialApi.removeAvatar();
-      setProfile({ ...profile, avatar_url: null });
+      setProfile({ ...profile, avatar_url: null, photo_taken_down: false });
     } catch (err) {
       setPhotoError(err instanceof ApiError ? err.message : t('Your photo could not be removed.'));
     } finally {
@@ -166,7 +166,7 @@ export function ProfileCard() {
                   }}
                 />
               </label>
-              {profile.avatar_url && (
+              {(profile.avatar_url || profile.photo_taken_down) && (
                 <button type="button" onClick={removePhoto} disabled={photoBusy} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-rose-300 disabled:opacity-50">
                   <Trash2 className="w-3.5 h-3.5" />{' '}{t('Remove photo')}
                 </button>
@@ -174,6 +174,9 @@ export function ProfileCard() {
             </div>
           </div>
           {photoError && <p className="mb-2 text-xs text-rose-300">{photoError}</p>}
+          {profile.photo_taken_down && (
+            <p className="mb-2 text-xs text-rose-300">{t('Your photo was taken down after a report: no one sees it. Add another one, or remove it.')}</p>
+          )}
           <div className="text-white font-medium">{profile.display_name || `@${profile.handle}`}</div>
           <div className="text-slate-400"><bdi dir="ltr">@{profile.handle}</bdi></div>
           {profile.bio && <p className="mt-1 text-slate-300 whitespace-pre-wrap break-words">{profile.bio}</p>}

@@ -24,7 +24,9 @@ function Notice({ n, isNew }: { n: Notification; isNew: boolean }) {
   const d = n.detail ?? { what: 'video' as const };
   const name = (d.what === 'video' ? d.title : d.text) || '';
   const text =
-    d.what === 'video'
+    d.what === 'photo'
+      ? t('Your profile photo was taken down after a report, because it breaks the Terms of Use. No one sees it now; you can add another one or delete it.')
+      : d.what === 'video'
       ? t('Your video “{name}” was taken down after a report, because it breaks the Terms of Use. Only you can see it now, and you can delete it.', { name })
       : t(d.hidden ? 'Your comment “{name}” was hidden after a report, because it breaks the Terms of Use.' : 'Your comment “{name}” was removed after a report, because it breaks the Terms of Use.', { name });
   return (
