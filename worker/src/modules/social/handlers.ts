@@ -10,6 +10,9 @@ import { followCounts, isBlocked, profileByAccount, profileByHandle, saveProfile
 const MAX_NAME = 40;
 const MAX_BIO = 160;
 
+/** Your own profile: what everyone sees, and whether your photo was taken down after a report. */
+const ownProfile = (p: Profile) => ({ ...publicProfile(p), photo_taken_down: Boolean(p.avatar && p.avatar_hidden) });
+
 const publicProfile = (p: Profile) => ({ handle: p.handle, display_name: p.display_name, bio: p.bio, avatar_url: avatarUrl(p), created_at: p.created_at });
 
 /** The text tidied (null when empty), or tooLong when it is longer than allowed. */
@@ -40,8 +43,7 @@ export async function handleSocial(request: Request, env: Env, path: string, ori
     const current = await profileByAccount(env, account.id);
     if (method === 'GET') {
       // The owner also learns when their photo was taken down after a report (it is kept for them).
-      const own = current ? { ...publicProfile(current), photo_taken_down: Boolean(current.avatar && current.avatar_hidden) } : null;
-      return json({ profile: own, change_days: HANDLE_CHANGE_DAYS });
+      return json({ profile: current ? ownProfile(current) : null, change_days: HANDLE_CHANGE_DAYS });
     }
     if (method !== 'POST') return null;
 
@@ -69,7 +71,7 @@ export async function handleSocial(request: Request, env: Env, path: string, ori
     if (result === 'taken') return apiError(409, 'E_HANDLE_TAKEN', `@${checked.handle} is taken. Choose another one.`);
     if (result === 'changed') return apiError(409, 'E_PROFILE_CHANGED', 'Your profile was just changed elsewhere. Reload and try again.');
     const saved = await profileByAccount(env, account.id);
-    return json({ profile: saved ? publicProfile(saved) : null, url: `${await publicOrigin(env, origin)}/@${checked.handle}` });
+    return json({ profile: saved ? ownProfile(saved) : null, url: `${await publicOrigin(env, origin)}/@${checked.handle}` });
   }
 
   const handleQuery = path.match(/^\/api\/handles\/([^/]{1,40})$/);

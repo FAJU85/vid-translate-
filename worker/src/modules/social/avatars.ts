@@ -21,8 +21,13 @@ export const avatarUrl = (p: Pick<Profile, 'handle' | 'avatar' | 'avatar_hidden'
  * Take a profile photo down after a report: shown to no one any more, but never deleted (it
  * stays the owner's, to replace or delete). A new photo from its owner clears it.
  */
-export const hideAvatar = (env: Env, accountId: string) =>
-  env.DB.prepare('UPDATE profiles SET avatar_hidden = 1 WHERE account_id = ?').bind(accountId).run();
+export async function hideAvatar(env: Env, accountId: string, version: number): Promise<boolean> {
+  // Only the photo the moderator looked at: a newer one (uploaded meanwhile) is left alone.
+  const res = await env.DB.prepare('UPDATE profiles SET avatar_hidden = 1 WHERE account_id = ? AND avatar = ? AND avatar_hidden = 0')
+    .bind(accountId, version)
+    .run();
+  return res.meta.changes > 0;
+}
 
 /** Delete a person's photo from storage (Delete my account). */
 export async function eraseAvatar(env: Env, accountId: string): Promise<void> {
@@ -67,8 +72,9 @@ export async function handleAvatar(request: Request, env: Env, path: string): Pr
     return new Response(object.body, {
       headers: {
         'Content-Type': object.httpMetadata?.contentType ?? 'image/jpeg',
-        // The address changes with every new photo, so it can be kept for long.
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        // Kept briefly, then asked again: a photo taken down after a report stops showing within
+        // minutes (a new photo has a new address anyway).
+        'Cache-Control': 'public, max-age=300, must-revalidate',
         'Content-Security-Policy': "default-src 'none'",
         'X-Content-Type-Options': 'nosniff',
       },

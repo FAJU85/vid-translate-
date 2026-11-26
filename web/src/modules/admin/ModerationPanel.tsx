@@ -48,7 +48,7 @@ export function ModerationPanel({ password }: { password: string }) {
     if (reason === null) return; // cancelled
     setBusy(`${g.kind}:${g.target}`);
     try {
-      await adminApi.moderate(password, { action, kind: g.kind, target: g.target, reason });
+      await adminApi.moderate(password, { action, kind: g.kind, target: g.target, reason, ...(g.preview.photo_version ? { version: g.preview.photo_version } : {}) });
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'That did not work.');

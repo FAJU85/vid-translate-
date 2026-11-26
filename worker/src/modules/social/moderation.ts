@@ -146,7 +146,9 @@ async function preview(env: Env, kind: ReportKind, target: string, base: string)
   const p = await profileByAccount(env, target);
   // The photo, to judge it (only while it is shown: a taken-down photo has nothing left to judge).
   const photo = p && avatarUrl(p) ? `${base}${avatarUrl(p)}` : null;
-  return p ? { owner: p.handle, name: p.display_name, bio: p.bio, url: `${base}/@${p.handle}`, account_id: target, photo, photo_hidden: Boolean(p.avatar_hidden) } : { gone: true };
+  return p
+    ? { owner: p.handle, name: p.display_name, bio: p.bio, url: `${base}/@${p.handle}`, account_id: target, photo, photo_version: photo ? p.avatar : null, photo_hidden: Boolean(p.avatar_hidden) }
+    : { gone: true };
 }
 
 /**
@@ -197,7 +199,11 @@ export async function handleModeration(request: Request, env: Env, path: string,
     // The profile photo is taken down (hidden, never deleted); the owner is told.
     const owner = await profileByAccount(env, target);
     if (!owner?.avatar || owner.avatar_hidden) return apiError(400, 'E_BAD_REQUEST', 'This profile has no photo to take down.');
-    await hideAvatar(env, target);
+    // The version the moderator saw (sent back by the admin page); without it, the current one.
+    const seen = Number(body?.version) || owner.avatar;
+    if (!(await hideAvatar(env, target, seen))) {
+      return apiError(409, 'E_PHOTO_CHANGED', 'The photo changed since you looked at it. Reload the reports and look again.');
+    }
     await notifyOwner(env, { account_id: target }, 'removed', { what: 'photo' });
     await closeReports(env, kind, target, 'actioned');
   } else if (action === 'remove' && kind === 'comment') {

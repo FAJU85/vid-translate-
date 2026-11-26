@@ -605,6 +605,8 @@ export interface ReportGroup {
     account_id?: string | null;
     /** A reported profile's photo (while shown), and whether it was already taken down. */
     photo?: string | null;
+    /** The version of the photo shown, sent back with a takedown so only that photo is hidden. */
+    photo_version?: number | null;
     photo_hidden?: boolean;
   };
 }
@@ -764,7 +766,7 @@ export const adminApi = {
   judgeFeedback: (password: string, id: number, action: 'done' | 'new' | 'delete') =>
     call<{ ok: true }>('/api/admin/feedback', { method: 'POST', headers: auth(password), body: JSON.stringify({ id, action }) }),
   moderation: (password: string) => call<{ reports: ReportGroup[]; blocked: BlockedAccount[] }>('/api/admin/moderation', { headers: auth(password) }),
-  moderate: (password: string, body: { action: ModerationAction; kind: ReportKind; target: string; reason?: string } | { action: 'unblock'; account_id: string }) =>
+  moderate: (password: string, body: { action: ModerationAction; kind: ReportKind; target: string; reason?: string; version?: number } | { action: 'unblock'; account_id: string }) =>
     call<{ ok: true }>('/api/admin/moderation', { method: 'POST', headers: auth(password), body: JSON.stringify(body) }),
   act: (password: string, action: AdminAction, ids: string[]) =>
     call<{ results: AdminActionResult[] }>('/api/admin/jobs', {
