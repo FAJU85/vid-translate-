@@ -6,7 +6,7 @@ import { ShareButtons } from '../../shared/share';
 
 const REPORT_TITLE: Record<ReportKind, string> = { video: 'Report this video', comment: 'Report this comment', profile: 'Report this profile' };
 
-const panel = 'absolute inset-x-0 bottom-0 z-10 max-h-[70%] flex flex-col rounded-t-2xl bg-slate-950/95 backdrop-blur border-t border-slate-800 text-slate-100';
+const panel = 'absolute inset-x-0 bottom-0 z-10 max-h-[70%] flex flex-col rounded-t-2xl bg-slate-950/[0.97] border-t border-slate-800 text-slate-100';
 
 /**
  * A video's comments, over the bottom of its card: read them, write one (signed in with an

@@ -73,11 +73,19 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
-    /* A soft teal and coral glow at the top, as in the brand artwork. */
+  }
+  /* A soft teal and coral glow at the top, as in the brand artwork. Drawn once on its own fixed
+     layer (not background-attachment: fixed, which repaints the whole page on every scroll on
+     phones and costs battery). */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(circle at 12% 0%, rgb(42 184 161 / 0.09), transparent 38%),
       radial-gradient(circle at 90% 6%, rgb(232 124 106 / 0.07), transparent 40%);
-    background-attachment: fixed;
   }
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;

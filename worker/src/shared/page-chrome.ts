@@ -39,7 +39,9 @@ export const FONT = `"Plus Jakarta Sans", "Noto Sans Arabic", system-ui, -apple-
 
 /** Styles for the header and the background glow; `brand` is already escaped. */
 export const chromeCss = `
-  body { background-color: ${PALETTE.navy}; background-image: radial-gradient(circle at 12% 0%, rgba(42,184,161,.10), transparent 38%), radial-gradient(circle at 90% 6%, rgba(232,124,106,.08), transparent 40%); background-attachment: fixed; }
+  body { background-color: ${PALETTE.navy}; }
+  /* The glow on its own fixed layer: drawn once, not repainted on every scroll (battery). */
+  body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-image: radial-gradient(circle at 12% 0%, rgba(42,184,161,.10), transparent 38%), radial-gradient(circle at 90% 6%, rgba(232,124,106,.08), transparent 40%); }
   .kx-head { display: flex; align-items: center; }
   .kx-brand { display: inline-flex; align-items: center; gap: 10px; color: ${PALETTE.cream}; font-weight: 800; letter-spacing: .14em; text-decoration: none; font-size: 18px; }
   .kx-brand img { width: auto; object-fit: contain; }

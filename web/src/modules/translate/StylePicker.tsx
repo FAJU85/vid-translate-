@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SubtitleStyle } from '../../shared/api';
 import { t } from '../../shared/i18n';
 
@@ -207,11 +207,29 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
   // Dynamic captions: step through the sample's words like a speaker would.
   const animation = style.animation ?? 'none';
   const [tick, setTick] = useState(0);
+  // The sample only moves while it can be seen: on screen, the app in front, and the phone not
+  // asking for less motion. A page left open in the background never wakes the phone for it.
+  const root = useRef<HTMLDivElement | null>(null);
+  const [onScreen, setOnScreen] = useState(false);
+  const [appVisible, setAppVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible');
   useEffect(() => {
-    if (animation === 'none' && !sound) return;
+    const el = root.current;
+    if (!el) return;
+    const seen = new IntersectionObserver(([e]) => setOnScreen(e.isIntersecting));
+    seen.observe(el);
+    const onVisibility = () => setAppVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      seen.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+  const lessMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  useEffect(() => {
+    if ((animation === 'none' && !sound) || !onScreen || !appVisible || lessMotion) return;
     const timer = setInterval(() => setTick((t) => t + 1), 420);
     return () => clearInterval(timer);
-  }, [animation, sound]);
+  }, [animation, sound, onScreen, appVisible, lessMotion]);
   const sampleWords = sample.split(' ');
   const lit = tick % sampleWords.length;
   const litColour = style.color.toUpperCase() === '#FFFFFF' ? '#FFD400' : style.color;
@@ -288,7 +306,7 @@ export function StylePicker({ style, onChange, lang, sound = false }: { style: S
     </div>
   );
 
-  return (    <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-4">
+  return (    <div ref={root} className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-4">
       <div className="text-sm font-medium text-slate-200">{sound ? t("Your lyrics video") : t("Subtitle style")}</div>
       {sound && (
         <>

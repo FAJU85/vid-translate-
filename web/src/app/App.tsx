@@ -114,7 +114,10 @@ function Site() {
     // A new payment, not any rise in the balance (a refund also raises it).
     const before = me?.payments?.count ?? 0;
     let cancelled = false;
-    const timer = setInterval(async () => {
+    const check = async () => {
+      // Paying happens in another tab or in Telegram: this one checks while it is in front, and at
+      // once when the person comes back to it (not every few seconds in the background).
+      if (document.visibilityState !== 'visible') return;
       if (Date.now() - awaitingSince > PAYMENT_WAIT_MS) return setAwaitingSince(null);
       const next = await accountApi.me().catch(() => null);
       if (!next || cancelled) return; // an answer that came after the wait ended
@@ -125,10 +128,13 @@ function Site() {
         setTab('translate');
         setResume((n) => n + 1);
       }
-    }, PAYMENT_POLL_MS);
+    };
+    const timer = setInterval(check, PAYMENT_POLL_MS);
+    document.addEventListener('visibilitychange', check);
     return () => {
       cancelled = true;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingSince]);

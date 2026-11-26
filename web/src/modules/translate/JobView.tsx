@@ -86,7 +86,7 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
     let timer: ReturnType<typeof setTimeout>;
     const started = Date.now();
     const nextDelay = (j: Job) => {
-      if (document.visibilityState === 'hidden') return 15_000;
+      if (document.visibilityState === 'hidden') return 60_000; // checked at once on return
       if ((j.queue_position ?? 0) > 2) return 8_000;
       const elapsed = Date.now() - started;
       return elapsed < 30_000 ? 2_000 : elapsed < 120_000 ? 4_000 : 8_000;
@@ -141,8 +141,13 @@ export function JobView({ jobId, config, localVideoUrl, onClose, onRetried, sign
     const video = videoRef.current;
     if (!video) return;
     let frame = 0;
-    const loop = () => {
-      setTime(video.currentTime);
+    let last = 0;
+    // About 12 updates a second: enough to light each word on time, a fifth of the redraws (battery).
+    const loop = (now: number) => {
+      if (now - last >= 80) {
+        last = now;
+        setTime(video.currentTime);
+      }
       if (playing.current) frame = requestAnimationFrame(loop);
     };
     const onPlay = () => {
