@@ -26,6 +26,10 @@ const NAMES: Record<string, string> = {
   reddit: 'Reddit',
   linkedin: 'LinkedIn',
   producthunt: 'Product Hunt',
+  'seo-translate': 'Search page: translate (English)',
+  'seo-translate-ar': 'Search page: translate (Arabic)',
+  'seo-lyrics': 'Search page: lyrics (English)',
+  'seo-lyrics-ar': 'Search page: lyrics (Arabic)',
   browser: 'Installed from the browser',
 };
 const JOURNEYS: Record<string, string> = { lyrics: 'Lyrics videos', video: 'Subtitled videos', dub: 'Dubbed videos', files: 'Subtitle files' };

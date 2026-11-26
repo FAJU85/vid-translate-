@@ -92,7 +92,7 @@ function Site() {
     // Where this visit came from (anonymous daily totals), read before the address is cleaned.
     countVisit();
     keepInvite(url.searchParams.get('invite'));
-    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted', 'ref', 'utm_source', 'utm_medium', 'utm_campaign', 'invite'];
+    const once = ['signin', 'paid', 'tab', 'link', 'text', 'title', 'source', 'deleted', 'ref', 'utm_source', 'utm_medium', 'utm_campaign', 'invite', 'lang'];
     if (once.some((k) => url.searchParams.has(k))) {
       once.forEach((k) => url.searchParams.delete(k));
       window.history.replaceState(null, '', url);
