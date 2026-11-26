@@ -531,6 +531,24 @@ from the logo), and `web/public/sw.js`, a small service worker that keeps the ap
 (named after their content, so never stale), always fetches pages fresh, and shows the last home
 page or an offline page without a connection. The API, videos and files are never cached.
 
+### Updates (no app store)
+
+Installed or not, everyone gets each new KAVOX by itself:
+
+- Every build has an id (the commit Cloudflare builds), written into the app and into
+  `/version.json` (never cached). An open app checks it every 10 minutes, when it comes back to the
+  screen and when the connection returns: a newer one shows **"A new version of KAVOX is ready —
+  Refresh"**. Back after 30 minutes or more away with nothing in progress, it simply reloads into
+  the new version. An upload, a video being made or unsaved subtitle edits are never interrupted
+  (`holdUpdates` in `web/src/shared/updates.ts`); Refresh asks first while they run.
+- The service worker is registered as `/sw.js?v=<build>` (and fetched past the HTTP cache): each
+  deploy installs a new one with a cache named after the build, and the old cache is deleted, so a
+  file changed under the same name never stays stale and nothing has to be bumped by hand.
+- Android updates the installed icon and name by itself (within a day or two). iPhone and iPad keep
+  the icon saved when KAVOX was added: those who added it before an icon change are told once how
+  to get the new one (`ICON_VERSION` in `web/src/app/UpdateNotice.tsx`; bump it when the icon
+  changes).
+
 Every page fits from a 320 px phone to a wide desktop. On phones the main tabs are a bar at the
 bottom (Translate, Feed, Mine, Bot), in reach of the thumb; the admin's workspace strip scrolls
 sideways on phones.

@@ -1,4 +1,5 @@
 import { ApiError } from '../../shared/api';
+import { holdUpdates } from '../../shared/updates';
 
 function putFile(url: string, file: File, onProgress: (fraction: number) => void): Promise<number> {
   return new Promise((resolve) => {
@@ -21,15 +22,21 @@ export async function uploadFile(
   onProgress: (fraction: number) => void,
   onWaking: () => void,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const status = await putFile(url, file, onProgress);
-    if (status === 200) return;
-    if (status === 413) throw new ApiError('E_FILE_TOO_LARGE', 'The file is too large.');
-    if (status === 403 || status === 409) throw new ApiError('E_UPLOAD', 'The upload link expired. Please try again.');
-    onWaking();
-    await new Promise((r) => setTimeout(r, 10_000));
+  // A new version of the app never reloads the page under an upload.
+  const release = holdUpdates();
+  try {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const status = await putFile(url, file, onProgress);
+      if (status === 200) return;
+      if (status === 413) throw new ApiError('E_FILE_TOO_LARGE', 'The file is too large.');
+      if (status === 403 || status === 409) throw new ApiError('E_UPLOAD', 'The upload link expired. Please try again.');
+      onWaking();
+      await new Promise((r) => setTimeout(r, 10_000));
+    }
+    throw new ApiError('E_BACKEND_DOWN', 'The translation server is not responding. Please try again later.');
+  } finally {
+    release();
   }
-  throw new ApiError('E_BACKEND_DOWN', 'The translation server is not responding. Please try again later.');
 }
 
 /** The file's length in seconds as the browser reads it (for the credit estimate), or null. */

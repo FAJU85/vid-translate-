@@ -688,4 +688,8 @@ export const AR: Record<string, string> = {
   "Your video “{name}” was taken down after a report, because it breaks the Terms of Use. Only you can see it now, and you can delete it.": "أُزيل فيديو «{name}» بعد بلاغ، لأنه يخالف شروط الاستخدام. لا يراه الآن غيرك، ويمكنك حذفه.",
   "Your comment “{name}” was hidden after a report, because it breaks the Terms of Use.": "أُخفي تعليقك «{name}» بعد بلاغ، لأنه يخالف شروط الاستخدام.",
   "Your comment “{name}” was removed after a report, because it breaks the Terms of Use.": "حُذف تعليقك «{name}» بعد بلاغ، لأنه يخالف شروط الاستخدام.",
+  "A new version of KAVOX is ready.": "إصدار جديد من KAVOX جاهز.",
+  "A video or an upload is in progress here. Refresh now anyway?": "يوجد فيديو أو رفع قيد التنفيذ هنا. هل تريد التحديث الآن على أي حال؟",
+  "KAVOX has a new icon.": "لدى KAVOX أيقونة جديدة.",
+  "Your iPhone keeps the old one. To see the new icon: sign in first (so your videos stay with your account), remove KAVOX from your Home Screen, open this site in Safari, tap Share → Add to Home Screen, and sign in again.": "يحتفظ جهاز iPhone بالأيقونة القديمة. لرؤية الأيقونة الجديدة: سجّل الدخول أولًا (لتبقى فيديوهاتك في حسابك)، ثم احذف KAVOX من الشاشة الرئيسية، وافتح هذا الموقع في Safari، واضغط مشاركة ← إضافة إلى الشاشة الرئيسية، ثم سجّل الدخول من جديد.",
 };
