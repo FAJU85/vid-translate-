@@ -1,3 +1,4 @@
+import { avatarUrl } from './avatars';
 import type { Env } from '../../shared/env';
 import { htmlAttrs, languageName, pageLang, plural, translator } from '../../shared/page-i18n';
 import { reportDialog } from '../../shared/report-dialog';
@@ -66,7 +67,8 @@ ${headLinks(logo)}
   header, main { max-width: 960px; margin: 0 auto; padding: 16px; }
 ${chromeCss}
   .head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-  .avatar { width: 84px; height: 84px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-size: 36px; font-weight: 800; flex: none; }
+  .avatar { width: 84px; height: 84px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-size: 36px; font-weight: 800; flex: none; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
   h1 { margin: 0; font-size: 22px; color: #F9EBD6; overflow-wrap: anywhere; }
   .handle { color: #ABA59E; }
   .bio { margin: 12px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -90,7 +92,7 @@ ${ctaCss}
 ${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="head">
-    <div class="avatar">${esc(profile.handle[0].toUpperCase())}</div>
+    <div class="avatar">${avatarUrl(profile) ? `<img src="${esc(avatarUrl(profile)!)}" alt="${esc(tr('Photo of @{handle}', { handle: profile.handle }))}">` : esc(profile.handle[0].toUpperCase())}</div>
     <div>
       <h1>${esc(name)}</h1>
       <div class="handle"><bdi dir="ltr">@${esc(profile.handle)}</bdi></div>

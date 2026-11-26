@@ -1,3 +1,4 @@
+import { Avatar } from '../../shared/avatar';
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Flame, Hash, Heart, Loader2, Play, Search, Users, X } from 'lucide-react';
 import { ApiError, discoverApi, type CreatorHit, type FeedItem } from '../../shared/api';
@@ -63,7 +64,7 @@ function Creators({ creators }: { creators: CreatorHit[] }) {
       {creators.map((c) => (
         <li key={c.handle}>
           <a href={`/@${c.handle}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60">
-            <span className="w-9 h-9 rounded-full bg-amber-400 text-slate-950 font-bold flex items-center justify-center shrink-0">{c.handle[0].toUpperCase()}</span>
+            <Avatar handle={c.handle} url={c.avatar_url} />
             <span className="min-w-0 flex-1 text-sm">
               <span className="block text-white font-medium truncate">{c.display_name || `@${c.handle}`}</span>
               <span className="block text-xs text-slate-400 truncate">

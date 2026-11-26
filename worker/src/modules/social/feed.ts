@@ -1,3 +1,4 @@
+import { avatarUrl } from './avatars';
 import { now, type Env } from '../../shared/env';
 import { apiError, json } from '../../shared/http';
 import { signedInAccount } from '../accounts';
@@ -52,7 +53,7 @@ export async function items(env: Env, videos: ShareRow[], viewer: string | null,
       return {
         ...publicShare(v, base),
         video_url: `${base}/v/${v.id}/video.mp4`,
-        creator: { handle: p.handle, display_name: p.display_name },
+        creator: { handle: p.handle, display_name: p.display_name, avatar_url: avatarUrl(p) },
         likes: likes.counts.get(v.id) ?? 0,
         comments: comments.get(v.id) ?? 0,
         liked: likes.liked.has(v.id),

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy, Share2 } from 'lucide-react';
+import { BRAND_ICONS } from './brand-icons';
 import { countGrowth } from './growth';
 import { t } from './i18n';
 
@@ -9,15 +10,22 @@ export const tagged = (url: string, ref: string) => `${url}${url.includes('?') ?
 /** Where a link can be shared with one tap: each app's own "share this" address (no account or key needed). */
 export function shareTargets(url: string, text: string) {
   return [
-    { id: 'whatsapp', name: 'WhatsApp', href: `https://wa.me/?text=${encodeURIComponent(`${text} ${tagged(url, 'wa')}`)}`, tone: 'bg-[#25D366] text-[#06210F]' },
-    { id: 'x', name: 'X', href: `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(tagged(url, 'x'))}`, tone: 'bg-black text-white ring-1 ring-slate-600' },
-    { id: 'telegram', name: 'Telegram', href: `https://t.me/share/url?url=${encodeURIComponent(tagged(url, 'tg'))}&text=${encodeURIComponent(text)}`, tone: 'bg-[#229ED9] text-[#04192A]' },
+    { id: 'whatsapp', name: 'WhatsApp', icon: BRAND_ICONS.whatsapp, href: `https://wa.me/?text=${encodeURIComponent(`${text} ${tagged(url, 'wa')}`)}`, tone: 'bg-[#25D366] text-white' },
+    { id: 'x', name: 'X', icon: BRAND_ICONS.x, href: `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(tagged(url, 'x'))}`, tone: 'bg-black text-white ring-1 ring-slate-600' },
+    { id: 'telegram', name: 'Telegram', icon: BRAND_ICONS.telegram, href: `https://t.me/share/url?url=${encodeURIComponent(tagged(url, 'tg'))}&text=${encodeURIComponent(text)}`, tone: 'bg-[#229ED9] text-white' },
   ] as const;
 }
 
+/** A brand mark (Simple Icons, CC0) drawn inline. */
+const BrandIcon = ({ path, className }: { path: string; className: string }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+    <path d={path} />
+  </svg>
+);
+
 /**
- * Share buttons: WhatsApp, X, Telegram, copy the link, and (on phones) the system share sheet.
- * The link's page carries the picture and title the apps show in their preview.
+ * Share buttons as round icons: WhatsApp, X, Telegram, copy the link, and (on phones) the system
+ * share sheet. Each has its name as a label and tooltip. The link's page carries the preview.
  */
 export function ShareButtons({ url, text, compact = false }: { url: string; text: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -32,26 +40,34 @@ export function ShareButtons({ url, text, compact = false }: { url: string; text
     }
   }
   const canShare = typeof navigator !== 'undefined' && 'share' in navigator;
-  const pill = `flex items-center gap-1.5 ${compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} rounded-lg font-semibold`;
+  const round = `${compact ? 'w-9 h-9' : 'w-11 h-11'} shrink-0 rounded-full flex items-center justify-center hover:opacity-90`;
+  const glyph = compact ? 'w-[18px] h-[18px]' : 'w-[22px] h-[22px]';
+  const copyLabel = copied ? t('Copied') : t('Copy link');
   return (
-    <div className="flex flex-wrap gap-2">
-      {shareTargets(url, text).map((s) => (
-        <a key={s.id} href={s.href} target="_blank" rel="noreferrer" onClick={() => countGrowth('share', s.id)} className={`${pill} ${s.tone} hover:opacity-90`} aria-label={t('Share on {app}', { app: s.name })}>
-          {s.name}
-        </a>
-      ))}
-      <button type="button" onClick={copy} className={`${pill} bg-amber-400 hover:bg-amber-300 text-slate-950`}>
-        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? t('Copied') : t('Copy link')}
+    <div className="flex flex-wrap items-center gap-2.5">
+      {shareTargets(url, text).map((s) => {
+        const label = t('Share on {app}', { app: s.name });
+        return (
+          <a key={s.id} href={s.href} target="_blank" rel="noreferrer" onClick={() => countGrowth('share', s.id)} className={`${round} ${s.tone}`} aria-label={label} title={label}>
+            <BrandIcon path={s.icon} className={glyph} />
+          </a>
+        );
+      })}
+      <button type="button" onClick={copy} className={`${round} bg-amber-400 text-slate-950`} aria-label={copyLabel} title={copyLabel}>
+        {copied ? <Check className={glyph} /> : <Copy className={glyph} />}
       </button>
       {canShare && (
         <button
           type="button"
           onClick={() => navigator.share({ title: text, url: tagged(url, 'native') }).then(() => countGrowth('share', 'native')).catch(() => {})}
-          className={`${pill} border border-slate-700 text-slate-200 hover:bg-slate-800`}
+          className={`${round} border border-slate-700 text-slate-200 hover:bg-slate-800`}
+          aria-label={t('More')}
+          title={t('More')}
         >
-          <Share2 className="w-4 h-4" /> {t('More')}
+          <Share2 className={glyph} />
         </button>
       )}
+      {copied && <span role="status" className="text-xs text-emerald-300">{t('Copied')}</span>}
     </div>
   );
 }

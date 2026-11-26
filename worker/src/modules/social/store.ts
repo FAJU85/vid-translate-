@@ -10,6 +10,8 @@ import type { AddedColumn } from '../../shared/db';
 export const SOCIAL_COLUMNS: AddedColumn[] = [
   // A notice from KAVOX itself (kind expiring | removed): JSON {what, title, text, at, hidden}.
   { table: 'notifications', column: 'detail', definition: 'TEXT' },
+  // The profile photo's version (when it was set), or null: the photo itself is in R2 (avatars.ts).
+  { table: 'profiles', column: 'avatar', definition: 'INTEGER' },
 ];
 
 export const SOCIAL_SCHEMA = [
@@ -96,6 +98,8 @@ export interface Profile {
   handle: string;
   display_name: string | null;
   bio: string | null;
+  /** When the profile photo was set (its version), or null for none. */
+  avatar?: number | null;
   handle_changed_at: number;
   created_at: number;
   updated_at: number;

@@ -94,7 +94,8 @@ ${shareCss}
 ${ctaCss}
   #comment-list li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
   #comment-list .av { width: 32px; height: 32px; border-radius: 50%; background: #223052; color: #F9EBD6; display: grid; place-items: center; font-weight: 700; font-size: 13px; text-decoration: none; }
-  .creator .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-weight: 800; }
+  .creator .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #131C31; display: grid; place-items: center; font-weight: 800; overflow: hidden; }
+  .creator .avatar img { width: 100%; height: 100%; object-fit: cover; }
   .creator:hover span:last-child { text-decoration: underline; }
   .meta { color: #ABA59E; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
@@ -123,7 +124,7 @@ ${ctaCss}
 ${brandHeader(esc(brand), logo, logoSize(site))}
 <main>
   <div class="player"><video controls playsinline preload="metadata" src="/v/${share.id}/video.mp4"${thumb ? ` poster="/v/${share.id}/thumb.jpg"` : ''}></video></div>
-  ${creator ? `<div class="byline"><a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${esc(creator.handle[0].toUpperCase())}</span><span dir="ltr">@${esc(creator.handle)}</span></a><button class="btn primary" id="follow" type="button" hidden>${tr('Follow')}</button></div>` : ''}
+  ${creator ? `<div class="byline"><a class="creator" href="/@${esc(creator.handle)}"><span class="avatar">${creator.avatar ? `<img src="${esc(creator.avatar)}" alt="">` : esc(creator.handle[0].toUpperCase())}</span><span dir="ltr">@${esc(creator.handle)}</span></a><button class="btn primary" id="follow" type="button" hidden>${tr('Follow')}</button></div>` : ''}
   <h1>${tagLinks(esc(title))}</h1>
   <div class="meta"><span>${esc(what)} · ${esc(langs)}</span><span>${plural(tr, share.views + 1, '{n} view', '{n} views')}</span></div>
   <div class="actions">

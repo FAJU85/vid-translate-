@@ -1,3 +1,4 @@
+import { Avatar } from '../../shared/avatar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Flag, Heart, Link2, Loader2, MessageCircle, Plus, Search, Volume2, VolumeX } from 'lucide-react';
 import { ApiError, socialApi, type AppConfig, type FeedItem, type FeedTab, type ReportKind } from '../../shared/api';
@@ -95,9 +96,7 @@ function FeedCard({ item, muted, onMute, lang, onChange, onSignIn, signedIn, onT
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
       <div className="absolute start-3 end-20 bottom-4 text-white space-y-1">
         <a href={`/@${item.creator.handle}`} className="inline-flex items-center gap-2 font-bold drop-shadow hover:underline">
-          <span className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 text-sm font-extrabold flex items-center justify-center ring-2 ring-slate-950/40">
-            {item.creator.handle[0].toUpperCase()}
-          </span>
+          <Avatar handle={item.creator.handle} url={item.creator.avatar_url} className="w-8 h-8 text-sm ring-2 ring-slate-950/40" />
           <bdi dir="ltr">@{item.creator.handle}</bdi>
         </a>
         {item.title && (

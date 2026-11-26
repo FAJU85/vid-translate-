@@ -1,3 +1,4 @@
+import { eraseAvatar } from './avatars';
 import type { Env } from '../../shared/env';
 import type { Person } from '../../shared/person';
 
@@ -7,7 +8,7 @@ export async function exportSocial(env: Env, p: Person) {
   const id = p.accountId;
   const all = async (sql: string, ...binds: unknown[]) => (await env.DB.prepare(sql).bind(...binds).all()).results;
   return {
-    profile: await env.DB.prepare('SELECT handle, display_name, bio, created_at, updated_at FROM profiles WHERE account_id = ?').bind(id).first(),
+    profile: await env.DB.prepare('SELECT handle, display_name, bio, avatar IS NOT NULL AS has_photo, created_at, updated_at FROM profiles WHERE account_id = ?').bind(id).first(),
     comments: await all('SELECT share_id, text, status, created_at FROM comments WHERE account_id = ? ORDER BY created_at DESC', id),
     likes: await all('SELECT share_id, created_at FROM likes WHERE account_id = ? ORDER BY created_at DESC', id),
     following: await all(
@@ -29,6 +30,7 @@ export async function exportSocial(env: Env, p: Person) {
 export async function eraseSocial(env: Env, p: Person): Promise<void> {
   if (!p.accountId) return;
   const id = p.accountId;
+  await eraseAvatar(env, id); // the profile photo, from storage
   await env.DB.batch([
     env.DB.prepare('DELETE FROM comments WHERE account_id = ?').bind(id),
     env.DB.prepare('DELETE FROM likes WHERE account_id = ?').bind(id),

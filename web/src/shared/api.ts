@@ -370,6 +370,8 @@ export interface Profile {
   handle: string;
   display_name: string | null;
   bio: string | null;
+  /** The profile photo, or null for the letter. */
+  avatar_url?: string | null;
   created_at: number;
 }
 
@@ -379,7 +381,7 @@ export interface FeedItem extends Share {
   src_lang: string | null;
   tgt_lang: string;
   mode: string;
-  creator: { handle: string; display_name: string | null };
+  creator: { handle: string; display_name: string | null; avatar_url?: string | null };
   likes: number;
   comments: number;
   liked: boolean;
@@ -419,6 +421,9 @@ export const socialApi = {
   myProfile: () => call<{ profile: Profile | null; change_days: number }>('/api/profile/me'),
   saveProfile: (p: { handle: string; display_name: string; bio: string }) =>
     call<{ profile: Profile; url: string }>('/api/profile/me', { method: 'POST', body: JSON.stringify(p) }),
+  /** Set the profile photo (a JPEG made by squarePhoto), or remove it. */
+  setAvatar: (photo: Blob) => call<{ avatar_url: string }>('/api/profile/avatar', { method: 'POST', body: photo, headers: { 'Content-Type': photo.type || 'image/jpeg' } }),
+  removeAvatar: () => call<{ avatar_url: null }>('/api/profile/avatar', { method: 'DELETE' }),
   handle: (h: string) =>
     call<{ handle?: string; available: boolean; reason: 'invalid' | 'reserved' | 'taken' | null }>(`/api/handles/${encodeURIComponent(h)}`),
   comments: (id: string, before: string | null) =>
@@ -458,6 +463,7 @@ export interface CreatorHit {
   display_name: string | null;
   bio: string | null;
   followers: number;
+  avatar_url?: string | null;
 }
 /** PDPL rights: download my data, delete my account, correct my name. */
 export const privacyApi = {
