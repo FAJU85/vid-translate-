@@ -13,6 +13,7 @@ import {
   type JobRow,
 } from '../jobs';
 import { isAdmin } from '../settings';
+import { storageTotals } from '../shares';
 
 const LINK_TTL = 6 * 3600;
 const MAX_BATCH = 100;
@@ -122,6 +123,7 @@ async function siteStats(env: Env) {
   }
   return {
     days: STATS_DAYS,
+    storage: await storageTotals(env),
     sites: [...sites.values()].sort((a, b) => b.done + b.failed - (a.done + a.failed)),
   };
 }
