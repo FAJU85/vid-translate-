@@ -18,8 +18,10 @@ function rateTone(rate: number): string {
 }
 
 /** R2's free storage; past it Cloudflare charges per GB a month. */
-const FREE_BYTES = 10 * 1024 ** 3;
-const gb = (b: number) => `${Number((b / 1024 ** 3).toFixed(b < 1024 ** 3 ? 2 : 1))} GB`;
+// Cloudflare counts a GB as 10^9 bytes.
+const GB = 10 ** 9;
+const FREE_BYTES = 10 * GB;
+const gb = (b: number) => `${Number((b / GB).toFixed(b < GB ? 2 : 1))} GB`;
 
 /** Insights workspace: how link downloads are doing per site, so a site that breaks shows at once. */
 export function InsightsPanel({ password }: { password: string }) {
@@ -63,12 +65,12 @@ export function InsightsPanel({ password }: { password: string }) {
 
       {stats?.storage && (
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="font-semibold text-white">Stored videos</h2>
+          <h2 id="storage-title" className="font-semibold text-white">Stored videos</h2>
           <p className="mt-1 text-sm text-slate-400">
             {stats.storage.videos} {stats.storage.videos === 1 ? 'video' : 'videos'}, {gb(stats.storage.bytes)} of the {gb(FREE_BYTES)} free. Videos are never deleted by
             KAVOX, so this only grows; past 10 GB Cloudflare charges about $0.015 per GB a month.
           </p>
-          <div className="mt-3 h-2 rounded-full bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((stats.storage.bytes / FREE_BYTES) * 100)}>
+          <div className="mt-3 h-2 rounded-full bg-slate-800 overflow-hidden" role="progressbar" aria-labelledby="storage-title" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((stats.storage.bytes / FREE_BYTES) * 100))}>
             <div
               className={`h-full ${stats.storage.bytes > 0.8 * FREE_BYTES ? 'bg-status-failed' : 'bg-teal-400'}`}
               style={{ width: `${Math.min(100, (stats.storage.bytes / FREE_BYTES) * 100)}%` }}
