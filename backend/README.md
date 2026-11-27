@@ -51,6 +51,44 @@ Set these under **Settings → Variables and secrets** of the Space.
 Progress is pushed to the job's `callback_url` as JSON with `X-Timestamp` and
 `X-Signature = HMAC-SHA256(SHARED_SECRET, "<timestamp>.<body>")`.
 
+## Run on Modal (GPU, paid only while working)
+
+`modal_app.py` runs this same server on a [Modal](https://modal.com) GPU. Modal starts it when a
+request arrives and stops it 10 minutes after the last one. You pay by the second while it is up,
+those 10 minutes included, and nothing once it has stopped. Result files are kept on a Modal
+Volume (`kavox-data`, created on the first deploy), so they can be downloaded after it stops, for
+`OUTPUT_TTL_HOURS` like on the Space. Each video is several times faster than on the free CPU Space. Nothing else
+changes: the Worker only needs the new address.
+
+1. Create a Modal account, then on your computer:
+   ```bash
+   pip install modal
+   ```
+   ```bash
+   modal setup
+   ```
+2. In the Modal dashboard → **Secrets** → **Create new secret** → **Custom**, name it
+   `kavox-backend` and add the same values as the Space's **Variables and secrets**:
+   `SHARED_SECRET` (required, the Worker's value) and any of the others you use
+   (`YTDLP_COOKIES`, `YTDLP_PROXY`, `CORS_ORIGINS`, `WHISPER_MODEL`…).
+3. Deploy from this folder (the first build takes a while: it converts the models):
+   ```bash
+   cd backend && modal deploy modal_app.py
+   ```
+   It prints the address, like `https://<you>--kavox-backend-web.modal.run`. Open
+   `<address>/health`: `"configured": true` means the secret is read.
+4. Cloudflare dashboard → the Worker → **Settings** → **Variables and secrets** → set
+   `BACKEND_URL` to that address. New videos now go to Modal.
+
+**Back to the Space:** set `BACKEND_URL` to the Space address again. Videos that were in
+progress on the other one fail and can be sent again.
+
+**GPU:** L4 by default. Another one (`T4` is cheaper, `A10G` faster) is chosen at deploy:
+`KAVOX_GPU=T4 modal deploy modal_app.py`. Prices are on Modal's pricing page.
+
+**One container at a time:** the jobs in progress live in that container, so every request must
+reach the same one. If one GPU is not enough any more, the jobs and files need shared storage first.
+
 ## Run locally
 
 ```bash
