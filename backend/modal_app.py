@@ -1,13 +1,15 @@
 """KAVOX backend on Modal: the same server as the Hugging Face Space, on a GPU that runs only while
-there is work (paid by the second, nothing while idle).
+there is work. Billing is by the second while the container is up: during the videos and the
+10 minutes after the last request; nothing once it has stopped.
 
 Nothing in app/ changes: this file builds the Space's own Dockerfile, adds the GPU libraries and
 serves app.main on a Modal web address. Switching is one setting in Cloudflare (BACKEND_URL);
 switching back is the same setting. The steps are in README.md, "Run on Modal".
 
-One container at a time (max_containers=1): jobs, uploads and result files live in that
-container, so every request must reach it. A GPU makes each video several times faster, which is
-where the extra capacity comes from.
+One container at a time (max_containers=1): the jobs in progress live in that container, so every
+request must reach it. Uploads and result files are on a Modal Volume (DATA_DIR), so a result can
+still be downloaded after the container has stopped, for OUTPUT_TTL_HOURS like on the Space.
+A GPU makes each video several times faster, which is where the extra capacity comes from.
 """
 from __future__ import annotations
 
@@ -35,11 +37,15 @@ image = (
             "LD_LIBRARY_PATH": f"{NVIDIA}/cublas/lib:{NVIDIA}/cudnn/lib",
             "HF_HOME": "/home/user/.cache/huggingface",  # the models baked in by the Dockerfile
             "WORKER_FORCE_IPV4": "0",  # only the Space needs IPv4-only
+            "DATA_DIR": "/data",  # the Volume below: results outlive the container
         }
     )
 )
 
 app = modal.App(APP_NAME, image=image)
+
+DATA_DIR = "/data"
+data = modal.Volume.from_name("kavox-data", create_if_missing=True)
 
 # Seconds between keep-alive calls while a video is in progress (Modal stops a container that
 # receives no requests; a job runs in the background, after its request has been answered).
@@ -62,20 +68,20 @@ def _keep_alive(manager) -> None:
     url = None
     while True:
         time.sleep(KEEP_ALIVE_EVERY)
-        if manager.pending_count() == 0:
-            continue
-        url = url or _own_url()
-        if not url:
-            continue
-        try:
-            httpx.get(f"{url}/health", timeout=10)
+        try:  # any failure: try again next minute, never stop the thread
+            if manager.pending_count() == 0:
+                continue
+            url = url or _own_url()
+            if url:
+                httpx.get(f"{url}/health", timeout=10)
         except Exception:
-            pass  # next minute
+            pass
 
 
 @app.function(
     gpu=os.environ.get("KAVOX_GPU", "L4"),
     secrets=[modal.Secret.from_name("kavox-backend")],
+    volumes={DATA_DIR: data},
     max_containers=1,
     scaledown_window=10 * 60,  # stay up 10 minutes after the last request (result downloads)
     timeout=60 * 60,

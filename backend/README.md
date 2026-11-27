@@ -54,8 +54,10 @@ Progress is pushed to the job's `callback_url` as JSON with `X-Timestamp` and
 ## Run on Modal (GPU, paid only while working)
 
 `modal_app.py` runs this same server on a [Modal](https://modal.com) GPU. Modal starts it when a
-request arrives and stops it 10 minutes after the last one, so you pay by the second and nothing
-while it is idle. Each video is several times faster than on the free CPU Space. Nothing else
+request arrives and stops it 10 minutes after the last one. You pay by the second while it is up,
+those 10 minutes included, and nothing once it has stopped. Result files are kept on a Modal
+Volume (`kavox-data`, created on the first deploy), so they can be downloaded after it stops, for
+`OUTPUT_TTL_HOURS` like on the Space. Each video is several times faster than on the free CPU Space. Nothing else
 changes: the Worker only needs the new address.
 
 1. Create a Modal account, then on your computer:
@@ -84,8 +86,8 @@ progress on the other one fail and can be sent again.
 **GPU:** L4 by default. Another one (`T4` is cheaper, `A10G` faster) is chosen at deploy:
 `KAVOX_GPU=T4 modal deploy modal_app.py`. Prices are on Modal's pricing page.
 
-**One container at a time:** a job's files live in its container, so every request must reach
-the same one. If one GPU is not enough any more, the jobs and files need shared storage first.
+**One container at a time:** the jobs in progress live in that container, so every request must
+reach the same one. If one GPU is not enough any more, the jobs and files need shared storage first.
 
 ## Run locally
 
